@@ -1,4 +1,5 @@
 // src/utils/deviceDetection.ts
+import { useState, useEffect } from 'react';
 
 export interface DeviceInfo {
   isMobile: boolean;
@@ -99,8 +100,6 @@ export const getDeviceInfo = (): DeviceInfo => {
 /**
  * Hook for reactive device detection
  */
-import { useState, useEffect } from 'react';
-
 export const useDeviceDetection = () => {
   const [deviceInfo, setDeviceInfo] = useState<DeviceInfo>(getDeviceInfo);
   

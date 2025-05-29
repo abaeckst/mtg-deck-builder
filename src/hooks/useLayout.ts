@@ -31,8 +31,8 @@ export interface LayoutState {
 const DEFAULT_LAYOUT: LayoutState = {
   panels: {
     filterPanelWidth: 280,
-    deckAreaHeight: 300,
-    sideboardWidth: 250,
+    deckAreaHeight: 250,
+    sideboardWidth: 300,
   },
   previewPane: {
     visible: true,
@@ -56,8 +56,8 @@ const STORAGE_KEY = 'mtg-deckbuilder-layout';
 // Constraints for panel sizing
 const CONSTRAINTS = {
   filterPanelWidth: { min: 200, max: 500 },
-  deckAreaHeight: { min: 200, max: 600 },
-  sideboardWidth: { min: 180, max: 400 },
+  deckAreaHeight: { min: 150, max: 500 },
+  sideboardWidth: { min: 200, max: 1000 }, // Doubled from 500 to 1000
   previewPane: {
     size: { minWidth: 250, maxWidth: 500, minHeight: 350, maxHeight: 700 },
     position: { minX: 0, minY: 0 }, // maxX and maxY calculated based on window size

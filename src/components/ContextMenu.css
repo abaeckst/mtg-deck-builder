@@ -1,0 +1,48 @@
+/* src/components/ContextMenu.css - MTGO-style context menu styling */
+
+.context-menu {
+  background: #2a2a2a;
+  border: 1px solid #555;
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
+  padding: 4px 0;
+  min-width: 180px;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-size: 13px;
+  user-select: none;
+}
+
+.context-menu-item {
+  width: 100%;
+  padding: 8px 16px;
+  background: none;
+  border: none;
+  color: #e0e0e0;
+  text-align: left;
+  cursor: pointer;
+  font-size: 13px;
+  font-family: inherit;
+  display: block;
+  white-space: nowrap;
+  transition: background-color 0.1s ease;
+}
+
+.context-menu-item:hover:not(.disabled) {
+  background: #0078d4;
+  color: white;
+}
+
+.context-menu-item:active:not(.disabled) {
+  background: #106ebe;
+}
+
+.context-menu-item.disabled {
+  color: #808080;
+  cursor: default;
+}
+
+.context-menu-separator {
+  height: 1px;
+  background: #555;
+  margin: 4px 0;
+}
