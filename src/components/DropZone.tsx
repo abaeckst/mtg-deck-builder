@@ -1,5 +1,5 @@
-// src/components/DropZone.tsx
-import React, { useRef, useEffect, useState } from 'react';
+// src/components/DropZone.tsx - COMPLETE FIX - Properly Positioned Drop Zone Overlays
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { DropZone as DropZoneType, DraggedCard } from '../hooks/useDragAndDrop';
 
 interface DropZoneProps {
@@ -26,33 +26,128 @@ const DropZoneComponent: React.FC<DropZoneProps> = ({
   const [isHovered, setIsHovered] = useState(false);
   const dropZoneRef = useRef<HTMLDivElement>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const mouseTrackingRef = useRef<{
+    isInside: boolean;
+    lastEvent: MouseEvent | null;
+  }>({
+    isInside: false,
+    lastEvent: null,
+  });
 
-  // Handle mouse enter - immediate response
-  const handleMouseEnter = () => {
+  // Enhanced mouse enter - more aggressive detection for fast drags
+  const handleMouseEnter = useCallback((event: React.MouseEvent) => {
     if (!isDragActive) return;
     
+    console.log(`🎯 Mouse entered ${zone} zone`);
+    
+    // Clear any pending leave timeout
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
       timeoutRef.current = null;
     }
     
+    mouseTrackingRef.current.isInside = true;
     setIsHovered(true);
     onDragEnter(zone, canDrop);
-  };
+  }, [isDragActive, zone, canDrop, onDragEnter]);
 
-  // Handle mouse leave - immediate response for drag operations
-  const handleMouseLeave = () => {
+  // Enhanced mouse leave - with delay for fast movements
+  const handleMouseLeave = useCallback((event: React.MouseEvent) => {
     if (!isDragActive) return;
     
-    // Clear any pending timeout
+    console.log(`📤 Mouse leaving ${zone} zone`);
+    
+    // Clear any existing timeout
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
       timeoutRef.current = null;
     }
     
-    setIsHovered(false);
-    onDragLeave();
-  };
+    // Short delay before actually leaving - helps with fast movements
+    timeoutRef.current = setTimeout(() => {
+      if (!mouseTrackingRef.current.isInside) {
+        console.log(`✅ Confirmed mouse left ${zone} zone`);
+        setIsHovered(false);
+        onDragLeave();
+      }
+    }, 50); // 50ms delay for fast drag tolerance
+    
+    mouseTrackingRef.current.isInside = false;
+  }, [isDragActive, zone, onDragLeave]);
+
+  // Enhanced global mouse tracking for fast drag detection
+  useEffect(() => {
+    if (!isDragActive || !dropZoneRef.current) return;
+
+    const handleGlobalMouseMove = (event: MouseEvent) => {
+      if (!dropZoneRef.current) return;
+      
+      const rect = dropZoneRef.current.getBoundingClientRect();
+      const buffer = 10; // 10px buffer for easier targeting
+      
+      // Check if mouse is within drop zone boundaries (with buffer)
+      const isInBounds = (
+        event.clientX >= rect.left - buffer &&
+        event.clientX <= rect.right + buffer &&
+        event.clientY >= rect.top - buffer &&
+        event.clientY <= rect.bottom + buffer
+      );
+      
+      const wasInside = mouseTrackingRef.current.isInside;
+      mouseTrackingRef.current.lastEvent = event;
+      
+      if (isInBounds && !wasInside) {
+        // Fast entry detection
+        console.log(`⚡ Fast entry detected for ${zone} zone`);
+        
+        // Clear any pending leave timeout
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current);
+          timeoutRef.current = null;
+        }
+        
+        mouseTrackingRef.current.isInside = true;
+        setIsHovered(true);
+        onDragEnter(zone, canDrop);
+      } else if (!isInBounds && wasInside) {
+        // Fast exit detection with delay
+        console.log(`⚡ Fast exit detected for ${zone} zone`);
+        
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current);
+        }
+        
+        timeoutRef.current = setTimeout(() => {
+          // Double-check the mouse is still outside
+          if (mouseTrackingRef.current.lastEvent) {
+            const currentRect = dropZoneRef.current?.getBoundingClientRect();
+            if (currentRect) {
+              const stillOutside = (
+                mouseTrackingRef.current.lastEvent.clientX < currentRect.left - buffer ||
+                mouseTrackingRef.current.lastEvent.clientX > currentRect.right + buffer ||
+                mouseTrackingRef.current.lastEvent.clientY < currentRect.top - buffer ||
+                mouseTrackingRef.current.lastEvent.clientY > currentRect.bottom + buffer
+              );
+              
+              if (stillOutside) {
+                console.log(`✅ Confirmed fast exit from ${zone} zone`);
+                mouseTrackingRef.current.isInside = false;
+                setIsHovered(false);
+                onDragLeave();
+              }
+            }
+          }
+        }, 30); // Shorter delay for fast drags
+      }
+    };
+
+    // Add global mouse move listener for fast drag detection
+    document.addEventListener('mousemove', handleGlobalMouseMove, { passive: true });
+
+    return () => {
+      document.removeEventListener('mousemove', handleGlobalMouseMove);
+    };
+  }, [isDragActive, zone, canDrop, onDragEnter, onDragLeave]);
 
   // Cleanup timeout on unmount
   useEffect(() => {
@@ -67,40 +162,49 @@ const DropZoneComponent: React.FC<DropZoneProps> = ({
   useEffect(() => {
     if (!isDragActive) {
       setIsHovered(false);
+      mouseTrackingRef.current.isInside = false;
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
     }
   }, [isDragActive]);
 
-  // Get zone-specific styling
+  // Enhanced zone-specific styling with better visual feedback
   const getZoneStyles = (): React.CSSProperties => {
     if (!isDragActive) return {};
 
     const baseStyles: React.CSSProperties = {
-      transition: 'all 0.2s ease',
+      transition: 'all 0.15s ease', // Faster transitions for responsiveness
       position: 'relative',
+      minHeight: '100%', // Ensure full height coverage
     };
 
     if (isHovered) {
       if (canDrop) {
         return {
           ...baseStyles,
-          backgroundColor: 'rgba(16, 185, 129, 0.1)',
+          backgroundColor: 'rgba(16, 185, 129, 0.15)', // Slightly more visible
           border: '2px dashed #10b981',
-          boxShadow: 'inset 0 0 20px rgba(16, 185, 129, 0.2)',
+          boxShadow: 'inset 0 0 25px rgba(16, 185, 129, 0.25)',
+          transform: 'scale(1.002)', // Subtle scale for feedback
         };
       } else {
         return {
           ...baseStyles,
-          backgroundColor: 'rgba(239, 68, 68, 0.1)',
+          backgroundColor: 'rgba(239, 68, 68, 0.15)',
           border: '2px dashed #ef4444',
-          boxShadow: 'inset 0 0 20px rgba(239, 68, 68, 0.2)',
+          boxShadow: 'inset 0 0 25px rgba(239, 68, 68, 0.25)',
+          transform: 'scale(1.002)',
         };
       }
     }
 
-    // Default drag active styling
+    // Default drag active styling - more subtle
     return {
       ...baseStyles,
-      border: '2px dashed rgba(156, 163, 175, 0.5)',
+      border: '1px dashed rgba(156, 163, 175, 0.4)',
+      backgroundColor: 'rgba(156, 163, 175, 0.02)',
     };
   };
 
@@ -121,40 +225,51 @@ const DropZoneComponent: React.FC<DropZoneProps> = ({
       style={{
         ...style,
         ...getZoneStyles(),
+        // CRITICAL: Ensure drop zone has proper containment
+        position: 'relative',
+        overflow: 'hidden', // Contain overlays within bounds
       }}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
       {children}
       
-      {/* Drop indicator overlay */}
+      {/* FIXED: Drop indicator overlay - Properly constrained to zone bounds */}
       {isDragActive && isHovered && (
         <div
           style={{
+            // CRITICAL: Position within drop zone bounds, not viewport
             position: 'absolute',
-            top: '50%',
+            top: '20px', // Fixed position from top of zone
             left: '50%',
-            transform: 'translate(-50%, -50%)',
+            transform: 'translateX(-50%)', // Only center horizontally
             backgroundColor: canDrop ? '#10b981' : '#ef4444',
             color: 'white',
             padding: '8px 16px',
-            borderRadius: '8px',
+            borderRadius: '6px',
             fontSize: '14px',
             fontWeight: 'bold',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
             zIndex: 1000,
             pointerEvents: 'none',
-            animation: 'dropIndicatorPulse 1s ease-in-out infinite',
+            border: '1px solid rgba(255,255,255,0.2)',
+            // CRITICAL: Fixed size that doesn't expand
+            width: 'auto',
+            maxWidth: '200px',
+            height: 'auto',
+            maxHeight: '40px',
+            // CRITICAL: Prevent overlay from breaking zone bounds
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            // Remove problematic animations
+            animation: 'none',
           }}
         >
           {canDrop ? (
-            <>
-              ✓ Drop in {getZoneName(zone)}
-            </>
+            <>✓ Drop here</>
           ) : (
-            <>
-              ✗ Cannot drop in {getZoneName(zone)}
-            </>
+            <>✗ Cannot drop</>
           )}
         </div>
       )}

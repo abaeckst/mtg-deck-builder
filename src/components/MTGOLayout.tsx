@@ -20,7 +20,7 @@ interface MTGOLayoutProps {
 }
 
 const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
-  const { layout, updatePanelDimensions, constraints } = useLayout();
+  const { layout, updatePanelDimensions, updateDeckAreaHeightByPixels, constraints } = useLayout();
   const { 
     selectedCards, 
     selectCard, 
@@ -37,10 +37,11 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
     loadRandomCard 
   } = useCards();
   
-  // Initialize resize functionality
+  // UPDATED: Initialize resize functionality with new percentage-based system
   const { handlers: resizeHandlers } = useResize({ 
     layout, 
-    updatePanelDimensions, 
+    updatePanelDimensions,
+    updateDeckAreaHeightByPixels, // NEW: Required for percentage-based system
     constraints 
   });
   
@@ -53,6 +54,20 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
   const [mainDeck, setMainDeck] = useState<Array<{ id: string; name: string; quantity: number; [key: string]: any }>>([]);
   const [sideboard, setSideboard] = useState<Array<{ id: string; name: string; quantity: number; [key: string]: any }>>([]);
   
+  // PHASE 3A: Clear deck functionality - FIXED
+  const handleClearDeck = useCallback(() => {
+    setMainDeck([]);
+    clearSelection();
+    console.log('Deck cleared - all cards moved back to collection');
+  }, [clearSelection]);
+
+  // PHASE 3A: Clear sideboard functionality
+  const handleClearSideboard = useCallback(() => {
+    setSideboard([]);
+    clearSelection();
+    console.log('Sideboard cleared - all cards moved back to collection');
+  }, [clearSelection]);
+
   // Context menu callback implementations
   const deckManagementCallbacks: DeckManagementCallbacks = {
     addToDeck: useCallback((cards: (any)[], quantity = 1) => {
@@ -212,26 +227,38 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
   // Initialize context menu hook
   const { contextMenuState, showContextMenu, hideContextMenu, getContextMenuActions } = useContextMenu(deckManagementCallbacks);
   
-  // Drag and drop callbacks
+  // PHASE 3A: Enhanced drag and drop callbacks
   const dragCallbacks = {
     onCardMove: useCallback((cards: DraggedCard[], from: DropZoneType, to: DropZoneType) => {
-      console.log(`Moving ${cards.length} cards from ${from} to ${to}`);
+      console.log('🚀 DRAG CALLBACK TRIGGERED');
+      console.log('📊 Cards being moved:', cards.map(c => c.name));
+      console.log('📊 From zone:', from, 'To zone:', to);
+      console.log('📊 BEFORE - MainDeck:', mainDeck.map(c => `${c.name}(${c.quantity})`));
+      console.log('📊 BEFORE - Sideboard:', sideboard.map(c => `${c.name}(${c.quantity})`));
       
       cards.forEach(card => {
+        console.log(`🎯 Processing card: ${card.name}`);
+        
         if (from === 'collection' && to === 'deck') {
-          // Add to main deck
+          console.log('➡️ COLLECTION → DECK');
           const existingCard = mainDeck.find(deckCard => deckCard.id === card.id);
+          console.log('📋 Existing in deck:', existingCard ? `${existingCard.name}(${existingCard.quantity})` : 'none');
+          
           if (existingCard && existingCard.quantity < 4) {
+            console.log('🔄 Updating existing deck card quantity');
             setMainDeck(prev => prev.map(deckCard => 
               deckCard.id === card.id 
                 ? { ...deckCard, quantity: deckCard.quantity + 1 }
                 : deckCard
             ));
           } else if (!existingCard) {
+            console.log('🆕 Adding new card to deck');
             setMainDeck(prev => [...prev, { ...card, quantity: 1 }]);
+          } else {
+            console.log('❌ Cannot add - deck limit reached');
           }
         } else if (from === 'collection' && to === 'sideboard') {
-          // Add to sideboard
+          console.log('➡️ COLLECTION → SIDEBOARD');
           const existingCard = sideboard.find(sideCard => sideCard.id === card.id);
           if (existingCard && existingCard.quantity < 4) {
             setSideboard(prev => prev.map(sideCard => 
@@ -243,10 +270,9 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
             setSideboard(prev => [...prev, { ...card, quantity: 1 }]);
           }
         } else if (from === 'deck' && to === 'sideboard') {
-          // Move from deck to sideboard
+          console.log('➡️ DECK → SIDEBOARD');
           const deckCard = mainDeck.find(dc => dc.id === card.id);
           if (deckCard) {
-            // Remove from deck
             if (deckCard.quantity > 1) {
               setMainDeck(prev => prev.map(dc => 
                 dc.id === card.id 
@@ -257,7 +283,6 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
               setMainDeck(prev => prev.filter(dc => dc.id !== card.id));
             }
             
-            // Add to sideboard
             const existingCard = sideboard.find(sc => sc.id === card.id);
             if (existingCard) {
               setSideboard(prev => prev.map(sc => 
@@ -270,10 +295,9 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
             }
           }
         } else if (from === 'sideboard' && to === 'deck') {
-          // Move from sideboard to deck
+          console.log('➡️ SIDEBOARD → DECK');
           const sideCard = sideboard.find(sc => sc.id === card.id);
           if (sideCard) {
-            // Remove from sideboard
             if (sideCard.quantity > 1) {
               setSideboard(prev => prev.map(sc => 
                 sc.id === card.id 
@@ -284,7 +308,6 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
               setSideboard(prev => prev.filter(sc => sc.id !== card.id));
             }
             
-            // Add to deck
             const existingCard = mainDeck.find(dc => dc.id === card.id);
             if (existingCard && existingCard.quantity < 4) {
               setMainDeck(prev => prev.map(dc => 
@@ -297,7 +320,7 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
             }
           }
         } else if (from === 'deck' && to === 'collection') {
-          // Remove from deck (move back to collection)
+          console.log('➡️ DECK → COLLECTION');
           const deckCard = mainDeck.find(dc => dc.id === card.id);
           if (deckCard) {
             if (deckCard.quantity > 1) {
@@ -311,7 +334,7 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
             }
           }
         } else if (from === 'sideboard' && to === 'collection') {
-          // Remove from sideboard (move back to collection)
+          console.log('➡️ SIDEBOARD → COLLECTION');
           const sideCard = sideboard.find(sc => sc.id === card.id);
           if (sideCard) {
             if (sideCard.quantity > 1) {
@@ -327,7 +350,12 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
         }
       });
       
-      // Clear selection after successful move
+      // Check state after processing  
+      setTimeout(() => {
+        console.log('📊 AFTER - MainDeck:', mainDeck.map(c => `${c.name}(${c.quantity})`));
+        console.log('📊 AFTER - Sideboard:', sideboard.map(c => `${c.name}(${c.quantity})`));
+      }, 100);
+      
       clearSelection();
     }, [mainDeck, sideboard, clearSelection]),
 
@@ -340,8 +368,8 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
     }, [])
   };
 
-  // Initialize drag and drop
-  const { dragState, startDrag, setDropZone, canDropInZone } = useDragAndDrop(dragCallbacks);
+  // PHASE 3A: Initialize enhanced drag and drop with double-click handler
+  const { dragState, startDrag, setDropZone, canDropInZone, handleDoubleClick } = useDragAndDrop(dragCallbacks);
   
   // Check if device supports MTGO interface
   const canUseMTGO = DeviceCapabilities.canUseAdvancedInterface();
@@ -358,21 +386,19 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
   
   // Card interaction handlers
   const handleCardClick = (card: any, event?: React.MouseEvent) => {
-    // Hide any open context menu when clicking cards
     if (contextMenuState.visible) {
       hideContextMenu();
     }
     selectCard(card.id, card, event?.ctrlKey);
   };
 
-  // Right-click handler for context menu
   const handleRightClick = useCallback((card: any, zone: DropZoneType, event: React.MouseEvent) => {
     const selectedCardObjects = getSelectedCardObjects();
     showContextMenu(event, card, zone, selectedCardObjects);
   }, [showContextMenu, getSelectedCardObjects]);
   
+  // Legacy double-click handler for fallback
   const handleAddToDeck = (card: any) => {
-    // Basic add to deck logic (double-click)
     const existingCard = mainDeck.find((deckCard: any) => deckCard.id === card.id);
     if (existingCard && existingCard.quantity < 4) {
       setMainDeck((prev: any) => prev.map((deckCard: any) => 
@@ -385,12 +411,12 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
     }
   };
 
-  // Drag start handler
+  // Enhanced drag start handler
   const handleDragStart = useCallback((cards: DraggedCard[], zone: DropZoneType, event: React.MouseEvent) => {
     startDrag(cards, zone, event);
   }, [startDrag]);
 
-  // Drop zone handlers
+  // Enhanced drop zone handlers
   const handleDragEnter = useCallback((zone: DropZoneType, canDrop: boolean) => {
     setDropZone(zone, canDrop);
   }, [setDropZone]);
@@ -425,7 +451,6 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
         </div>
         
         <div className="filter-content">
-          {/* Search Filter */}
           <div className="filter-group">
             <label>Search</label>
             <input
@@ -437,7 +462,6 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
             />
           </div>
           
-          {/* Format Filter */}
           <div className="filter-group">
             <label>Format</label>
             <select 
@@ -454,7 +478,6 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
             </select>
           </div>
           
-          {/* Color Filter */}
           <div className="filter-group">
             <label>Colors</label>
             <div className="color-filter-grid">
@@ -478,7 +501,6 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
             </div>
           </div>
           
-          {/* Quick Actions */}
           <div className="filter-group">
             <label>Quick Load</label>
             <div className="quick-actions">
@@ -489,11 +511,21 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
           </div>
         </div>
         
-        {/* Functional Resize Handle */}
+        {/* PHASE 3A: Enhanced Resize Handle with larger hit zone */}
         <div 
           className="resize-handle resize-handle-right"
           onMouseDown={resizeHandlers.onFilterPanelResize}
           title="Drag to resize filter panel"
+          style={{
+            position: 'absolute',
+            top: 0,
+            right: -15,
+            width: 30,
+            height: '100%',
+            cursor: 'ew-resize',
+            background: 'transparent',
+            zIndex: 1001
+          }}
         />
       </div>
       
@@ -528,6 +560,7 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
                 size="normal"
                 onClick={(card, event) => handleCardClick(card, event)} 
                 onDoubleClick={handleAddToDeck}
+                onEnhancedDoubleClick={handleDoubleClick}
                 onRightClick={handleRightClick}
                 onDragStart={handleDragStart}
                 showQuantity={true}
@@ -542,15 +575,43 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
             ))}
           </div>
           
+          {/* PHASE 3A: Enhanced Resize Handle with larger hit zone */}
           <div 
             className="resize-handle resize-handle-bottom"
             onMouseDown={resizeHandlers.onDeckAreaResize}
             title="Drag to resize collection area"
+            style={{
+              position: 'absolute',
+              left: 0,
+              bottom: -15,
+              width: '100%',
+              height: 30,
+              cursor: 'ns-resize',
+              background: 'transparent',
+              zIndex: 1001
+            }}
           />
         </DropZoneComponent>
         
         {/* Bottom Area */}
         <div className="mtgo-bottom-area">
+          {/* PHASE 3A: NEW - Vertical Resize Handle at top of bottom area */}
+          <div 
+            className="resize-handle resize-handle-vertical"
+            onMouseDown={resizeHandlers.onVerticalResize}
+            title="Drag to resize between collection and deck areas"
+            style={{
+              position: 'absolute',
+              top: -15,
+              left: 0,
+              width: '100%',
+              height: 30,
+              cursor: 'ns-resize',
+              background: 'transparent',
+              zIndex: 1001
+            }}
+          />
+          
           {/* Main Deck Area - Drop Zone */}
           <DropZoneComponent
             zone="deck"
@@ -564,7 +625,9 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
               <h3>Main Deck ({mainDeck.reduce((sum: number, card: any) => sum + card.quantity, 0)} cards)</h3>
               <div className="deck-controls">
                 <button>Save Deck</button>
-                <button>Clear Deck</button>
+                <button onClick={handleClearDeck} title="Clear all cards from deck">
+                  Clear Deck
+                </button>
               </div>
             </div>
             
@@ -577,6 +640,7 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
                     zone="deck"
                     size="small"
                     onClick={(card, event) => handleCardClick(card, event)}
+                    onEnhancedDoubleClick={handleDoubleClick}
                     onRightClick={handleRightClick}
                     onDragStart={handleDragStart}
                     showQuantity={true}
@@ -609,6 +673,11 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
           >
             <div className="panel-header">
               <h3>Sideboard ({sideboard.reduce((sum: number, card: any) => sum + card.quantity, 0)})</h3>
+              <div className="sideboard-controls">
+                <button onClick={handleClearSideboard} title="Clear all cards from sideboard">
+                  Clear
+                </button>
+              </div>
             </div>
             
             <div className="sideboard-content">
@@ -620,6 +689,7 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
                     zone="sideboard"
                     size="small"
                     onClick={(card, event) => handleCardClick(card, event)}
+                    onEnhancedDoubleClick={handleDoubleClick}
                     onRightClick={handleRightClick}
                     onDragStart={handleDragStart}
                     showQuantity={true}
@@ -639,10 +709,21 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
               </div>
             </div>
             
+            {/* PHASE 3A: Enhanced Resize Handle with larger hit zone */}
             <div 
               className="resize-handle resize-handle-left"
               onMouseDown={resizeHandlers.onSideboardResize}
               title="Drag to resize sideboard"
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: -15,
+                width: 30,
+                height: '100%',
+                cursor: 'ew-resize',
+                background: 'transparent',
+                zIndex: 1001
+              }}
             />
           </DropZoneComponent>
         </div>

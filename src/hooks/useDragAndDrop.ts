@@ -1,4 +1,4 @@
-// src/hooks/useDragAndDrop.ts
+// src/hooks/useDragAndDrop.ts - Phase 3A: Rock-Solid Click/Drag Interaction System
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { ScryfallCard, DeckCard } from '../types/card';
 
@@ -30,6 +30,7 @@ export interface DragAndDropActions {
   endDrag: () => void;
   setDropZone: (zone: DropZone | null, canDrop: boolean) => void;
   canDropInZone: (zone: DropZone, cards: DraggedCard[]) => boolean;
+  handleDoubleClick: (card: DraggedCard, zone: DropZone, event: React.MouseEvent) => void;
 }
 
 const INITIAL_DRAG_STATE: DragState = {
@@ -45,129 +46,260 @@ const INITIAL_DRAG_STATE: DragState = {
   canDrop: false,
 };
 
+// Enhanced interaction timing constants
+const INTERACTION_TIMINGS = {
+  DOUBLE_CLICK_MAX_INTERVAL: 500,  // Max time between clicks for double-click
+  RAPID_CLICK_MAX_INTERVAL: 800,   // Max time for rapid click sequence
+  DRAG_START_DELAY: 150,           // Minimum hold time before drag starts
+  DRAG_MOVEMENT_THRESHOLD: 5,      // Minimum pixel movement to start drag
+  CLICK_TO_DRAG_PROTECTION: 300,   // Protection time after click before drag
+};
+
 export const useDragAndDrop = (callbacks: DragCallbacks) => {
   const [dragState, setDragState] = useState<DragState>(INITIAL_DRAG_STATE);
   const dragOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  
+  // CRITICAL FIX: Capture last valid drop zone before it gets reset to null
+  const lastValidDropZoneRef = useRef<{ zone: DropZone | null; canDrop: boolean }>({ zone: null, canDrop: false });
+  
+  // Enhanced interaction tracking
+  const interactionRef = useRef<{
+    // Click tracking
+    lastClickTime: number;
+    lastClickCard: string | null;
+    clickCount: number;
+    rapidClickTimer: NodeJS.Timeout | null;
+    
+    // Drag tracking
+    mouseDownTime: number;
+    mouseDownPosition: { x: number; y: number };
+    isDragInitiated: boolean;
+    dragStartTimer: NodeJS.Timeout | null;
+    
+    // Event prevention
+    preventNextClick: boolean;
+    preventDragUntil: number;
+  }>({
+    lastClickTime: 0,
+    lastClickCard: null,
+    clickCount: 0,
+    rapidClickTimer: null,
+    mouseDownTime: 0,
+    mouseDownPosition: { x: 0, y: 0 },
+    isDragInitiated: false,
+    dragStartTimer: null,
+    preventNextClick: false,
+    preventDragUntil: 0,
+  });
 
-  // Start dragging operation
+  // Fixed rapid double-click handler with proper event sequence handling
+  const handleDoubleClick = useCallback((card: DraggedCard, zone: DropZone, event: React.MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    
+    // Prevent any drag attempts for the next period
+    interactionRef.current.preventDragUntil = Date.now() + INTERACTION_TIMINGS.CLICK_TO_DRAG_PROTECTION;
+    
+    const now = Date.now();
+    const timeDiff = now - interactionRef.current.lastClickTime;
+    const isSameCard = interactionRef.current.lastClickCard === card.id;
+    
+    console.log(`🖱️ Double-click handler: ${card.name} in ${zone}`);
+    console.log(`📊 Timing: ${timeDiff}ms since last, same card: ${isSameCard}, event.detail: ${event.detail}`);
+    
+    // Clear any existing rapid click timer
+    if (interactionRef.current.rapidClickTimer) {
+      clearTimeout(interactionRef.current.rapidClickTimer);
+      interactionRef.current.rapidClickTimer = null;
+    }
+    
+    // FIXED: Proper rapid click detection
+    if (isSameCard && timeDiff < INTERACTION_TIMINGS.RAPID_CLICK_MAX_INTERVAL) {
+      // This is a continuation of rapid clicking on the same card
+      interactionRef.current.clickCount++;
+      console.log(`⚡ Rapid click #${interactionRef.current.clickCount} on ${card.name}`);
+    } else {
+      // This is either a new card or too much time has passed
+      interactionRef.current.clickCount = 1;
+      interactionRef.current.lastClickCard = card.id; // FIXED: Set card ID immediately
+      console.log(`🆕 Starting new click sequence on ${card.name}`);
+    }
+    
+    // FIXED: Update timing AFTER the logic check
+    interactionRef.current.lastClickTime = now;
+    
+    // Process the card move immediately
+    try {
+      console.log(`🎯 Processing move #${interactionRef.current.clickCount} for ${card.name}`);
+      if (zone === 'collection') {
+        callbacks.onCardMove([card], 'collection', 'deck');
+        console.log(`✅ Added copy #${interactionRef.current.clickCount} of ${card.name} to deck`);
+      } else if (zone === 'deck' || zone === 'sideboard') {
+        callbacks.onCardMove([card], zone, 'collection');
+        console.log(`✅ Removed copy #${interactionRef.current.clickCount} of ${card.name} from ${zone}`);
+      }
+    } catch (error) {
+      console.error('❌ Error processing double-click:', error);
+    }
+    
+    // Set timer to reset click count after period of inactivity
+    interactionRef.current.rapidClickTimer = setTimeout(() => {
+      console.log(`⏰ Resetting click sequence for ${card.name} (was ${interactionRef.current.clickCount} clicks)`);
+      interactionRef.current.clickCount = 0;
+      interactionRef.current.rapidClickTimer = null;
+      // DON'T reset lastClickCard here - let it persist for timing checks
+    }, INTERACTION_TIMINGS.RAPID_CLICK_MAX_INTERVAL);
+    
+  }, [callbacks]);
+
+  // Enhanced drag start with proper click-and-hold detection
   const startDrag = useCallback((
     cards: DraggedCard[], 
     from: DropZone, 
     event: React.MouseEvent
   ) => {
-    event.preventDefault();
+    // Complete prevention of drag during double-click protection period
+    const now = Date.now();
+    if (now < interactionRef.current.preventDragUntil) {
+      console.log('Drag prevented: within double-click protection period');
+      return;
+    }
     
-    // Calculate drag offset from mouse position to top-left of dragged element
-    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    // Don't start drag on double-click events
+    if (event.detail >= 2) {
+      console.log('Drag prevented: double-click detected');
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+    
+    // Clear any drag start timer
+    if (interactionRef.current.dragStartTimer) {
+      clearTimeout(interactionRef.current.dragStartTimer);
+      interactionRef.current.dragStartTimer = null;
+    }
+    
+    // Record mouse down position and time
+    interactionRef.current.mouseDownTime = now;
+    interactionRef.current.mouseDownPosition = { x: event.clientX, y: event.clientY };
+    interactionRef.current.isDragInitiated = false;
+    
+    console.log(`Mouse down recorded at (${event.clientX}, ${event.clientY}) for potential drag`);
+    
+    // Get element reference safely
+    const element = event.currentTarget as HTMLElement;
+    if (!element) {
+      console.log('Drag cancelled: no element reference');
+      return;
+    }
+    
+    // Calculate drag offset
+    const rect = element.getBoundingClientRect();
     dragOffsetRef.current = {
       x: event.clientX - rect.left,
       y: event.clientY - rect.top,
     };
+    
+    // Set up timer for minimum hold time
+    interactionRef.current.dragStartTimer = setTimeout(() => {
+      // Additional check: ensure we haven't moved into double-click territory
+      const finalTimeSinceMouseDown = Date.now() - interactionRef.current.mouseDownTime;
+      if (finalTimeSinceMouseDown < INTERACTION_TIMINGS.DRAG_START_DELAY) {
+        console.log('Drag cancelled: insufficient hold time');
+        return;
+      }
+      
+      // Check we're still not in double-click protection
+      if (Date.now() < interactionRef.current.preventDragUntil) {
+        console.log('Drag cancelled: double-click protection still active');
+        return;
+      }
+      
+      console.log(`Initiating drag for ${cards.length} cards from ${from}`);
+      interactionRef.current.isDragInitiated = true;
+      
+      // Set initial drag state
+      setDragState({
+        isDragging: true,
+        draggedCards: cards,
+        draggedFrom: from,
+        dragPreview: {
+          x: interactionRef.current.mouseDownPosition.x - dragOffsetRef.current.x,
+          y: interactionRef.current.mouseDownPosition.y - dragOffsetRef.current.y,
+          visible: true,
+        },
+        dropZone: null,
+        canDrop: false,
+      });
 
-    setDragState({
-      isDragging: true,
-      draggedCards: cards,
-      draggedFrom: from,
-      dragPreview: {
-        x: event.clientX - dragOffsetRef.current.x,
-        y: event.clientY - dragOffsetRef.current.y,
-        visible: true,
-      },
-      dropZone: null,
-      canDrop: false,
-    });
+      callbacks.onDragStart?.(cards, from);
+      document.body.style.userSelect = 'none';
+    }, INTERACTION_TIMINGS.DRAG_START_DELAY);
+    
+    // Set up mouse move listener for movement-based drag initiation
+    const handleEarlyMouseMove = (moveEvent: MouseEvent) => {
+      const deltaX = Math.abs(moveEvent.clientX - interactionRef.current.mouseDownPosition.x);
+      const deltaY = Math.abs(moveEvent.clientY - interactionRef.current.mouseDownPosition.y);
+      const movement = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+      
+      // If significant movement detected and minimum time passed, start drag immediately
+      if (movement > INTERACTION_TIMINGS.DRAG_MOVEMENT_THRESHOLD) {
+        const holdTime = Date.now() - interactionRef.current.mouseDownTime;
+        if (holdTime >= INTERACTION_TIMINGS.DRAG_START_DELAY && !interactionRef.current.isDragInitiated) {
+          console.log(`Movement-triggered drag: ${movement}px movement after ${holdTime}ms hold`);
+          
+          // Clear the timer since we're starting drag now
+          if (interactionRef.current.dragStartTimer) {
+            clearTimeout(interactionRef.current.dragStartTimer);
+            interactionRef.current.dragStartTimer = null;
+          }
+          
+          // Start drag immediately
+          interactionRef.current.isDragInitiated = true;
+          
+          setDragState({
+            isDragging: true,
+            draggedCards: cards,
+            draggedFrom: from,
+            dragPreview: {
+              x: moveEvent.clientX - dragOffsetRef.current.x,
+              y: moveEvent.clientY - dragOffsetRef.current.y,
+              visible: true,
+            },
+            dropZone: null,
+            canDrop: false,
+          });
 
-    // Callback for drag start
-    callbacks.onDragStart?.(cards, from);
-
-    // Prevent text selection during drag
-    document.body.style.userSelect = 'none';
+          callbacks.onDragStart?.(cards, from);
+          document.body.style.userSelect = 'none';
+        }
+      }
+    };
+    
+    const handleEarlyMouseUp = () => {
+      // Clear drag initiation if mouse released before drag started
+      if (interactionRef.current.dragStartTimer) {
+        clearTimeout(interactionRef.current.dragStartTimer);
+        interactionRef.current.dragStartTimer = null;
+      }
+      
+      document.removeEventListener('mousemove', handleEarlyMouseMove);
+      document.removeEventListener('mouseup', handleEarlyMouseUp);
+      
+      console.log('Mouse released before drag initiated - treating as click');
+    };
+    
+    // Add temporary listeners for early movement detection
+    document.addEventListener('mousemove', handleEarlyMouseMove);
+    document.addEventListener('mouseup', handleEarlyMouseUp);
+    
   }, [callbacks]);
 
-  // Update drag position
+  // Update drag position with smooth performance
   const updateDrag = useCallback((event: React.MouseEvent) => {
     if (!dragState.isDragging) return;
 
-    setDragState(prev => ({
-      ...prev,
-      dragPreview: {
-        ...prev.dragPreview,
-        x: event.clientX - dragOffsetRef.current.x,
-        y: event.clientY - dragOffsetRef.current.y,
-      },
-    }));
-  }, [dragState.isDragging]);
-
-  // End dragging operation
-  const endDrag = useCallback(() => {
-    if (!dragState.isDragging) return;
-
-    const { draggedCards, draggedFrom, dropZone, canDrop } = dragState;
-    let success = false;
-
-    // Execute drop if valid
-    if (dropZone && canDrop && draggedFrom && dropZone !== draggedFrom) {
-      callbacks.onCardMove(draggedCards, draggedFrom, dropZone);
-      success = true;
-    }
-
-    // Callback for drag end
-    callbacks.onDragEnd?.(draggedCards, success);
-
-    // Reset drag state
-    setDragState(INITIAL_DRAG_STATE);
-
-    // Restore text selection
-    document.body.style.userSelect = '';
-  }, [dragState, callbacks]);
-
-  // Set current drop zone
-  const setDropZone = useCallback((zone: DropZone | null, canDrop: boolean) => {
-    setDragState(prev => ({
-      ...prev,
-      dropZone: zone,
-      canDrop: canDrop,
-    }));
-  }, []);
-
-  // Determine if cards can be dropped in a zone
-  const canDropInZone = useCallback((zone: DropZone, cards: DraggedCard[]): boolean => {
-    // If not currently dragging, allow all drops (for initial setup)
-    if (!dragState.isDragging || !dragState.draggedFrom) return true;
-    
-    // Can't drop in the same zone you're dragging from
-    if (zone === dragState.draggedFrom) return false;
-
-    // Basic validation rules
-    switch (zone) {
-      case 'deck':
-        // Check 4-copy rule for non-basic lands (simplified for now)
-        return cards.every(card => {
-          const isBasicLand = card.type_line?.includes('Basic Land') || false;
-          return isBasicLand || true; // Allow all cards for now - can add deck limit checking later
-        });
-      
-      case 'sideboard':
-        // Similar rules as deck (simplified for now)
-        return cards.every(card => {
-          const isBasicLand = card.type_line?.includes('Basic Land') || false;
-          return isBasicLand || true; // Allow all cards for now - can add sideboard limit checking later
-        });
-      
-      case 'collection':
-        // Can ALWAYS move cards back to collection (this fixes deck/sideboard → collection)
-        return true;
-      
-      default:
-        return false;
-    }
-  }, [dragState.draggedFrom, dragState.isDragging]);
-
-  // Mouse event handlers for global drag tracking
-  useEffect(() => {
-    if (!dragState.isDragging) return;
-
-    const handleMouseMove = (event: MouseEvent) => {
+    requestAnimationFrame(() => {
       setDragState(prev => ({
         ...prev,
         dragPreview: {
@@ -176,28 +308,141 @@ export const useDragAndDrop = (callbacks: DragCallbacks) => {
           y: event.clientY - dragOffsetRef.current.y,
         },
       }));
+    });
+  }, [dragState.isDragging]);
+
+  // FINAL FIX: End dragging with proper drop zone handling
+  const endDrag = useCallback(() => {
+    // Use functional state update to get current state
+    setDragState(currentDragState => {
+      if (!currentDragState.isDragging) {
+        console.log('⚠️ endDrag called but not currently dragging');
+        return currentDragState;
+      }
+
+      const { draggedCards, draggedFrom } = currentDragState;
+      let success = false;
+
+      // CRITICAL FIX: Use the last valid drop zone if current one is null
+      const dropZone = currentDragState.dropZone || lastValidDropZoneRef.current.zone;
+      const canDrop = currentDragState.canDrop || lastValidDropZoneRef.current.canDrop;
+
+      console.log(`🔍 DEBUGGING endDrag conditions (FINAL FIX):`);
+      console.log(`   current dropZone: ${currentDragState.dropZone}`);
+      console.log(`   last valid dropZone: ${lastValidDropZoneRef.current.zone}`);
+      console.log(`   using dropZone: ${dropZone} (${typeof dropZone})`);
+      console.log(`   canDrop: ${canDrop} (${typeof canDrop})`);
+      console.log(`   draggedFrom: ${draggedFrom} (${typeof draggedFrom})`);
+      console.log(`   dropZone !== draggedFrom: ${dropZone !== draggedFrom}`);
+      console.log(`   All conditions: ${!!(dropZone && canDrop && draggedFrom && dropZone !== draggedFrom)}`);
+
+      // Execute drop if valid
+      if (dropZone && canDrop && draggedFrom && dropZone !== draggedFrom) {
+        console.log(`✅ CONDITIONS MET - Moving ${draggedCards.length} cards from ${draggedFrom} to ${dropZone}`);
+        callbacks.onCardMove(draggedCards, draggedFrom, dropZone);
+        success = true;
+      } else {
+        console.log('❌ CONDITIONS NOT MET - Drop cancelled');
+        if (!dropZone) console.log('   - No dropZone');
+        if (!canDrop) console.log('   - Cannot drop');
+        if (!draggedFrom) console.log('   - No draggedFrom');
+        if (dropZone === draggedFrom) console.log('   - Same zone');
+      }
+
+      // Callback for drag end
+      callbacks.onDragEnd?.(draggedCards, success);
+
+      // Reset interaction state
+      interactionRef.current.isDragInitiated = false;
+      
+      // Reset last valid drop zone
+      lastValidDropZoneRef.current = { zone: null, canDrop: false };
+
+      // Restore text selection
+      document.body.style.userSelect = '';
+      
+      console.log(`🏁 Drag ended: ${success ? 'successful drop' : 'cancelled'}`);
+
+      // Return reset state
+      return INITIAL_DRAG_STATE;
+    });
+  }, [callbacks]);
+
+  // FIXED: Set current drop zone and capture valid ones
+  const setDropZone = useCallback((zone: DropZone | null, canDrop: boolean) => {
+    // Capture the last valid drop zone before it gets reset
+    if (zone !== null) {
+      lastValidDropZoneRef.current = { zone, canDrop };
+      console.log(`📍 Captured valid drop zone: ${zone}, canDrop: ${canDrop}`);
+    }
+    
+    setDragState(prev => ({
+      ...prev,
+      dropZone: zone,
+      canDrop: canDrop,
+    }));
+  }, []);
+
+  // Enhanced drop zone validation
+  const canDropInZone = useCallback((zone: DropZone, cards: DraggedCard[]): boolean => {
+    // If not currently dragging, allow all drops
+    if (!dragState.isDragging || !dragState.draggedFrom) return true;
+    
+    // Can't drop in the same zone you're dragging from
+    if (zone === dragState.draggedFrom) return false;
+
+    // All zones accept cards for this implementation
+    switch (zone) {
+      case 'deck':
+      case 'sideboard':
+        // Accept all cards (deck limits handled in callback)
+        return true;
+      
+      case 'collection':
+        // Can ALWAYS move cards back to collection
+        return true;
+      
+      default:
+        return false;
+    }
+  }, [dragState.draggedFrom, dragState.isDragging]);
+
+  // Enhanced global mouse event handlers
+  useEffect(() => {
+    if (!dragState.isDragging) return;
+
+    const handleMouseMove = (event: MouseEvent) => {
+      requestAnimationFrame(() => {
+        setDragState(prev => ({
+          ...prev,
+          dragPreview: {
+            ...prev.dragPreview,
+            x: event.clientX - dragOffsetRef.current.x,
+            y: event.clientY - dragOffsetRef.current.y,
+          },
+        }));
+      });
     };
 
     const handleMouseUp = () => {
       endDrag();
     };
 
-    // Add global mouse listeners
-    document.addEventListener('mousemove', handleMouseMove);
+    // Add global listeners
+    document.addEventListener('mousemove', handleMouseMove, { passive: true });
     document.addEventListener('mouseup', handleMouseUp);
 
-    // Cleanup
     return () => {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
   }, [dragState.isDragging, endDrag]);
 
-  // Keyboard escape to cancel drag
+  // Keyboard shortcuts for enhanced UX
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape' && dragState.isDragging) {
-        // Cancel drag without drop
+        console.log('Drag cancelled by Escape key');
         callbacks.onDragEnd?.(dragState.draggedCards, false);
         setDragState(INITIAL_DRAG_STATE);
         document.body.style.userSelect = '';
@@ -208,12 +453,25 @@ export const useDragAndDrop = (callbacks: DragCallbacks) => {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [dragState.isDragging, dragState.draggedCards, callbacks]);
 
+  // Cleanup timers on unmount
+  useEffect(() => {
+    return () => {
+      if (interactionRef.current.rapidClickTimer) {
+        clearTimeout(interactionRef.current.rapidClickTimer);
+      }
+      if (interactionRef.current.dragStartTimer) {
+        clearTimeout(interactionRef.current.dragStartTimer);
+      }
+    };
+  }, []);
+
   const actions: DragAndDropActions = {
     startDrag,
     updateDrag,
     endDrag,
     setDropZone,
     canDropInZone,
+    handleDoubleClick,
   };
 
   return {

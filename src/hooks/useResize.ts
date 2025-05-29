@@ -1,4 +1,4 @@
-// src/hooks/useResize.ts
+// src/hooks/useResize.ts - UPDATED for Percentage-Based Layout System
 import { useCallback, useRef, useEffect } from 'react';
 import { PanelDimensions } from './useLayout';
 
@@ -6,6 +6,7 @@ interface ResizeHandlers {
   onFilterPanelResize: (event: React.MouseEvent) => void;
   onDeckAreaResize: (event: React.MouseEvent) => void;
   onSideboardResize: (event: React.MouseEvent) => void;
+  onVerticalResize: (event: React.MouseEvent) => void;
 }
 
 interface UseResizeProps {
@@ -13,92 +14,122 @@ interface UseResizeProps {
     panels: PanelDimensions;
   };
   updatePanelDimensions: (updates: Partial<PanelDimensions>) => void;
+  updateDeckAreaHeightByPixels: (pixelHeight: number) => void; // New helper function
   constraints: {
     filterPanelWidth: { min: number; max: number };
-    deckAreaHeight: { min: number; max: number };
+    deckAreaHeightPercent: { min: number; max: number }; // Updated to percentage
     sideboardWidth: { min: number; max: number };
   };
 }
 
-export const useResize = ({ layout, updatePanelDimensions, constraints }: UseResizeProps) => {
+export const useResize = ({ 
+  layout, 
+  updatePanelDimensions, 
+  updateDeckAreaHeightByPixels,
+  constraints 
+}: UseResizeProps) => {
   const resizeStateRef = useRef<{
     isResizing: boolean;
-    resizeType: 'filterPanel' | 'deckArea' | 'sideboard' | null;
+    resizeType: 'filterPanel' | 'deckArea' | 'sideboard' | 'vertical' | null;
     startPosition: { x: number; y: number };
     startDimensions: PanelDimensions;
+    startViewportHeight: number; // Track viewport height for percentage calculations
   }>({
     isResizing: false,
     resizeType: null,
     startPosition: { x: 0, y: 0 },
     startDimensions: layout.panels,
+    startViewportHeight: window.innerHeight,
   });
 
-  // Update CSS custom property for deck area height
-  const updateDeckAreaCSSVariable = useCallback((height: number) => {
-    document.documentElement.style.setProperty('--deck-area-height', `${height}px`);
+  // Update CSS custom properties for percentage-based layout
+  const updateCSSVariables = useCallback((heightPercent: number) => {
+    const pixelHeight = Math.round((heightPercent / 100) * window.innerHeight);
+    document.documentElement.style.setProperty('--deck-area-height-percent', `${heightPercent}%`);
+    document.documentElement.style.setProperty('--deck-area-height', `${pixelHeight}px`);
+    document.documentElement.style.setProperty('--collection-area-height', `${window.innerHeight - pixelHeight}px`);
   }, []);
 
-  // Handle mouse move during resize
+  // Enhanced mouse move with percentage-based calculations
   const handleMouseMove = useCallback((event: MouseEvent) => {
     const state = resizeStateRef.current;
     if (!state.isResizing || !state.resizeType) return;
 
-    const deltaX = event.clientX - state.startPosition.x;
-    const deltaY = event.clientY - state.startPosition.y;
+    // Use requestAnimationFrame for smoother resize operations
+    requestAnimationFrame(() => {
+      const deltaX = event.clientX - state.startPosition.x;
+      const deltaY = event.clientY - state.startPosition.y;
 
-    switch (state.resizeType) {
-      case 'filterPanel': {
-        const newWidth = state.startDimensions.filterPanelWidth + deltaX;
-        const constrainedWidth = Math.max(
-          constraints.filterPanelWidth.min,
-          Math.min(constraints.filterPanelWidth.max, newWidth)
-        );
-        updatePanelDimensions({ filterPanelWidth: constrainedWidth });
-        break;
+      switch (state.resizeType) {
+        case 'filterPanel': {
+          const newWidth = state.startDimensions.filterPanelWidth + deltaX;
+          const constrainedWidth = Math.max(
+            constraints.filterPanelWidth.min,
+            Math.min(constraints.filterPanelWidth.max, newWidth)
+          );
+          updatePanelDimensions({ filterPanelWidth: constrainedWidth });
+          break;
+        }
+        
+        case 'deckArea':
+        case 'vertical': {
+          // PERCENTAGE-BASED: Calculate new height percentage
+          const currentViewportHeight = window.innerHeight;
+          
+          // Invert the direction - dragging up should make deck area bigger
+          const pixelChange = -deltaY;
+          const startPixelHeight = (state.startDimensions.deckAreaHeightPercent / 100) * state.startViewportHeight;
+          const newPixelHeight = startPixelHeight + pixelChange;
+          
+          // Convert to percentage of current viewport
+          const newPercentage = (newPixelHeight / currentViewportHeight) * 100;
+          
+          // Apply constraints
+          const constrainedPercentage = Math.max(
+            constraints.deckAreaHeightPercent.min,
+            Math.min(constraints.deckAreaHeightPercent.max, newPercentage)
+          );
+          
+          // Update using the new helper function
+          updateDeckAreaHeightByPixels(Math.round((constrainedPercentage / 100) * currentViewportHeight));
+          updateCSSVariables(constrainedPercentage);
+          break;
+        }
+        
+        case 'sideboard': {
+          // For sideboard, we resize from the left, so subtract deltaX
+          const newWidth = state.startDimensions.sideboardWidth - deltaX;
+          const constrainedWidth = Math.max(
+            constraints.sideboardWidth.min,
+            Math.min(constraints.sideboardWidth.max, newWidth)
+          );
+          updatePanelDimensions({ sideboardWidth: constrainedWidth });
+          break;
+        }
       }
-      
-      case 'deckArea': {
-        // Invert the direction - dragging up should make deck area bigger (more intuitive)
-        const newDeckHeight = state.startDimensions.deckAreaHeight - deltaY;
-        const constrainedHeight = Math.max(
-          constraints.deckAreaHeight.min,
-          Math.min(constraints.deckAreaHeight.max, newDeckHeight)
-        );
-        updatePanelDimensions({ deckAreaHeight: constrainedHeight });
-        updateDeckAreaCSSVariable(constrainedHeight);
-        break;
-      }
-      
-      case 'sideboard': {
-        // For sideboard, we resize from the left, so subtract deltaX
-        const newWidth = state.startDimensions.sideboardWidth - deltaX;
-        const constrainedWidth = Math.max(
-          constraints.sideboardWidth.min,
-          Math.min(constraints.sideboardWidth.max, newWidth)
-        );
-        updatePanelDimensions({ sideboardWidth: constrainedWidth });
-        break;
-      }
-    }
-  }, [updatePanelDimensions, constraints, updateDeckAreaCSSVariable]);
+    });
+  }, [updatePanelDimensions, updateDeckAreaHeightByPixels, constraints, updateCSSVariables]);
 
-  // Handle mouse up - end resize
+  // Enhanced mouse up with better cleanup
   const handleMouseUp = useCallback(() => {
     const state = resizeStateRef.current;
     if (state.isResizing) {
       state.isResizing = false;
       state.resizeType = null;
       
-      // Remove cursor override and user-select disable
+      // Enhanced cursor cleanup and user-select restoration
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
       document.body.classList.remove('resizing');
+      
+      console.log('Resize operation completed');
     }
   }, []);
 
-  // Set up global event listeners
+  // Set up global event listeners with enhanced performance
   useEffect(() => {
-    document.addEventListener('mousemove', handleMouseMove);
+    // Use passive listeners where possible for better performance
+    document.addEventListener('mousemove', handleMouseMove, { passive: true });
     document.addEventListener('mouseup', handleMouseUp);
     
     return () => {
@@ -107,73 +138,60 @@ export const useResize = ({ layout, updatePanelDimensions, constraints }: UseRes
     };
   }, [handleMouseMove, handleMouseUp]);
 
-  // Initialize CSS variable on mount and when deck area height changes
+  // Initialize CSS variables on mount and when layout changes
   useEffect(() => {
-    updateDeckAreaCSSVariable(layout.panels.deckAreaHeight);
-  }, [layout.panels.deckAreaHeight, updateDeckAreaCSSVariable]);
+    updateCSSVariables(layout.panels.deckAreaHeightPercent);
+  }, [layout.panels.deckAreaHeightPercent, updateCSSVariables]);
 
-  // Create resize handler for filter panel (right edge)
-  const onFilterPanelResize = useCallback((event: React.MouseEvent) => {
-    event.preventDefault();
-    event.stopPropagation();
-    
-    resizeStateRef.current = {
-      isResizing: true,
-      resizeType: 'filterPanel',
-      startPosition: { x: event.clientX, y: event.clientY },
-      startDimensions: { ...layout.panels },
+  // Update CSS variables on window resize to maintain percentages
+  useEffect(() => {
+    const handleWindowResize = () => {
+      updateCSSVariables(layout.panels.deckAreaHeightPercent);
     };
     
-    // Set cursor and prevent text selection during resize
-    document.body.style.cursor = 'ew-resize';
-    document.body.style.userSelect = 'none';
-    document.body.classList.add('resizing');
+    window.addEventListener('resize', handleWindowResize);
+    return () => window.removeEventListener('resize', handleWindowResize);
+  }, [layout.panels.deckAreaHeightPercent, updateCSSVariables]);
+
+  // Enhanced resize handler with better user feedback
+  const createResizeHandler = useCallback((resizeType: 'filterPanel' | 'deckArea' | 'sideboard' | 'vertical', cursorType: string) => {
+    return (event: React.MouseEvent) => {
+      event.preventDefault();
+      event.stopPropagation();
+      
+      resizeStateRef.current = {
+        isResizing: true,
+        resizeType,
+        startPosition: { x: event.clientX, y: event.clientY },
+        startDimensions: { ...layout.panels },
+        startViewportHeight: window.innerHeight,
+      };
+      
+      // Enhanced cursor feedback with better visual indicators
+      document.body.style.cursor = cursorType;
+      document.body.style.userSelect = 'none';
+      document.body.classList.add('resizing');
+      
+      console.log(`Started ${resizeType} resize operation`);
+    };
   }, [layout.panels]);
 
-  // Create resize handler for deck area (bottom edge of collection)
-  const onDeckAreaResize = useCallback((event: React.MouseEvent) => {
-    event.preventDefault();
-    event.stopPropagation();
-    
-    resizeStateRef.current = {
-      isResizing: true,
-      resizeType: 'deckArea',
-      startPosition: { x: event.clientX, y: event.clientY },
-      startDimensions: { ...layout.panels },
-    };
-    
-    // Set cursor and prevent text selection during resize
-    document.body.style.cursor = 'ns-resize';
-    document.body.style.userSelect = 'none';
-    document.body.classList.add('resizing');
-  }, [layout.panels]);
-
-  // Create resize handler for sideboard (left edge)
-  const onSideboardResize = useCallback((event: React.MouseEvent) => {
-    event.preventDefault();
-    event.stopPropagation();
-    
-    resizeStateRef.current = {
-      isResizing: true,
-      resizeType: 'sideboard',
-      startPosition: { x: event.clientX, y: event.clientY },
-      startDimensions: { ...layout.panels },
-    };
-    
-    // Set cursor and prevent text selection during resize
-    document.body.style.cursor = 'ew-resize';
-    document.body.style.userSelect = 'none';
-    document.body.classList.add('resizing');
-  }, [layout.panels]);
+  // Create resize handlers
+  const onFilterPanelResize = useCallback(createResizeHandler('filterPanel', 'ew-resize'), [createResizeHandler]);
+  const onDeckAreaResize = useCallback(createResizeHandler('deckArea', 'ns-resize'), [createResizeHandler]);
+  const onSideboardResize = useCallback(createResizeHandler('sideboard', 'ew-resize'), [createResizeHandler]);
+  const onVerticalResize = useCallback(createResizeHandler('vertical', 'ns-resize'), [createResizeHandler]);
 
   const handlers: ResizeHandlers = {
     onFilterPanelResize,
     onDeckAreaResize,
     onSideboardResize,
+    onVerticalResize,
   };
 
   return {
     handlers,
     isResizing: resizeStateRef.current.isResizing,
+    currentResizeType: resizeStateRef.current.resizeType,
   };
 };

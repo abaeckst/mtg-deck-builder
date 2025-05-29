@@ -1,9 +1,9 @@
-// src/hooks/useLayout.ts
+// src/hooks/useLayout.ts - PERCENTAGE-BASED LAYOUT SYSTEM
 import { useState, useEffect, useCallback } from 'react';
 
 export interface PanelDimensions {
   filterPanelWidth: number;
-  deckAreaHeight: number;
+  deckAreaHeightPercent: number; // Changed to percentage
   sideboardWidth: number;
 }
 
@@ -28,10 +28,11 @@ export interface LayoutState {
   };
 }
 
+// PERCENTAGE-BASED DEFAULTS
 const DEFAULT_LAYOUT: LayoutState = {
   panels: {
     filterPanelWidth: 280,
-    deckAreaHeight: 250,
+    deckAreaHeightPercent: 30, // 30% of screen height for deck/sideboard
     sideboardWidth: 300,
   },
   previewPane: {
@@ -53,19 +54,40 @@ const DEFAULT_LAYOUT: LayoutState = {
 
 const STORAGE_KEY = 'mtg-deckbuilder-layout';
 
-// Constraints for panel sizing
+// PERCENTAGE-BASED CONSTRAINTS
 const CONSTRAINTS = {
   filterPanelWidth: { min: 200, max: 500 },
-  deckAreaHeight: { min: 150, max: 500 },
-  sideboardWidth: { min: 200, max: 1000 }, // Doubled from 500 to 1000
+  deckAreaHeightPercent: { min: 25, max: 60 }, // 25% to 60% of screen height
+  sideboardWidth: { min: 200, max: 1000 },
   previewPane: {
     size: { minWidth: 250, maxWidth: 500, minHeight: 350, maxHeight: 700 },
-    position: { minX: 0, minY: 0 }, // maxX and maxY calculated based on window size
+    position: { minX: 0, minY: 0 },
   },
 };
 
 export const useLayout = () => {
   const [layout, setLayout] = useState<LayoutState>(DEFAULT_LAYOUT);
+
+  // Calculate actual pixel heights from percentages
+  const getCalculatedHeights = useCallback(() => {
+    const viewportHeight = window.innerHeight;
+    const deckAreaHeight = Math.round((layout.panels.deckAreaHeightPercent / 100) * viewportHeight);
+    const collectionAreaHeight = viewportHeight - deckAreaHeight;
+    
+    return {
+      deckAreaHeight,
+      collectionAreaHeight,
+      deckAreaHeightPercent: layout.panels.deckAreaHeightPercent,
+    };
+  }, [layout.panels.deckAreaHeightPercent]);
+
+  // Update CSS custom properties when layout changes
+  const updateCSSVariables = useCallback(() => {
+    const heights = getCalculatedHeights();
+    document.documentElement.style.setProperty('--deck-area-height-percent', `${heights.deckAreaHeightPercent}%`);
+    document.documentElement.style.setProperty('--deck-area-height', `${heights.deckAreaHeight}px`);
+    document.documentElement.style.setProperty('--collection-area-height', `${heights.collectionAreaHeight}px`);
+  }, [getCalculatedHeights]);
 
   // Load layout from localStorage on mount
   useEffect(() => {
@@ -73,6 +95,16 @@ export const useLayout = () => {
       const savedLayout = localStorage.getItem(STORAGE_KEY);
       if (savedLayout) {
         const parsed = JSON.parse(savedLayout);
+        
+        // Handle migration from old pixel-based system
+        if (parsed.panels && typeof parsed.panels.deckAreaHeight === 'number') {
+          // Convert old pixel value to percentage (approximate)
+          const oldPixelHeight = parsed.panels.deckAreaHeight;
+          const estimatedPercent = Math.max(25, Math.min(60, Math.round((oldPixelHeight / window.innerHeight) * 100)));
+          parsed.panels.deckAreaHeightPercent = estimatedPercent;
+          delete parsed.panels.deckAreaHeight; // Remove old property
+        }
+        
         // Merge with defaults to handle new properties
         setLayout(prev => ({
           ...prev,
@@ -87,6 +119,18 @@ export const useLayout = () => {
       console.warn('Failed to load layout from localStorage:', error);
     }
   }, []);
+
+  // Update CSS variables when layout changes or window resizes
+  useEffect(() => {
+    updateCSSVariables();
+    
+    const handleResize = () => {
+      updateCSSVariables();
+    };
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [updateCSSVariables]);
 
   // Save layout to localStorage whenever it changes
   const saveLayout = useCallback((newLayout: LayoutState) => {
@@ -110,10 +154,10 @@ export const useLayout = () => {
         );
       }
       
-      if (updates.deckAreaHeight !== undefined) {
-        newPanels.deckAreaHeight = Math.max(
-          CONSTRAINTS.deckAreaHeight.min,
-          Math.min(CONSTRAINTS.deckAreaHeight.max, updates.deckAreaHeight)
+      if (updates.deckAreaHeightPercent !== undefined) {
+        newPanels.deckAreaHeightPercent = Math.max(
+          CONSTRAINTS.deckAreaHeightPercent.min,
+          Math.min(CONSTRAINTS.deckAreaHeightPercent.max, updates.deckAreaHeightPercent)
         );
       }
       
@@ -129,6 +173,13 @@ export const useLayout = () => {
       return newLayout;
     });
   }, [saveLayout]);
+
+  // Helper function to update deck area height by pixels (for resize handlers)
+  const updateDeckAreaHeightByPixels = useCallback((pixelHeight: number) => {
+    const viewportHeight = window.innerHeight;
+    const percentage = Math.max(25, Math.min(60, Math.round((pixelHeight / viewportHeight) * 100)));
+    updatePanelDimensions({ deckAreaHeightPercent: percentage });
+  }, [updatePanelDimensions]);
 
   // Update preview pane state
   const updatePreviewPane = useCallback((updates: Partial<PreviewPaneState>) => {
@@ -212,11 +263,13 @@ export const useLayout = () => {
   return {
     layout,
     updatePanelDimensions,
+    updateDeckAreaHeightByPixels, // New helper for resize handlers
     updatePreviewPane,
     updateViewMode,
     updateCardSize,
     resetLayout,
     togglePreviewPane,
     constraints: CONSTRAINTS,
+    getCalculatedHeights, // Expose for debugging
   };
 };
