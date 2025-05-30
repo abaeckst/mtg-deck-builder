@@ -18,6 +18,7 @@ import DraggableCard from './DraggableCard';
 import DropZoneComponent from './DropZone';
 import DragPreview from './DragPreview';
 import ContextMenu from './ContextMenu';
+import SearchAutocomplete from './SearchAutocomplete';
 import PileView from './PileView';
 
 interface MTGOLayoutProps {
@@ -53,6 +54,7 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
     error, 
     searchForCards,
     searchWithAllFilters,
+    enhancedSearch,
     loadPopularCards, 
     loadRandomCard,
     activeFilters,
@@ -60,7 +62,12 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
     updateFilter,
     clearAllFilters,
     toggleFiltersCollapsed,
-    hasActiveFilters
+    hasActiveFilters,
+    searchSuggestions,
+    showSuggestions,
+    getSearchSuggestions,
+    clearSearchSuggestions,
+    addToSearchHistory
   } = useCards();
   
   // PHASE 3B-1: Card sizing system
@@ -448,16 +455,16 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
   // Enhanced search handling with comprehensive filters - FIXED
   const handleSearch = useCallback((text: string) => {
     setSearchText(text);
-    console.log('🔍 Search triggered:', { text, hasFilters: hasActiveFilters() });
-    // Always search when there's text OR filters are active
+    console.log('🔍 Enhanced search triggered:', { text, hasFilters: hasActiveFilters() });
+    // Use enhanced search for better results
     if (text.trim()) {
-      searchWithAllFilters(text);
+      enhancedSearch(text);
     } else if (hasActiveFilters()) {
-      searchWithAllFilters('');
+      enhancedSearch('');
     } else {
       loadPopularCards();
     }
-  }, [searchWithAllFilters, loadPopularCards, hasActiveFilters]);
+  }, [enhancedSearch, loadPopularCards, hasActiveFilters]);
   
   // Handle any filter change with validation - FIXED v3 (Integrated Validation)
   const handleFilterChange = useCallback((filterType: string, value: any) => {
@@ -501,10 +508,10 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
     
     // Trigger search immediately with the new filters (don't wait for state update)
     setTimeout(() => {
-      console.log('🔧 Triggering search with new filters');
-      searchWithAllFilters(searchText, newFilters);
+      console.log('🔧 Triggering enhanced search with new filters');
+      enhancedSearch(searchText, newFilters);
     }, 50);
-  }, [updateFilter, searchWithAllFilters, searchText, activeFilters]);
+  }, [updateFilter, enhancedSearch, searchText, activeFilters]);
   
   
   // Card interaction handlers
@@ -592,11 +599,19 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
             {/* Search Group */}
             <div className="filter-group">
               <label>Search</label>
-              <input
-                type="text"
+              <SearchAutocomplete
                 value={searchText}
-                onChange={(e) => handleSearch(e.target.value)}
-                placeholder="Card name..."
+                onChange={setSearchText}
+                onSearch={handleSearch}
+                suggestions={searchSuggestions}
+                showSuggestions={showSuggestions}
+                onSuggestionSelect={(suggestion) => {
+                  setSearchText(suggestion);
+                  handleSearch(suggestion);
+                }}
+                onSuggestionsRequested={getSearchSuggestions}
+                onSuggestionsClear={clearSearchSuggestions}
+                placeholder="Search cards... (try: flying, &quot;exact phrase&quot;, -exclude, name:lightning)"
                 className="search-input"
               />
             </div>

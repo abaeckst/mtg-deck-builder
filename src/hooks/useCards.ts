@@ -1,7 +1,7 @@
 // src/hooks/useCards.ts - Complete working version with exports
 import { useState, useEffect, useCallback } from 'react';
 import { ScryfallCard } from '../types/card';
-import { searchCards, getRandomCard, searchCardsWithFilters, SearchFilters } from '../services/scryfallApi';
+import { searchCards, getRandomCard, searchCardsWithFilters, SearchFilters, enhancedSearchCards, getSearchSuggestions } from '../services/scryfallApi';
 
 export interface UseCardsState {
   cards: ScryfallCard[];
@@ -11,6 +11,10 @@ export interface UseCardsState {
   selectedCards: Set<string>;
   searchQuery: string;
   totalCards: number;
+  // Enhanced search state
+  searchSuggestions: string[];
+  showSuggestions: boolean;
+  recentSearches: string[];
   // Enhanced filtering state
   activeFilters: {
     format: string;
@@ -42,9 +46,14 @@ export interface UseCardsActions {
   clearAllFilters: () => void;
   toggleFiltersCollapsed: () => void;
   hasActiveFilters: () => boolean;
+  // Enhanced search actions
+  enhancedSearch: (query: string, filtersOverride?: any) => Promise<void>;
+  getSearchSuggestions: (query: string) => Promise<void>;
+  clearSearchSuggestions: () => void;
+  addToSearchHistory: (query: string) => void;
 }
 
-const POPULAR_CARDS_QUERY = 'is:commander OR name:"Lightning Bolt" OR name:"Counterspell" OR name:"Sol Ring" OR name:"Path to Exile" OR name:"Swords to Plowshares" OR name:"Birds of Paradise" OR name:"Dark Ritual" OR name:"Giant Growth" OR name:"Ancestral Recall"';
+const POPULAR_CARDS_QUERY = 'legal:standard (type:creature OR type:instant OR type:sorcery OR type:planeswalker OR type:enchantment OR type:artifact)';
 
 export const useCards = (): UseCardsState & UseCardsActions => {
   const [state, setState] = useState<UseCardsState>({
@@ -55,9 +64,13 @@ export const useCards = (): UseCardsState & UseCardsActions => {
     selectedCards: new Set(),
     searchQuery: '',
     totalCards: 0,
+    // Enhanced search state
+    searchSuggestions: [],
+    showSuggestions: false,
+    recentSearches: [],
     // Enhanced filtering state
     activeFilters: {
-      format: '',
+      format: 'standard',
       colors: [],
       colorIdentity: 'exact',
       types: [],
@@ -316,9 +329,13 @@ export const useCards = (): UseCardsState & UseCardsActions => {
       selectedCards: new Set(),
       searchQuery: '',
       totalCards: 0,
+      // Enhanced search state
+      searchSuggestions: [],
+      showSuggestions: false,
+      recentSearches: [],
       // Enhanced filtering state
       activeFilters: {
-        format: '',
+        format: 'standard',
         colors: [],
         colorIdentity: 'exact',
         types: [],
@@ -358,7 +375,7 @@ export const useCards = (): UseCardsState & UseCardsActions => {
     setState(prev => ({
       ...prev,
       activeFilters: {
-        format: '',
+        format: 'standard',
         colors: [],
         colorIdentity: 'exact',
         types: [],
@@ -561,6 +578,139 @@ export const useCards = (): UseCardsState & UseCardsActions => {
     }
   }, [state.activeFilters, clearError, setLoading]);
 
+  // Enhanced search function with full-text capabilities
+  const enhancedSearch = useCallback(async (query: string, filtersOverride?: any) => {
+    const filters = filtersOverride || state.activeFilters;
+    
+    // Handle empty query cases
+    if (!query.trim()) {
+      if (Object.keys(filters).some(key => {
+        const value = filters[key];
+        return value && (Array.isArray(value) ? value.length > 0 : 
+                        typeof value === 'object' ? Object.values(value).some(v => v !== null) :
+                        value !== '');
+      })) {
+        query = '*';
+      } else {
+        loadPopularCards();
+        return;
+      }
+    }
+
+    const searchId = Date.now() + Math.random();
+    (window as any).currentSearchId = searchId;
+
+    console.log('🔍 ENHANCED SEARCH:', { 
+      searchId: searchId.toFixed(3), 
+      query, 
+      filters,
+      hasFilters: Object.keys(filters).length > 0
+    });
+
+    try {
+      clearError();
+      setLoading(true);
+
+      const now = Date.now();
+      const lastSearch = (window as any).lastSearchTime || 0;
+      const timeSinceLastSearch = now - lastSearch;
+      
+      if (timeSinceLastSearch < 150) {
+        await new Promise(resolve => setTimeout(resolve, 150 - timeSinceLastSearch));
+      }
+      
+      if ((window as any).currentSearchId !== searchId) {
+        console.log('🚫 ENHANCED SEARCH CANCELLED:', searchId.toFixed(3));
+        return;
+      }
+      
+      (window as any).lastSearchTime = Date.now();
+
+      const response = await enhancedSearchCards(query, filters);
+
+      if ((window as any).currentSearchId !== searchId) {
+        console.log('🚫 ENHANCED SEARCH CANCELLED DURING API:', searchId.toFixed(3));
+        return;
+      }
+
+      console.log('✅ ENHANCED SEARCH SUCCESS:', {
+        searchId: searchId.toFixed(3),
+        resultCount: response.data.length
+      });
+
+      setState(prev => ({
+        ...prev,
+        cards: response.data,
+        searchQuery: query === '*' ? 'Filtered Results' : query,
+        totalCards: response.total_cards,
+        hasMore: response.has_more,
+        selectedCards: new Set(),
+        showSuggestions: false,
+      }));
+
+      addToSearchHistory(query);
+
+    } catch (error) {
+      if ((window as any).currentSearchId === searchId) {
+        let errorMessage = error instanceof Error ? error.message : 'Failed to search with enhanced search';
+        let isNoResults = false;
+        
+        if (errorMessage.includes('404') || errorMessage.includes('No cards found')) {
+          errorMessage = 'No cards found matching your search criteria. Try different keywords or operators.';
+          isNoResults = true;
+          console.log('📭 No results found for enhanced search');
+        } else {
+          console.error('❌ Enhanced search error:', errorMessage);
+        }
+        
+        setState(prev => ({
+          ...prev,
+          error: isNoResults ? null : errorMessage,
+          cards: [],
+          totalCards: 0,
+          hasMore: false,
+          searchQuery: isNoResults ? 'No results found' : prev.searchQuery,
+          showSuggestions: false,
+        }));
+      }
+    } finally {
+      if ((window as any).currentSearchId === searchId) {
+        setLoading(false);
+      }
+    }
+  }, [state.activeFilters, clearError, setLoading]);
+
+  const getSearchSuggestionsFunc = useCallback(async (query: string) => {
+    if (!query.trim() || query.length < 2) {
+      setState(prev => ({ ...prev, searchSuggestions: [], showSuggestions: false }));
+      return;
+    }
+
+    try {
+      const suggestions = await getSearchSuggestions(query);
+      setState(prev => ({ 
+        ...prev, 
+        searchSuggestions: suggestions.slice(0, 8),
+        showSuggestions: suggestions.length > 0 
+      }));
+    } catch (error) {
+      console.error('Failed to get search suggestions:', error);
+    }
+  }, []);
+
+  const clearSearchSuggestions = useCallback(() => {
+    setState(prev => ({ ...prev, searchSuggestions: [], showSuggestions: false }));
+  }, []);
+
+  const addToSearchHistory = useCallback((query: string) => {
+    if (!query.trim() || query === '*') return;
+    
+    setState(prev => {
+      const newHistory = [query, ...prev.recentSearches.filter(h => h !== query)].slice(0, 10);
+      return { ...prev, recentSearches: newHistory };
+    });
+  }, []);
+
   return {
     ...state,
     searchForCards,
@@ -577,5 +727,9 @@ export const useCards = (): UseCardsState & UseCardsActions => {
     clearAllFilters,
     toggleFiltersCollapsed,
     hasActiveFilters,
+    enhancedSearch,
+    getSearchSuggestions: getSearchSuggestionsFunc,
+    clearSearchSuggestions,
+    addToSearchHistory,
   };
 };

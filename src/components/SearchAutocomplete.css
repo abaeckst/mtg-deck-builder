@@ -1,0 +1,89 @@
+/* SearchAutocomplete.css - Enhanced search input with autocomplete */
+
+.search-autocomplete {
+  position: relative;
+  width: 100%;
+}
+
+.search-autocomplete-input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #555;
+  border-radius: 4px;
+  background: #2a2a2a;
+  color: #e0e0e0;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.search-autocomplete-input:focus {
+  border-color: #4a90e2;
+  box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.3);
+}
+
+.search-autocomplete-input::placeholder {
+  color: #888;
+}
+
+.search-suggestions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  background: #333;
+  border: 1px solid #555;
+  border-top: none;
+  border-radius: 0 0 4px 4px;
+  max-height: 240px;
+  overflow-y: auto;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+.search-suggestion {
+  padding: 8px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid #444;
+  transition: background-color 0.15s;
+  display: flex;
+  align-items: center;
+}
+
+.search-suggestion:last-child {
+  border-bottom: none;
+}
+
+.search-suggestion:hover,
+.search-suggestion.active {
+  background: #4a90e2;
+  color: white;
+}
+
+.suggestion-operator {
+  font-family: 'Courier New', monospace;
+  color: #ffa500;
+  font-weight: bold;
+}
+
+.suggestion-text {
+  color: inherit;
+}
+
+/* Scrollbar styling for suggestions */
+.search-suggestions::-webkit-scrollbar {
+  width: 6px;
+}
+
+.search-suggestions::-webkit-scrollbar-track {
+  background: #444;
+}
+
+.search-suggestions::-webkit-scrollbar-thumb {
+  background: #666;
+  border-radius: 3px;
+}
+
+.search-suggestions::-webkit-scrollbar-thumb:hover {
+  background: #777;
+}

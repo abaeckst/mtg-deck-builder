@@ -288,35 +288,168 @@ export const searchCardsWithFilters = async (
 
   // Add CMC filter
   if (filters.cmc) {
-    if (filters.cmc.min !== undefined) {
+    if (filters.cmc.min !== undefined && filters.cmc.min !== null) {
       searchQuery += ` cmc>=${filters.cmc.min}`;
     }
-    if (filters.cmc.max !== undefined) {
+    if (filters.cmc.max !== undefined && filters.cmc.max !== null) {
       searchQuery += ` cmc<=${filters.cmc.max}`;
     }
   }
   
   // Add power filter
   if (filters.power) {
-    if (filters.power.min !== undefined) {
+    if (filters.power.min !== undefined && filters.power.min !== null) {
       searchQuery += ` power>=${filters.power.min}`;
     }
-    if (filters.power.max !== undefined) {
+    if (filters.power.max !== undefined && filters.power.max !== null) {
       searchQuery += ` power<=${filters.power.max}`;
     }
   }
   
   // Add toughness filter
   if (filters.toughness) {
-    if (filters.toughness.min !== undefined) {
+    if (filters.toughness.min !== undefined && filters.toughness.min !== null) {
       searchQuery += ` toughness>=${filters.toughness.min}`;
     }
-    if (filters.toughness.max !== undefined) {
+    if (filters.toughness.max !== undefined && filters.toughness.max !== null) {
       searchQuery += ` toughness<=${filters.toughness.max}`;
     }
   }
   
   return searchCards(searchQuery.trim(), page);
+};
+
+/**
+ * Enhanced search with full-text capabilities and operator support
+ */
+export const enhancedSearchCards = async (
+  query: string,
+  filters: SearchFilters = {},
+  page = 1
+): Promise<ScryfallSearchResponse> => {
+  // Handle empty queries
+  if (!query || query.trim() === '') {
+    // If we have filters, use wildcard search
+    if (Object.keys(filters).length > 0) {
+      return searchCardsWithFilters('*', filters, page);
+    }
+    throw new Error('Search query cannot be empty');
+  }
+  
+  // Build enhanced query for full-text search
+  const searchQuery = buildEnhancedSearchQuery(query.trim());
+  
+  console.log('🔍 Enhanced search query:', { 
+    original: query, 
+    enhanced: searchQuery,
+    filters: Object.keys(filters)
+  });
+  
+  // Use existing searchCardsWithFilters with enhanced query
+  return searchCardsWithFilters(searchQuery, filters, page);
+};
+
+/**
+ * Build enhanced search query with operator support
+ */
+function buildEnhancedSearchQuery(query: string): string {
+  // For simple queries without operators, enable full-text search
+  // This searches across name, oracle text, and type line
+  if (!query.includes('"') && !query.includes('-') && !query.includes(':')) {
+    return `(name:"${query}" OR oracle:"${query}" OR type:"${query}")`;
+  }
+  
+  // Only do advanced parsing for queries with operators
+  const parts: string[] = [];
+  let workingQuery = query;
+  
+  // Handle quoted phrases
+  const quotedPhrases = query.match(/"[^"]+"/g) || [];
+  quotedPhrases.forEach(phrase => {
+    parts.push(phrase); // Keep quoted phrases as-is for Scryfall
+    workingQuery = workingQuery.replace(phrase, '');
+  });
+  
+  // Handle exclusions
+  const exclusions = workingQuery.match(/-\w+/g) || [];
+  exclusions.forEach(exclusion => {
+    parts.push(exclusion); // Keep exclusions as-is
+    workingQuery = workingQuery.replace(exclusion, '');
+  });
+  
+  // Handle field-specific searches
+  const fieldSearches = workingQuery.match(/(name|text|type):[\w\s]+/g) || [];
+  fieldSearches.forEach(fieldSearch => {
+    const [field, value] = fieldSearch.split(':');
+    if (field === 'text') {
+      parts.push(`oracle:${value}`); // Convert text: to oracle: for Scryfall
+    } else {
+      parts.push(fieldSearch); // Keep name: and type: as-is
+    }
+    workingQuery = workingQuery.replace(fieldSearch, '');
+  });
+  
+  // Handle remaining terms - for advanced queries, do full-text search
+  const remainingTerms = workingQuery.trim().split(/\s+/).filter(term => term.length > 0);
+  if (remainingTerms.length > 0) {
+    const fullTextSearch = remainingTerms.join(' ');
+    // Only use complex OR logic if we already have other operators
+    if (parts.length > 0) {
+      parts.push(`(name:"${fullTextSearch}" OR oracle:"${fullTextSearch}" OR type:"${fullTextSearch}")`);
+    } else {
+      // If no operators detected, just add the simple search
+      parts.push(fullTextSearch);
+    }
+  }
+  
+  return parts.join(' ').trim() || query;
+}
+
+/**
+ * Get autocomplete suggestions for search terms
+ */
+export const getSearchSuggestions = async (query: string): Promise<string[]> => {
+  try {
+    // Use Scryfall's autocomplete for card names
+    const cardNames = await autocompleteCardNames(query);
+    
+    // Add common Magic terms and operators
+    const suggestions: string[] = [...cardNames];
+    
+    // Add operator suggestions if query is short
+    if (query.length <= 3) {
+      const operators = [
+        '"exact phrase"',
+        '-exclude',
+        'name:cardname',
+        'text:ability',
+        'type:creature'
+      ];
+      suggestions.push(...operators);
+    }
+    
+    // Add common Magic keywords that match the query
+    const magicTerms = [
+      'flying', 'trample', 'lifelink', 'deathtouch', 'vigilance', 'reach',
+      'first strike', 'double strike', 'haste', 'hexproof', 'indestructible',
+      'destroy', 'exile', 'draw', 'discard', 'counter', 'target', 'choose',
+      'creature', 'instant', 'sorcery', 'artifact', 'enchantment', 'planeswalker'
+    ];
+    
+    const matchingTerms = magicTerms.filter(term => 
+      term.toLowerCase().includes(query.toLowerCase())
+    );
+    
+    suggestions.push(...matchingTerms);
+    
+    // Remove duplicates and limit results
+    const uniqueSuggestions = Array.from(new Set(suggestions));
+    return uniqueSuggestions.slice(0, 10);
+    
+  } catch (error) {
+    console.error('Failed to get search suggestions:', error);
+    return [];
+  }
 };
 
 // Export commonly used search queries
