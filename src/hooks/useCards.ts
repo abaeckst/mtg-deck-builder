@@ -15,6 +15,7 @@ export interface UseCardsState {
   searchSuggestions: string[];
   showSuggestions: boolean;
   recentSearches: string[];
+
   // Enhanced filtering state
   activeFilters: {
     format: string;
@@ -51,6 +52,7 @@ export interface UseCardsActions {
   getSearchSuggestions: (query: string) => Promise<void>;
   clearSearchSuggestions: () => void;
   addToSearchHistory: (query: string) => void;
+
 }
 
 const POPULAR_CARDS_QUERY = 'legal:standard (type:creature OR type:instant OR type:sorcery OR type:planeswalker OR type:enchantment OR type:artifact)';
@@ -70,7 +72,7 @@ export const useCards = (): UseCardsState & UseCardsActions => {
     recentSearches: [],
     // Enhanced filtering state
     activeFilters: {
-      format: 'standard',
+      format: 'custom-standard',
       colors: [],
       colorIdentity: 'exact',
       types: [],
@@ -81,6 +83,7 @@ export const useCards = (): UseCardsState & UseCardsActions => {
       toughness: { min: null, max: null },
     },
     isFiltersCollapsed: false,
+
   });
 
   // Clear error when starting new operations
@@ -335,7 +338,7 @@ export const useCards = (): UseCardsState & UseCardsActions => {
       recentSearches: [],
       // Enhanced filtering state
       activeFilters: {
-        format: 'standard',
+        format: 'custom-standard',
         colors: [],
         colorIdentity: 'exact',
         types: [],
@@ -353,6 +356,8 @@ export const useCards = (): UseCardsState & UseCardsActions => {
   useEffect(() => {
     loadPopularCards();
   }, [loadPopularCards]);
+
+
 
   // Enhanced filter management functions
   const updateFilter = useCallback((filterType: string, value: any) => {
@@ -375,7 +380,7 @@ export const useCards = (): UseCardsState & UseCardsActions => {
     setState(prev => ({
       ...prev,
       activeFilters: {
-        format: 'standard',
+        format: 'custom-standard',
         colors: [],
         colorIdentity: 'exact',
         types: [],
@@ -711,6 +716,8 @@ export const useCards = (): UseCardsState & UseCardsActions => {
     });
   }, []);
 
+
+
   return {
     ...state,
     searchForCards,
@@ -731,5 +738,6 @@ export const useCards = (): UseCardsState & UseCardsActions => {
     getSearchSuggestions: getSearchSuggestionsFunc,
     clearSearchSuggestions,
     addToSearchHistory,
+
   };
 };

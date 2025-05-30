@@ -206,9 +206,8 @@ export const searchCardsWithFilters = async (
   // Add format filter with Custom Standard support
   if (filters.format) {
     if (filters.format === 'custom-standard') {
-      // Custom Standard: Use standard legality as base
-      // In future phases, this will be extended to include unreleased sets
-      searchQuery += ` legal:standard`;
+      // Custom Standard: Standard-legal cards + Final Fantasy set
+      searchQuery += ` (legal:standard OR set:fin)`;
     } else {
       searchQuery += ` legal:${filters.format}`;
     }
@@ -227,22 +226,22 @@ export const searchCardsWithFilters = async (
           case 'exact':
             // For exact with colorless + colors, search for colorless OR exact colors
             if (otherColors) {
-              searchQuery += ` (color=C OR color=${otherColors})`;
+              searchQuery += ` (identity=C OR identity=${otherColors})`;
             } else {
-              searchQuery += ` color=C`;
+              searchQuery += ` identity=C`;
             }
             break;
           case 'subset':
-            searchQuery += ` color<=${otherColors}C`;
+            searchQuery += ` identity<=${otherColors}C`;
             break;
           case 'include':
           default:
-            searchQuery += ` (color:C OR color:${otherColors})`;
+            searchQuery += ` (identity:C OR identity:${otherColors})`;
             break;
         }
       } else {
         // Only colorless selected
-        searchQuery += ` color=C`;
+        searchQuery += ` identity=C`;
       }
     } else {
       // No colorless, handle normally
@@ -251,14 +250,14 @@ export const searchCardsWithFilters = async (
       
       switch (colorMode) {
         case 'exact':
-          searchQuery += ` color=${colorQuery}`;
+          searchQuery += ` identity=${colorQuery}`;
           break;
         case 'subset':
-          searchQuery += ` color<=${colorQuery}`;
+          searchQuery += ` identity<=${colorQuery}`;
           break;
         case 'include':
         default:
-          searchQuery += ` color:${colorQuery}`;
+          searchQuery += ` identity:${colorQuery}`;
           break;
       }
     }
@@ -356,7 +355,7 @@ function buildEnhancedSearchQuery(query: string): string {
   // For simple queries without operators, enable full-text search
   // This searches across name, oracle text, and type line
   if (!query.includes('"') && !query.includes('-') && !query.includes(':')) {
-    return `(name:"${query}" OR oracle:"${query}" OR type:"${query}")`;
+    return `(name:${query} OR oracle:${query} OR type:${query})`;
   }
   
   // Only do advanced parsing for queries with operators
@@ -395,7 +394,7 @@ function buildEnhancedSearchQuery(query: string): string {
     const fullTextSearch = remainingTerms.join(' ');
     // Only use complex OR logic if we already have other operators
     if (parts.length > 0) {
-      parts.push(`(name:"${fullTextSearch}" OR oracle:"${fullTextSearch}" OR type:"${fullTextSearch}")`);
+      parts.push(`(name:${fullTextSearch} OR oracle:${fullTextSearch} OR type:${fullTextSearch})`);
     } else {
       // If no operators detected, just add the simple search
       parts.push(fullTextSearch);
@@ -451,6 +450,8 @@ export const getSearchSuggestions = async (query: string): Promise<string[]> => 
     return [];
   }
 };
+
+
 
 // Export commonly used search queries
 export const COMMON_QUERIES = {

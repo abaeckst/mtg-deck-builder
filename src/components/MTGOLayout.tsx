@@ -69,7 +69,8 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
     showSuggestions,
     getSearchSuggestions,
     clearSearchSuggestions,
-    addToSearchHistory
+    addToSearchHistory,
+
   } = useCards();
   
   // PHASE 3B-1: Card sizing system
@@ -143,11 +144,12 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
     };
   }, []);
   
-  // PHASE 3A: Clear deck functionality - FIXED
+  // Clear both deck and sideboard functionality
   const handleClearDeck = useCallback(() => {
     setMainDeck([]);
+    setSideboard([]);
     clearSelection();
-    console.log('Deck cleared - all cards moved back to collection');
+    console.log('Deck and sideboard cleared - all cards moved back to collection');
   }, [clearSelection]);
 
   // PHASE 3A: Clear sideboard functionality
@@ -785,6 +787,7 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
                 ))}
               </div>
             </div>
+
             
             {/* Rarity Group */}
             <div className="filter-group">
@@ -1258,8 +1261,8 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
                   List
                 </button>
                 <button>Save Deck</button>
-                <button onClick={handleClearDeck} title="Clear all cards from deck">
-                  Clear Deck
+                <button onClick={handleClearDeck} title="Clear all cards from deck and sideboard">
+                  Clear All
                 </button>
               </div>
             </div>

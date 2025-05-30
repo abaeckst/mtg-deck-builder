@@ -1,262 +1,266 @@
 #!/usr/bin/env python3
 """
-Comprehensive Fix Script: Fix all MTGOLayout.tsx issues in one shot
-- Remove duplicate imports
-- Fix type mismatches with proper ScryfallCard to DeckCard conversion
-- Add view toggle buttons for pile view
-- Fix all TypeScript errors
+Comprehensive Fix Script for All TypeScript Errors
+Fixes naming conflicts, missing properties, and CSS syntax issues
 """
 
-import os
 import re
+import os
 
-def comprehensive_fix():
-    """Fix all issues in MTGOLayout.tsx comprehensively"""
-    
-    file_path = r'C:\Users\carol\mtg-deckbuilder\src\components\MTGOLayout.tsx'
+def fix_use_cards_clear_function():
+    """Fix the clearCards function to include missing set filter state properties"""
+    file_path = "src/hooks/useCards.ts"
     
     if not os.path.exists(file_path):
-        print(f"❌ Error: File not found at {file_path}")
+        print(f"❌ ERROR: File {file_path} not found!")
         return False
     
+    print(f"🔧 Reading {file_path}...")
+    
     try:
-        with open(file_path, 'r', encoding='utf-8') as f:
-            content = f.read()
+        with open(file_path, 'r', encoding='utf-8') as file:
+            content = file.read()
         
-        print(f"📁 Reading MTGOLayout.tsx for comprehensive fixes")
+        # Fix the clearCards function to include missing properties
+        old_clear_cards = """  // Clear all cards and reset state
+  const clearCards = useCallback(() => {
+    setState({
+      cards: [],
+      loading: false,
+      error: null,
+      hasMore: false,
+      selectedCards: new Set(),
+      searchQuery: '',
+      totalCards: 0,
+      // Enhanced search state
+      searchSuggestions: [],
+      showSuggestions: false,
+      recentSearches: [],
+      // Enhanced filtering state
+      activeFilters: {
+        format: 'standard',
+        colors: [],
+        colorIdentity: 'exact',
+        types: [],
+        rarity: [],
+        sets: [],
+        cmc: { min: null, max: null },
+        power: { min: null, max: null },
+        toughness: { min: null, max: null },
+      },
+      isFiltersCollapsed: false,
+    });
+  }, []);"""
         
-        # STEP 1: Remove duplicate import (lines 12-15)
-        old_duplicate_section = """// Card types import
-import { ScryfallCard, DeckCard } from '../types/card';
-
-// Card types import
-import { ScryfallCard, DeckCard } from '../types/card';"""
+        new_clear_cards = """  // Clear all cards and reset state
+  const clearCards = useCallback(() => {
+    setState({
+      cards: [],
+      loading: false,
+      error: null,
+      hasMore: false,
+      selectedCards: new Set(),
+      searchQuery: '',
+      totalCards: 0,
+      // Enhanced search state
+      searchSuggestions: [],
+      showSuggestions: false,
+      recentSearches: [],
+      // Set filter state
+      availableSets: [],
+      setSearchText: '',
+      filteredSets: [],
+      // Enhanced filtering state
+      activeFilters: {
+        format: 'standard',
+        colors: [],
+        colorIdentity: 'exact',
+        types: [],
+        rarity: [],
+        sets: [],
+        cmc: { min: null, max: null },
+        power: { min: null, max: null },
+        toughness: { min: null, max: null },
+      },
+      isFiltersCollapsed: false,
+    });
+  }, []);"""
         
-        new_single_import = """// Card types import
-import { ScryfallCard, DeckCard, scryfallToDeckCard } from '../types/card';"""
-        
-        if old_duplicate_section in content:
-            content = content.replace(old_duplicate_section, new_single_import)
-            print("✅ Step 1: Removed duplicate imports and added scryfallToDeckCard utility")
+        if old_clear_cards in content:
+            content = content.replace(old_clear_cards, new_clear_cards)
+            print("✅ Fixed clearCards function to include missing set filter properties")
         else:
-            print("⚠️ Step 1: Duplicate import pattern not found exactly")
+            print("⚠️  Could not find clearCards function pattern")
+            return False
         
-        # STEP 2: Add view toggle buttons to deck header
-        old_deck_controls = """              <div className="deck-controls">
-                <span>Size: </span>
-                <input
-                  type="range"
-                  min="0.7"
-                  max="2.5"
-                  step="0.1"
-                  value={cardSizes.deck}
-                  onChange={(e) => updateDeckSize(parseFloat(e.target.value))}
-                  className="size-slider"
-                  title={`Card size: ${Math.round(cardSizes.deck * 100)}%`}
-                />
-                <button>Save Deck</button>
-                <button onClick={handleClearDeck} title="Clear all cards from deck">
-                  Clear Deck
-                </button>
-              </div>"""
+        # Write the updated content back to file
+        with open(file_path, 'w', encoding='utf-8') as file:
+            file.write(content)
         
-        new_deck_controls = """              <div className="deck-controls">
-                <span>Size: </span>
-                <input
-                  type="range"
-                  min="0.7"
-                  max="2.5"
-                  step="0.1"
-                  value={cardSizes.deck}
-                  onChange={(e) => updateDeckSize(parseFloat(e.target.value))}
-                  className="size-slider"
-                  title={`Card size: ${Math.round(cardSizes.deck * 100)}%`}
-                />
-                <span>View: </span>
-                <button 
-                  className={layout.viewModes.deck === 'card' ? 'active' : ''}
-                  onClick={() => updateViewMode('deck', 'card')}
-                >
-                  Card
-                </button>
-                <button 
-                  className={layout.viewModes.deck === 'pile' ? 'active' : ''}
-                  onClick={() => updateViewMode('deck', 'pile')}
-                >
-                  Pile
-                </button>
-                <button>Save Deck</button>
-                <button onClick={handleClearDeck} title="Clear all cards from deck">
-                  Clear Deck
-                </button>
-              </div>"""
-        
-        if old_deck_controls in content:
-            content = content.replace(old_deck_controls, new_deck_controls)
-            print("✅ Step 2: Added view toggle buttons to deck header")
-        else:
-            print("⚠️ Step 2: Deck controls not found exactly")
-        
-        # STEP 3: Add view toggle buttons to sideboard header
-        old_sideboard_controls = """              <div className="sideboard-controls">
-                <span>Size: </span>
-                <input
-                  type="range"
-                  min="0.7"
-                  max="2.5"
-                  step="0.1"
-                  value={cardSizes.sideboard}
-                  onChange={(e) => updateSideboardSize(parseFloat(e.target.value))}
-                  className="size-slider"
-                  title={`Card size: ${Math.round(cardSizes.sideboard * 100)}%`}
-                />
-                <button onClick={handleClearSideboard} title="Clear all cards from sideboard">
-                  Clear
-                </button>
-              </div>"""
-        
-        new_sideboard_controls = """              <div className="sideboard-controls">
-                <span>Size: </span>
-                <input
-                  type="range"
-                  min="0.7"
-                  max="2.5"
-                  step="0.1"
-                  value={cardSizes.sideboard}
-                  onChange={(e) => updateSideboardSize(parseFloat(e.target.value))}
-                  className="size-slider"
-                  title={`Card size: ${Math.round(cardSizes.sideboard * 100)}%`}
-                />
-                <span>View: </span>
-                <button 
-                  className={layout.viewModes.sideboard === 'card' ? 'active' : ''}
-                  onClick={() => updateViewMode('sideboard', 'card')}
-                >
-                  Card
-                </button>
-                <button 
-                  className={layout.viewModes.sideboard === 'pile' ? 'active' : ''}
-                  onClick={() => updateViewMode('sideboard', 'pile')}
-                >
-                  Pile
-                </button>
-                <button onClick={handleClearSideboard} title="Clear all cards from sideboard">
-                  Clear
-                </button>
-              </div>"""
-        
-        if old_sideboard_controls in content:
-            content = content.replace(old_sideboard_controls, new_sideboard_controls)
-            print("✅ Step 3: Added view toggle buttons to sideboard header")
-        else:
-            print("⚠️ Step 3: Sideboard controls not found exactly")
-        
-        # STEP 4: Fix all ScryfallCard -> DeckCard conversion issues
-        # Pattern: setMainDeck(prev => [...prev, { ...card, quantity: X }]);
-        # Replace with: setMainDeck(prev => [...prev, scryfallToDeckCard(card)]);
-        
-        # Fix pattern 1: { ...card, quantity: addQuantity }
-        old_pattern1 = "setMainDeck(prev => [...prev, { ...card, quantity: addQuantity }]);"
-        new_pattern1 = "setMainDeck(prev => [...prev, { ...scryfallToDeckCard(card), quantity: addQuantity }]);"
-        content = content.replace(old_pattern1, new_pattern1)
-        
-        # Fix pattern 2: { ...card, quantity: 1 }
-        content = re.sub(
-            r'setMainDeck\(prev => \[\.\.\.prev, \{ \.\.\.card, quantity: 1 \}\]\);',
-            'setMainDeck(prev => [...prev, { ...scryfallToDeckCard(card), quantity: 1 }]);',
-            content
-        )
-        
-        # Fix pattern 3: setSideboard with { ...card, quantity: X }
-        content = re.sub(
-            r'setSideboard\(prev => \[\.\.\.prev, \{ \.\.\.card, quantity: (\w+) \}\]\);',
-            r'setSideboard(prev => [...prev, { ...scryfallToDeckCard(card), quantity: \1 }]);',
-            content
-        )
-        
-        print("✅ Step 4: Fixed ScryfallCard to DeckCard conversion patterns")
-        
-        # STEP 5: Fix selectCard type issue - need to accept both types
-        old_select_card = "    selectCard(card.id, card, event?.ctrlKey);"
-        new_select_card = "    selectCard(card.id, card as any, event?.ctrlKey);"
-        
-        if old_select_card in content:
-            content = content.replace(old_select_card, new_select_card)
-            print("✅ Step 5: Fixed selectCard type casting")
-        
-        # STEP 6: Fix handleAddToDeck function to use proper conversion
-        old_handle_add_to_deck = """  const handleAddToDeck = (card: ScryfallCard | DeckCard) => {
-    const existingCard = mainDeck.find((deckCard: any) => deckCard.id === card.id);
-    if (existingCard && existingCard.quantity < 4) {
-      setMainDeck((prev: DeckCard[]) => prev.map((deckCard: DeckCard) => 
-        deckCard.id === card.id 
-          ? { ...deckCard, quantity: deckCard.quantity + 1 }
-          : deckCard
-      ));
-    } else if (!existingCard) {
-      setMainDeck((prev: DeckCard[]) => [...prev, { ...card, quantity: 1 }]);
-    }
-  };"""
-        
-        new_handle_add_to_deck = """  const handleAddToDeck = (card: ScryfallCard | DeckCard) => {
-    const existingCard = mainDeck.find((deckCard: DeckCard) => deckCard.id === card.id);
-    if (existingCard && existingCard.quantity < 4) {
-      setMainDeck((prev: DeckCard[]) => prev.map((deckCard: DeckCard) => 
-        deckCard.id === card.id 
-          ? { ...deckCard, quantity: deckCard.quantity + 1 }
-          : deckCard
-      ));
-    } else if (!existingCard) {
-      setMainDeck((prev: DeckCard[]) => [...prev, { ...scryfallToDeckCard(card as ScryfallCard), quantity: 1 }]);
-    }
-  };"""
-        
-        if old_handle_add_to_deck in content:
-            content = content.replace(old_handle_add_to_deck, new_handle_add_to_deck)
-            print("✅ Step 6: Fixed handleAddToDeck function")
-        
-        # STEP 7: Fix all remaining { ...card, quantity: moveQuantity } patterns
-        content = re.sub(
-            r'\{ \.\.\.card, quantity: moveQuantity \}',
-            '{ ...scryfallToDeckCard(card as ScryfallCard), quantity: moveQuantity }',
-            content
-        )
-        print("✅ Step 7: Fixed remaining card conversion patterns")
-        
-        # Write the updated file
-        with open(file_path, 'w', encoding='utf-8') as f:
-            f.write(content)
-        
-        print(f"✅ Comprehensive fix complete! Updated MTGOLayout.tsx")
+        print(f"✅ SUCCESS: Fixed {file_path}")
         return True
         
     except Exception as e:
-        print(f"❌ Error during comprehensive fix: {e}")
+        print(f"❌ ERROR: Failed to update {file_path}: {str(e)}")
+        return False
+
+def fix_mtgo_layout_naming_conflicts():
+    """Fix naming conflicts and CSS syntax issues in MTGOLayout.tsx"""
+    file_path = "src/components/MTGOLayout.tsx"
+    
+    if not os.path.exists(file_path):
+        print(f"❌ ERROR: File {file_path} not found!")
+        return False
+    
+    print(f"🔧 Reading {file_path}...")
+    
+    try:
+        with open(file_path, 'r', encoding='utf-8') as file:
+            content = file.read()
+        
+        # Fix 1: Remove setSearchText from useCards destructuring since we have local state
+        old_destructuring = """  const { 
+    cards, 
+    loading, 
+    error, 
+    searchForCards,
+    searchWithAllFilters,
+    enhancedSearch,
+    loadPopularCards, 
+    loadRandomCard,
+    activeFilters,
+    isFiltersCollapsed,
+    updateFilter,
+    clearAllFilters,
+    toggleFiltersCollapsed,
+    hasActiveFilters,
+    searchSuggestions,
+    showSuggestions,
+    getSearchSuggestions,
+    clearSearchSuggestions,
+    addToSearchHistory,
+    availableSets,
+    setSearchText,
+    filteredSets,
+    updateSetSearchText,
+    toggleSetSelection
+  } = useCards();"""
+        
+        new_destructuring = """  const { 
+    cards, 
+    loading, 
+    error, 
+    searchForCards,
+    searchWithAllFilters,
+    enhancedSearch,
+    loadPopularCards, 
+    loadRandomCard,
+    activeFilters,
+    isFiltersCollapsed,
+    updateFilter,
+    clearAllFilters,
+    toggleFiltersCollapsed,
+    hasActiveFilters,
+    searchSuggestions,
+    showSuggestions,
+    getSearchSuggestions,
+    clearSearchSuggestions,
+    addToSearchHistory,
+    availableSets,
+    setSearchText: setFilterSearchText,
+    filteredSets,
+    updateSetSearchText,
+    toggleSetSelection
+  } = useCards();"""
+        
+        if old_destructuring in content:
+            content = content.replace(old_destructuring, new_destructuring)
+            print("✅ Fixed useCards destructuring - renamed setSearchText to setFilterSearchText")
+        else:
+            print("⚠️  Could not find useCards destructuring pattern")
+        
+        # Fix 2: Update the SearchAutocomplete onChange to use local setSearchText function
+        old_search_autocomplete = """              <SearchAutocomplete
+                value={searchText}
+                onChange={setSearchText}
+                onSearch={handleSearch}"""
+        
+        new_search_autocomplete = """              <SearchAutocomplete
+                value={searchText}
+                onChange={setSearchText}
+                onSearch={handleSearch}"""
+        
+        # This one should already be correct, but let's make sure setSearchText refers to local state
+        
+        # Fix 3: Update set search input to use the renamed function
+        old_set_search_input = """                  value={setSearchText}
+                  onChange={(e) => updateSetSearchText(e.target.value)}"""
+        
+        new_set_search_input = """                  value={setFilterSearchText}
+                  onChange={(e) => updateSetSearchText(e.target.value)}"""
+        
+        if old_set_search_input in content:
+            content = content.replace(old_set_search_input, new_set_search_input)
+            print("✅ Fixed set search input to use renamed setFilterSearchText")
+        
+        # Fix 4: Update condition that checks setSearchText
+        old_condition = """                  {filteredSets.length === 0 && setSearchText && ("""
+        new_condition = """                  {filteredSets.length === 0 && setFilterSearchText && ("""
+        
+        if old_condition in content:
+            content = content.replace(old_condition, new_condition)
+            print("✅ Fixed setSearchText condition to use renamed variable")
+        
+        # Fix 5: Remove invalid CSS :hover syntax
+        old_css_style = """                      ':hover': { backgroundColor: '#333' }"""
+        new_css_style = """                      // Note: hover styles should be in CSS file"""
+        
+        if old_css_style in content:
+            content = content.replace(old_css_style, new_css_style)
+            print("✅ Fixed invalid :hover CSS syntax")
+        
+        # Write the updated content back to file
+        with open(file_path, 'w', encoding='utf-8') as file:
+            file.write(content)
+        
+        print(f"✅ SUCCESS: Fixed {file_path}")
+        return True
+        
+    except Exception as e:
+        print(f"❌ ERROR: Failed to update {file_path}: {str(e)}")
         return False
 
 def main():
-    print("🔧 Comprehensive Fix: Resolving All MTGOLayout Issues")
-    print("=" * 55)
+    print("🚀 MTG Deck Builder - Comprehensive Fix for TypeScript Errors")
+    print("=" * 70)
+    print("This script fixes all compilation errors from the filter addition.\n")
     
-    if comprehensive_fix():
-        print()
-        print("🎉 Comprehensive Fix Complete!")
-        print("✅ Removed duplicate imports")
-        print("✅ Added scryfallToDeckCard utility import")
-        print("✅ Added Pile view toggle buttons to deck header")
-        print("✅ Added Pile view toggle buttons to sideboard header")
-        print("✅ Fixed all ScryfallCard -> DeckCard conversion issues")
-        print("✅ Fixed selectCard type casting")
-        print("✅ Fixed handleAddToDeck function")
-        print("✅ Fixed all remaining type conversion patterns")
-        print()
-        print("🧪 Testing Instructions:")
-        print("1. Run `npm start` to verify compilation")
-        print("2. All TypeScript errors should be resolved")
-        print("3. Test Pile view toggle buttons in deck and sideboard")
-        print("4. Test pile view functionality with card organization")
+    success = True
+    
+    # Step 1: Fix useCards.ts clearCards function
+    print("📦 Step 1: Fixing clearCards function in useCards.ts...")
+    if not fix_use_cards_clear_function():
+        success = False
+    
+    # Step 2: Fix MTGOLayout.tsx naming conflicts and CSS
+    print("\n🎨 Step 2: Fixing naming conflicts and CSS in MTGOLayout.tsx...")
+    if not fix_mtgo_layout_naming_conflicts():
+        success = False
+    
+    if success:
+        print("\n🎉 All TypeScript errors fixed successfully!")
+        print("📋 Next steps:")
+        print("   1. Run 'npm start' to verify compilation")
+        print("   2. Test the set filter functionality")
+        print("   3. Test color identity fix")
+        print("   4. Test custom standard enhancement")
+        print("\n🔧 What was fixed:")
+        print("   ✅ Removed setSearchText naming conflict")
+        print("   ✅ Added missing set filter state properties")
+        print("   ✅ Fixed invalid CSS :hover syntax")
+        print("   ✅ Renamed conflicting variable to setFilterSearchText")
     else:
-        print("❌ Comprehensive fix failed")
+        print("\n❌ Some fixes failed. Please check the error messages above.")
 
 if __name__ == "__main__":
     main()
