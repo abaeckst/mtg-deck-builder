@@ -20,6 +20,8 @@ import DragPreview from './DragPreview';
 import ContextMenu from './ContextMenu';
 import SearchAutocomplete from './SearchAutocomplete';
 import PileView from './PileView';
+import ListView from './ListView';
+import AdaptiveHeader from './AdaptiveHeader';
 
 interface MTGOLayoutProps {
   // Props for any data that needs to be passed down
@@ -1015,62 +1017,97 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
                 )}
               </div>
               <span>View: </span>
-              <button className="active">Card</button>
-              <button>List</button>
+              <button 
+                className={layout.viewModes.collection === 'grid' ? 'active' : ''}
+                onClick={() => updateViewMode('collection', 'grid')}
+              >
+                Card
+              </button>
+              <button 
+                className={layout.viewModes.collection === 'list' ? 'active' : ''}
+                onClick={() => updateViewMode('collection', 'list')}
+              >
+                List
+              </button>
             </div>
           </div>
           
-          <div 
-            className="collection-grid"
-            style={{
-              display: 'grid',
-              gridTemplateColumns: `repeat(auto-fill, minmax(${Math.round(130 * cardSizes.collection)}px, max-content))`,
-              gap: `${Math.round(4 * cardSizes.collection)}px`,
-              alignContent: 'start',
-              padding: '8px'
-            }}
-          >
-            {loading && <div className="loading-message">Loading cards...</div>}
-            {error && <div className="error-message">Error: {error}</div>}
-            {!loading && !error && cards.length === 0 && (
-              <div className="no-results-message">
-                <div className="no-results-icon">🔍</div>
-                <h3>No cards found</h3>
-                <p>No cards match your current search and filter criteria.</p>
-                <div className="no-results-suggestions">
-                  <p><strong>Try:</strong></p>
-                  <ul>
-                    <li>Adjusting your search terms</li>
-                    <li>Changing filter settings</li>
-                    <li>Using broader criteria</li>
-                    <li>Clearing some filters</li>
-                  </ul>
-                </div>
+          {/* Collection Content - Conditional Rendering */}
+          {loading && <div className="loading-message">Loading cards...</div>}
+          {error && <div className="error-message">Error: {error}</div>}
+          {!loading && !error && cards.length === 0 && (
+            <div className="no-results-message">
+              <div className="no-results-icon">🔍</div>
+              <h3>No cards found</h3>
+              <p>No cards match your current search and filter criteria.</p>
+              <div className="no-results-suggestions">
+                <p><strong>Try:</strong></p>
+                <ul>
+                  <li>Adjusting your search terms</li>
+                  <li>Changing filter settings</li>
+                  <li>Using broader criteria</li>
+                  <li>Clearing some filters</li>
+                </ul>
               </div>
-            )}
-            {sortedCollectionCards.map((card: ScryfallCard | DeckCard) => (
-              <DraggableCard
-                key={card.id}
-                card={card}
-                zone="collection"
-                size="normal"
+            </div>
+          )}
+          
+          {!loading && !error && cards.length > 0 && (
+            layout.viewModes.collection === 'list' ? (
+              <ListView
+                cards={sortedCollectionCards}
+                area="collection"
                 scaleFactor={cardSizes.collection}
-                onClick={(card, event) => handleCardClick(card, event)} 
+                sortCriteria={collectionSortCriteria}
+                sortDirection={collectionSortDirection}
+                onSortChange={(criteria, direction) => {
+                  setCollectionSortCriteria(criteria);
+                  setCollectionSortDirection(direction);
+                }}
+                onClick={handleCardClick}
                 onDoubleClick={handleAddToDeck}
-                onEnhancedDoubleClick={handleDoubleClick}
                 onRightClick={handleRightClick}
                 onDragStart={handleDragStart}
-                showQuantity={true}
-                availableQuantity={4}
-                quantity={mainDeck.find((dc: any) => dc.id === card.id)?.quantity || 0}
-                selected={isSelected(card.id)}
-                selectable={true}
-                isDragActive={dragState.isDragging}
-                isBeingDragged={dragState.draggedCards.some(dc => dc.id === card.id)}
+                isSelected={isSelected}
                 selectedCards={getSelectedCardObjects()}
+                isDragActive={dragState.isDragging}
               />
-            ))}
-          </div>
+            ) : (
+              <div 
+                className="collection-grid"
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: `repeat(auto-fill, minmax(${Math.round(130 * cardSizes.collection)}px, max-content))`,
+                  gap: `${Math.round(4 * cardSizes.collection)}px`,
+                  alignContent: 'start',
+                  padding: '8px'
+                }}
+              >
+                {sortedCollectionCards.map((card: ScryfallCard | DeckCard) => (
+                  <DraggableCard
+                    key={card.id}
+                    card={card}
+                    zone="collection"
+                    size="normal"
+                    scaleFactor={cardSizes.collection}
+                    onClick={(card, event) => handleCardClick(card, event)} 
+                    onDoubleClick={(card) => handleAddToDeck(card)}
+                    onEnhancedDoubleClick={handleDoubleClick}
+                    onRightClick={handleRightClick}
+                    onDragStart={handleDragStart}
+                    showQuantity={true}
+                    availableQuantity={4}
+                    quantity={mainDeck.find((dc: any) => dc.id === card.id)?.quantity || 0}
+                    selected={isSelected(card.id)}
+                    selectable={true}
+                    isDragActive={dragState.isDragging}
+                    isBeingDragged={dragState.draggedCards.some(dc => dc.id === card.id)}
+                    selectedCards={getSelectedCardObjects()}
+                  />
+                ))}
+              </div>
+            )
+          )}
           
           {/* PHASE 3A: Enhanced Resize Handle with larger hit zone */}
           <div 
@@ -1214,6 +1251,12 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
                 >
                   Pile
                 </button>
+                <button 
+                  className={layout.viewModes.deck === 'list' ? 'active' : ''}
+                  onClick={() => updateViewMode('deck', 'list')}
+                >
+                  List
+                </button>
                 <button>Save Deck</button>
                 <button onClick={handleClearDeck} title="Clear all cards from deck">
                   Clear Deck
@@ -1239,6 +1282,34 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
                   onDragEnter={handleDragEnter}
                   onDragLeave={handleDragLeave}
                   canDropInZone={canDropInZone}
+                />
+              ) : layout.viewModes.deck === 'list' ? (
+                <ListView
+                  cards={sortedMainDeck}
+                  area="deck"
+                  scaleFactor={cardSizes.deck}
+                  sortCriteria={deckSortCriteria}
+                  sortDirection={deckSortDirection}
+                  onSortChange={(criteria, direction) => {
+                    setDeckSortCriteria(criteria);
+                    setDeckSortDirection(direction);
+                  }}
+                  onClick={(card, event) => handleCardClick(card, event)}
+                  onDoubleClick={(card) => handleDoubleClick(card as any, 'deck', { preventDefault: () => {}, stopPropagation: () => {} } as React.MouseEvent)}
+                  onRightClick={handleRightClick}
+                  onDragStart={handleDragStart}
+                  isSelected={isSelected}
+                  selectedCards={getSelectedCardObjects()}
+                  isDragActive={dragState.isDragging}
+                  onQuantityChange={(cardId, newQuantity) => {
+                    if (newQuantity === 0) {
+                      setMainDeck(prev => prev.filter(card => card.id !== cardId));
+                    } else {
+                      setMainDeck(prev => prev.map(card => 
+                        card.id === cardId ? { ...card, quantity: newQuantity } : card
+                      ));
+                    }
+                  }}
                 />
               ) : (
                 <div 
@@ -1388,6 +1459,12 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
                 >
                   Pile
                 </button>
+                <button 
+                  className={layout.viewModes.sideboard === 'list' ? 'active' : ''}
+                  onClick={() => updateViewMode('sideboard', 'list')}
+                >
+                  List
+                </button>
                 <button onClick={handleClearSideboard} title="Clear all cards from sideboard">
                   Clear
                 </button>
@@ -1412,6 +1489,34 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
                   onDragEnter={handleDragEnter}
                   onDragLeave={handleDragLeave}
                   canDropInZone={canDropInZone}
+                />
+              ) : layout.viewModes.sideboard === 'list' ? (
+                <ListView
+                  cards={sortedSideboard}
+                  area="sideboard"
+                  scaleFactor={cardSizes.sideboard}
+                  sortCriteria={sideboardSortCriteria}
+                  sortDirection={sideboardSortDirection}
+                  onSortChange={(criteria, direction) => {
+                    setSideboardSortCriteria(criteria);
+                    setSideboardSortDirection(direction);
+                  }}
+                  onClick={(card, event) => handleCardClick(card, event)}
+                  onDoubleClick={(card) => handleDoubleClick(card as any, 'sideboard', { preventDefault: () => {}, stopPropagation: () => {} } as React.MouseEvent)}
+                  onRightClick={handleRightClick}
+                  onDragStart={handleDragStart}
+                  isSelected={isSelected}
+                  selectedCards={getSelectedCardObjects()}
+                  isDragActive={dragState.isDragging}
+                  onQuantityChange={(cardId, newQuantity) => {
+                    if (newQuantity === 0) {
+                      setSideboard(prev => prev.filter(card => card.id !== cardId));
+                    } else {
+                      setSideboard(prev => prev.map(card => 
+                        card.id === cardId ? { ...card, quantity: newQuantity } : card
+                      ));
+                    }
+                  }}
                 />
               ) : (
                 <div 

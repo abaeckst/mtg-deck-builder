@@ -115,6 +115,12 @@ export interface DeckCard {
   
   // Format legality
   legal_in_format?: boolean; // Will be set based on selected format
+  
+  // Card text and stats (from Scryfall)
+  oracle_text?: string;
+  power?: string;
+  toughness?: string;
+  loyalty?: string;
 }
 
 /**
@@ -234,5 +240,10 @@ export const scryfallToDeckCard = (scryfallCard: ScryfallCard): DeckCard => {
     rarity: scryfallCard.rarity,
     quantity: 0, // Initially not in deck
     maxQuantity: isBasicLand(scryfallCard) ? Infinity : 4,
+    // Copy card text and stats
+    oracle_text: scryfallCard.oracle_text,
+    power: scryfallCard.power,
+    toughness: scryfallCard.toughness,
+    loyalty: scryfallCard.loyalty,
   };
 };
