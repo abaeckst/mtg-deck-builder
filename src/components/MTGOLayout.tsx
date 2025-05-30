@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useLayout } from '../hooks/useLayout';
 import { useSelection } from '../hooks/useSelection';
 import { useResize } from '../hooks/useResize';
@@ -8,6 +8,9 @@ import { DeviceCapabilities } from '../utils/deviceDetection';
 import './MTGOLayout.css';
 import './ContextMenu.css';
 
+// Card types import
+import { ScryfallCard, DeckCard, scryfallToDeckCard } from '../types/card';
+
 // Import components
 import { useCards } from '../hooks/useCards';
 import { useCardSizing } from '../hooks/useCardSizing';
@@ -15,13 +18,28 @@ import DraggableCard from './DraggableCard';
 import DropZoneComponent from './DropZone';
 import DragPreview from './DragPreview';
 import ContextMenu from './ContextMenu';
+import PileView from './PileView';
 
 interface MTGOLayoutProps {
   // Props for any data that needs to be passed down
 }
 
+// Pile view sort state
+type SortCriteria = 'mana' | 'color' | 'rarity' | 'type';
+
+// Helper function to convert any card to DeckCard
+const toDeckCard = (card: ScryfallCard | DeckCard, quantity: number = 1): DeckCard => {
+  // If it's already a DeckCard, just update quantity
+  if ('quantity' in card && 'maxQuantity' in card) {
+    return { ...card, quantity };
+  }
+  
+  // If it's a ScryfallCard, convert it
+  return { ...scryfallToDeckCard(card as ScryfallCard), quantity };
+};
+
 const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
-  const { layout, updatePanelDimensions, updateDeckAreaHeightByPixels, constraints } = useLayout();
+  const { layout, updatePanelDimensions, updateDeckAreaHeightByPixels, updateViewMode, constraints } = useLayout();
   const { 
     selectedCards, 
     selectCard, 
@@ -76,8 +94,36 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
   const [searchText, setSearchText] = useState('');
   
   // Deck state with proper typing
-  const [mainDeck, setMainDeck] = useState<Array<{ id: string; name: string; quantity: number; [key: string]: any }>>([]);
-  const [sideboard, setSideboard] = useState<Array<{ id: string; name: string; quantity: number; [key: string]: any }>>([]);
+  const [mainDeck, setMainDeck] = useState<DeckCard[]>([]);
+  const [sideboard, setSideboard] = useState<DeckCard[]>([]);
+  
+  // Pile view sort state
+  const [deckSortCriteria, setDeckSortCriteria] = useState<SortCriteria>('mana');
+  const [sideboardSortCriteria, setSideboardSortCriteria] = useState<SortCriteria>('mana');
+  
+  // Sort menu visibility state
+  const [showDeckSortMenu, setShowDeckSortMenu] = useState(false);
+  const [showSideboardSortMenu, setShowSideboardSortMenu] = useState(false);
+  
+  // Refs for click-outside detection
+  const deckSortRef = useRef<HTMLDivElement>(null);
+  const sideboardSortRef = useRef<HTMLDivElement>(null);
+  // Click-outside effect for sort menus
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (deckSortRef.current && !deckSortRef.current.contains(event.target as Node)) {
+        setShowDeckSortMenu(false);
+      }
+      if (sideboardSortRef.current && !sideboardSortRef.current.contains(event.target as Node)) {
+        setShowSideboardSortMenu(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
   
   // PHASE 3A: Clear deck functionality - FIXED
   const handleClearDeck = useCallback(() => {
@@ -95,7 +141,7 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
 
   // Context menu callback implementations
   const deckManagementCallbacks: DeckManagementCallbacks = {
-    addToDeck: useCallback((cards: (any)[], quantity = 1) => {
+    addToDeck: useCallback((cards: (ScryfallCard | DeckCard)[], quantity = 1) => {
       cards.forEach(card => {
         const existingCard = mainDeck.find(deckCard => deckCard.id === card.id);
         const currentQuantity = existingCard?.quantity || 0;
@@ -111,12 +157,12 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
           }
         } else {
           const addQuantity = Math.min(quantity, 4);
-          setMainDeck(prev => [...prev, { ...card, quantity: addQuantity }]);
+          setMainDeck(prev => [...prev, toDeckCard(card, addQuantity)]);
         }
       });
     }, [mainDeck]),
 
-    removeFromDeck: useCallback((cards: (any)[], quantity = 1) => {
+    removeFromDeck: useCallback((cards: (ScryfallCard | DeckCard)[], quantity = 1) => {
       cards.forEach(card => {
         const existingCard = mainDeck.find(deckCard => deckCard.id === card.id);
         if (existingCard) {
@@ -134,7 +180,7 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
       });
     }, [mainDeck]),
 
-    addToSideboard: useCallback((cards: (any)[], quantity = 1) => {
+    addToSideboard: useCallback((cards: (ScryfallCard | DeckCard)[], quantity = 1) => {
       cards.forEach(card => {
         const existingCard = sideboard.find(sideCard => sideCard.id === card.id);
         const currentQuantity = existingCard?.quantity || 0;
@@ -150,12 +196,12 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
           }
         } else {
           const addQuantity = Math.min(quantity, 4);
-          setSideboard(prev => [...prev, { ...card, quantity: addQuantity }]);
+          setSideboard(prev => [...prev, toDeckCard(card, addQuantity)]);
         }
       });
     }, [sideboard]),
 
-    removeFromSideboard: useCallback((cards: (any)[], quantity = 1) => {
+    removeFromSideboard: useCallback((cards: (ScryfallCard | DeckCard)[], quantity = 1) => {
       cards.forEach(card => {
         const existingCard = sideboard.find(sideCard => sideCard.id === card.id);
         if (existingCard) {
@@ -173,7 +219,7 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
       });
     }, [sideboard]),
 
-    moveDeckToSideboard: useCallback((cards: (any)[], quantity = 1) => {
+    moveDeckToSideboard: useCallback((cards: (ScryfallCard | DeckCard)[], quantity = 1) => {
       cards.forEach(card => {
         const deckCard = mainDeck.find(dc => dc.id === card.id);
         if (deckCard) {
@@ -200,13 +246,13 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
                 : sc
             ));
           } else {
-            setSideboard(prev => [...prev, { ...card, quantity: moveQuantity }]);
+            setSideboard(prev => [...prev, toDeckCard(card, moveQuantity)]);
           }
         }
       });
     }, [mainDeck, sideboard]),
 
-    moveSideboardToDeck: useCallback((cards: (any)[], quantity = 1) => {
+    moveSideboardToDeck: useCallback((cards: (ScryfallCard | DeckCard)[], quantity = 1) => {
       cards.forEach(card => {
         const sideCard = sideboard.find(sc => sc.id === card.id);
         if (sideCard) {
@@ -234,7 +280,7 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
                 : dc
             ));
           } else {
-            setMainDeck(prev => [...prev, { ...card, quantity: moveQuantity }]);
+            setMainDeck(prev => [...prev, { ...scryfallToDeckCard(card as ScryfallCard), quantity: moveQuantity }]);
           }
         }
       });
@@ -278,7 +324,7 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
             ));
           } else if (!existingCard) {
             console.log('🆕 Adding new card to deck');
-            setMainDeck(prev => [...prev, { ...card, quantity: 1 }]);
+            setMainDeck(prev => [...prev, toDeckCard(card, 1)]);
           } else {
             console.log('❌ Cannot add - deck limit reached');
           }
@@ -292,7 +338,7 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
                 : sideCard
             ));
           } else if (!existingCard) {
-            setSideboard(prev => [...prev, { ...card, quantity: 1 }]);
+            setSideboard(prev => [...prev, toDeckCard(card, 1)]);
           }
         } else if (from === 'deck' && to === 'sideboard') {
           console.log('➡️ DECK → SIDEBOARD');
@@ -316,7 +362,7 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
                   : sc
               ));
             } else {
-              setSideboard(prev => [...prev, { ...card, quantity: 1 }]);
+              setSideboard(prev => [...prev, toDeckCard(card, 1)]);
             }
           }
         } else if (from === 'sideboard' && to === 'deck') {
@@ -341,7 +387,7 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
                   : dc
               ));
             } else if (!existingCard) {
-              setMainDeck(prev => [...prev, { ...card, quantity: 1 }]);
+              setMainDeck(prev => [...prev, toDeckCard(card, 1)]);
             }
           }
         } else if (from === 'deck' && to === 'collection') {
@@ -462,11 +508,11 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
   
   
   // Card interaction handlers
-  const handleCardClick = (card: any, event?: React.MouseEvent) => {
+  const handleCardClick = (card: ScryfallCard | DeckCard, event?: React.MouseEvent) => {
     if (contextMenuState.visible) {
       hideContextMenu();
     }
-    selectCard(card.id, card, event?.ctrlKey);
+    selectCard(card.id, card as any, event?.ctrlKey);
   };
 
   const handleRightClick = useCallback((card: any, zone: DropZoneType, event: React.MouseEvent) => {
@@ -475,16 +521,16 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
   }, [showContextMenu, getSelectedCardObjects]);
   
   // Legacy double-click handler for fallback
-  const handleAddToDeck = (card: any) => {
-    const existingCard = mainDeck.find((deckCard: any) => deckCard.id === card.id);
+  const handleAddToDeck = (card: ScryfallCard | DeckCard) => {
+    const existingCard = mainDeck.find((deckCard: DeckCard) => deckCard.id === card.id);
     if (existingCard && existingCard.quantity < 4) {
-      setMainDeck((prev: any) => prev.map((deckCard: any) => 
+      setMainDeck((prev: DeckCard[]) => prev.map((deckCard: DeckCard) => 
         deckCard.id === card.id 
           ? { ...deckCard, quantity: deckCard.quantity + 1 }
           : deckCard
       ));
     } else if (!existingCard) {
-      setMainDeck((prev: any) => [...prev, { ...card, quantity: 1 }]);
+      setMainDeck((prev: DeckCard[]) => [...prev, toDeckCard(card, 1)]);
     }
   };
 
@@ -927,6 +973,58 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
                   className="size-slider"
                   title={`Card size: ${Math.round(cardSizes.deck * 100)}%`}
                 />
+                {layout.viewModes.deck === 'pile' && (
+                  <div className="sort-button-container" ref={deckSortRef}>
+                    <button 
+                      className="sort-toggle-btn"
+                      onClick={() => setShowDeckSortMenu(!showDeckSortMenu)}
+                      title="Sort options"
+                    >
+                      Sort
+                    </button>
+                    {showDeckSortMenu && (
+                      <div className="sort-menu">
+                        <button 
+                          className={deckSortCriteria === 'mana' ? 'active' : ''}
+                          onClick={() => { setDeckSortCriteria('mana'); setShowDeckSortMenu(false); }}
+                        >
+                          Mana Value
+                        </button>
+                        <button 
+                          className={deckSortCriteria === 'color' ? 'active' : ''}
+                          onClick={() => { setDeckSortCriteria('color'); setShowDeckSortMenu(false); }}
+                        >
+                          Color
+                        </button>
+                        <button 
+                          className={deckSortCriteria === 'rarity' ? 'active' : ''}
+                          onClick={() => { setDeckSortCriteria('rarity'); setShowDeckSortMenu(false); }}
+                        >
+                          Rarity
+                        </button>
+                        <button 
+                          className={deckSortCriteria === 'type' ? 'active' : ''}
+                          onClick={() => { setDeckSortCriteria('type'); setShowDeckSortMenu(false); }}
+                        >
+                          Card Type
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+                <span>View: </span>
+                <button 
+                  className={layout.viewModes.deck === 'card' ? 'active' : ''}
+                  onClick={() => updateViewMode('deck', 'card')}
+                >
+                  Card
+                </button>
+                <button 
+                  className={layout.viewModes.deck === 'pile' ? 'active' : ''}
+                  onClick={() => updateViewMode('deck', 'pile')}
+                >
+                  Pile
+                </button>
                 <button>Save Deck</button>
                 <button onClick={handleClearDeck} title="Clear all cards from deck">
                   Clear Deck
@@ -935,43 +1033,63 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
             </div>
             
             <div className="deck-content">
-              <div 
-                className="deck-grid"
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: `repeat(auto-fill, minmax(${Math.round(130 * cardSizes.deck)}px, 1fr))`,
-                  gap: `${Math.round(4 * cardSizes.deck)}px`,
-                  alignContent: 'start',
-                  minHeight: '150px',
-                  paddingBottom: '40px'
-                }}
-              >
-                {mainDeck.map((deckCard: any) => (
-                  <DraggableCard
-                    key={deckCard.id}
-                    card={deckCard}
-                    zone="deck"
-                    size="normal"
-                    scaleFactor={cardSizes.deck}
-                    onClick={(card, event) => handleCardClick(card, event)}
-                    onEnhancedDoubleClick={handleDoubleClick}
-                    onRightClick={handleRightClick}
-                    onDragStart={handleDragStart}
-                    showQuantity={true}
-                    quantity={deckCard.quantity}
-                    selected={isSelected(deckCard.id)}
-                    selectable={true}
-                    isDragActive={dragState.isDragging}
-                    isBeingDragged={dragState.draggedCards.some(dc => dc.id === deckCard.id)}
-                    selectedCards={getSelectedCardObjects()}
-                  />
-                ))}
-                {mainDeck.length === 0 && (
-                  <div className="empty-deck-message">
-                    Double-click or drag cards from the collection to add them to your deck
-                  </div>
-                )}
-              </div>
+              {layout.viewModes.deck === 'pile' ? (
+                <PileView
+                  cards={mainDeck}
+                  zone="deck"
+                  scaleFactor={cardSizes.deck}
+                  forcedSortCriteria={deckSortCriteria}
+                  onClick={(card, event) => handleCardClick(card, event)}
+                  onDoubleClick={handleAddToDeck}
+                  onEnhancedDoubleClick={handleDoubleClick}
+                  onRightClick={handleRightClick}
+                  onDragStart={handleDragStart}
+                  isSelected={isSelected}
+                  selectedCards={getSelectedCardObjects()}
+                  isDragActive={dragState.isDragging}
+                  onDragEnter={handleDragEnter}
+                  onDragLeave={handleDragLeave}
+                  canDropInZone={canDropInZone}
+                />
+              ) : (
+                <div 
+                  className="deck-grid"
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: `repeat(auto-fill, minmax(${Math.round(130 * cardSizes.deck)}px, 1fr))`,
+                    gap: `${Math.round(4 * cardSizes.deck)}px`,
+                    alignContent: 'start',
+                    minHeight: '150px',
+                    paddingBottom: '40px'
+                  }}
+                >
+                  {mainDeck.map((deckCard: DeckCard) => (
+                    <DraggableCard
+                      key={deckCard.id}
+                      card={deckCard}
+                      zone="deck"
+                      size="normal"
+                      scaleFactor={cardSizes.deck}
+                      onClick={(card, event) => handleCardClick(card, event)}
+                      onEnhancedDoubleClick={handleDoubleClick}
+                      onRightClick={handleRightClick}
+                      onDragStart={handleDragStart}
+                      showQuantity={true}
+                      quantity={deckCard.quantity}
+                      selected={isSelected(deckCard.id)}
+                      selectable={true}
+                      isDragActive={dragState.isDragging}
+                      isBeingDragged={dragState.draggedCards.some(dc => dc.id === deckCard.id)}
+                      selectedCards={getSelectedCardObjects()}
+                    />
+                  ))}
+                  {mainDeck.length === 0 && (
+                    <div className="empty-deck-message">
+                      Double-click or drag cards from the collection to add them to your deck
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </DropZoneComponent>
           
@@ -999,6 +1117,58 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
                   className="size-slider"
                   title={`Card size: ${Math.round(cardSizes.sideboard * 100)}%`}
                 />
+                {layout.viewModes.sideboard === 'pile' && (
+                  <div className="sort-button-container" ref={sideboardSortRef}>
+                    <button 
+                      className="sort-toggle-btn"
+                      onClick={() => setShowSideboardSortMenu(!showSideboardSortMenu)}
+                      title="Sort options"
+                    >
+                      Sort
+                    </button>
+                    {showSideboardSortMenu && (
+                      <div className="sort-menu">
+                        <button 
+                          className={sideboardSortCriteria === 'mana' ? 'active' : ''}
+                          onClick={() => { setSideboardSortCriteria('mana'); setShowSideboardSortMenu(false); }}
+                        >
+                          Mana Value
+                        </button>
+                        <button 
+                          className={sideboardSortCriteria === 'color' ? 'active' : ''}
+                          onClick={() => { setSideboardSortCriteria('color'); setShowSideboardSortMenu(false); }}
+                        >
+                          Color
+                        </button>
+                        <button 
+                          className={sideboardSortCriteria === 'rarity' ? 'active' : ''}
+                          onClick={() => { setSideboardSortCriteria('rarity'); setShowSideboardSortMenu(false); }}
+                        >
+                          Rarity
+                        </button>
+                        <button 
+                          className={sideboardSortCriteria === 'type' ? 'active' : ''}
+                          onClick={() => { setSideboardSortCriteria('type'); setShowSideboardSortMenu(false); }}
+                        >
+                          Card Type
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+                <span>View: </span>
+                <button 
+                  className={layout.viewModes.sideboard === 'card' ? 'active' : ''}
+                  onClick={() => updateViewMode('sideboard', 'card')}
+                >
+                  Card
+                </button>
+                <button 
+                  className={layout.viewModes.sideboard === 'pile' ? 'active' : ''}
+                  onClick={() => updateViewMode('sideboard', 'pile')}
+                >
+                  Pile
+                </button>
                 <button onClick={handleClearSideboard} title="Clear all cards from sideboard">
                   Clear
                 </button>
@@ -1006,43 +1176,63 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
             </div>
             
             <div className="sideboard-content">
-              <div 
-                className="sideboard-grid"
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: `repeat(auto-fill, minmax(${Math.round(130 * cardSizes.sideboard)}px, 1fr))`,
-                  gap: `${Math.round(4 * cardSizes.sideboard)}px`,
-                  alignContent: 'start',
-                  minHeight: '150px',
-                  paddingBottom: '40px'
-                }}
-              >
-                {sideboard.map((sideCard: any) => (
-                  <DraggableCard
-                    key={sideCard.id}
-                    card={sideCard}
-                    zone="sideboard"
-                    size="normal"
-                    scaleFactor={cardSizes.sideboard}
-                    onClick={(card, event) => handleCardClick(card, event)}
-                    onEnhancedDoubleClick={handleDoubleClick}
-                    onRightClick={handleRightClick}
-                    onDragStart={handleDragStart}
-                    showQuantity={true}
-                    quantity={sideCard.quantity}
-                    selected={isSelected(sideCard.id)}
-                    selectable={true}
-                    isDragActive={dragState.isDragging}
-                    isBeingDragged={dragState.draggedCards.some(dc => dc.id === sideCard.id)}
-                    selectedCards={getSelectedCardObjects()}
-                  />
-                ))}
-                {sideboard.length === 0 && (
-                  <div className="empty-sideboard-message">
-                    Drag cards here for your sideboard
-                  </div>
-                )}
-              </div>
+              {layout.viewModes.sideboard === 'pile' ? (
+                <PileView
+                  cards={sideboard}
+                  zone="sideboard"
+                  scaleFactor={cardSizes.sideboard}
+                  forcedSortCriteria={sideboardSortCriteria}
+                  onClick={(card, event) => handleCardClick(card, event)}
+                  onDoubleClick={handleAddToDeck}
+                  onEnhancedDoubleClick={handleDoubleClick}
+                  onRightClick={handleRightClick}
+                  onDragStart={handleDragStart}
+                  isSelected={isSelected}
+                  selectedCards={getSelectedCardObjects()}
+                  isDragActive={dragState.isDragging}
+                  onDragEnter={handleDragEnter}
+                  onDragLeave={handleDragLeave}
+                  canDropInZone={canDropInZone}
+                />
+              ) : (
+                <div 
+                  className="sideboard-grid"
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: `repeat(auto-fill, minmax(${Math.round(130 * cardSizes.sideboard)}px, 1fr))`,
+                    gap: `${Math.round(4 * cardSizes.sideboard)}px`,
+                    alignContent: 'start',
+                    minHeight: '150px',
+                    paddingBottom: '40px'
+                  }}
+                >
+                  {sideboard.map((sideCard: DeckCard) => (
+                    <DraggableCard
+                      key={sideCard.id}
+                      card={sideCard}
+                      zone="sideboard"
+                      size="normal"
+                      scaleFactor={cardSizes.sideboard}
+                      onClick={(card, event) => handleCardClick(card, event)}
+                      onEnhancedDoubleClick={handleDoubleClick}
+                      onRightClick={handleRightClick}
+                      onDragStart={handleDragStart}
+                      showQuantity={true}
+                      quantity={sideCard.quantity}
+                      selected={isSelected(sideCard.id)}
+                      selectable={true}
+                      isDragActive={dragState.isDragging}
+                      isBeingDragged={dragState.draggedCards.some(dc => dc.id === sideCard.id)}
+                      selectedCards={getSelectedCardObjects()}
+                    />
+                  ))}
+                  {sideboard.length === 0 && (
+                    <div className="empty-sideboard-message">
+                      Drag cards here for your sideboard
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
             
             {/* PHASE 3A: Enhanced Resize Handle with larger hit zone */}
