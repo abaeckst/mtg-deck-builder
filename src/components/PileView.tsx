@@ -5,13 +5,14 @@ import { DropZone } from '../hooks/useDragAndDrop';
 import PileColumn from './PileColumn';
 import PileSortControls from './PileSortControls';
 
-export type SortCriteria = 'mana' | 'color' | 'rarity' | 'type';
+export type PileSortCriteria = 'mana' | 'color' | 'rarity' | 'type';
+export type SortCriteria = 'name' | 'mana' | 'color' | 'rarity' | 'type';
 
 interface PileViewProps {
   cards: (ScryfallCard | DeckCard)[];
   zone: 'deck' | 'sideboard';
   scaleFactor: number;
-  forcedSortCriteria?: SortCriteria; // External sort control from parent
+  forcedSortCriteria?: PileSortCriteria; // External sort control from parent
   // Existing card interaction handlers from MTGOLayout
   onClick?: (card: ScryfallCard | DeckCard, event?: React.MouseEvent) => void;
   onDoubleClick?: (card: ScryfallCard | DeckCard) => void;

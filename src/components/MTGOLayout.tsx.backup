@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useLayout } from '../hooks/useLayout';
 import { useSelection } from '../hooks/useSelection';
 import { useResize } from '../hooks/useResize';
@@ -26,7 +26,7 @@ interface MTGOLayoutProps {
 }
 
 // Pile view sort state
-type SortCriteria = 'name' | 'mana' | 'color' | 'rarity' | 'type';
+type SortCriteria = 'mana' | 'color' | 'rarity' | 'type';
 
 // Helper function to convert any card to DeckCard
 const toDeckCard = (card: ScryfallCard | DeckCard, quantity: number = 1): DeckCard => {
@@ -104,29 +104,20 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
   const [mainDeck, setMainDeck] = useState<DeckCard[]>([]);
   const [sideboard, setSideboard] = useState<DeckCard[]>([]);
   
-  // Universal sort state for all areas and view modes
-  const [collectionSortCriteria, setCollectionSortCriteria] = useState<SortCriteria>('name');
-  const [collectionSortDirection, setCollectionSortDirection] = useState<'asc' | 'desc'>('asc');
+  // Pile view sort state
   const [deckSortCriteria, setDeckSortCriteria] = useState<SortCriteria>('mana');
-  const [deckSortDirection, setDeckSortDirection] = useState<'asc' | 'desc'>('asc');
   const [sideboardSortCriteria, setSideboardSortCriteria] = useState<SortCriteria>('mana');
-  const [sideboardSortDirection, setSideboardSortDirection] = useState<'asc' | 'desc'>('asc');
   
-  // Sort menu visibility state for all areas
-  const [showCollectionSortMenu, setShowCollectionSortMenu] = useState(false);
+  // Sort menu visibility state
   const [showDeckSortMenu, setShowDeckSortMenu] = useState(false);
   const [showSideboardSortMenu, setShowSideboardSortMenu] = useState(false);
   
   // Refs for click-outside detection
-  const collectionSortRef = useRef<HTMLDivElement>(null);
   const deckSortRef = useRef<HTMLDivElement>(null);
   const sideboardSortRef = useRef<HTMLDivElement>(null);
   // Click-outside effect for sort menus
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (collectionSortRef.current && !collectionSortRef.current.contains(event.target as Node)) {
-        setShowCollectionSortMenu(false);
-      }
       if (deckSortRef.current && !deckSortRef.current.contains(event.target as Node)) {
         setShowDeckSortMenu(false);
       }
@@ -564,59 +555,7 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
     setDropZone(null, false);
   }, [setDropZone]);
   
-
-  // Card sorting helper function for all areas
-  const sortCards = useCallback((cards: (ScryfallCard | DeckCard)[], criteria: SortCriteria, direction: 'asc' | 'desc'): (ScryfallCard | DeckCard)[] => {
-    const sorted = [...cards].sort((a, b) => {
-      let comparison = 0;
-      
-      switch (criteria) {
-        case 'name':
-          comparison = a.name.localeCompare(b.name);
-          break;
-        case 'mana':
-          comparison = (a.cmc ?? 0) - (b.cmc ?? 0);
-          break;
-        case 'color':
-          const aColors = a.colors?.join('') || 'Z';
-          const bColors = b.colors?.join('') || 'Z';
-          comparison = aColors.localeCompare(bColors);
-          break;
-        case 'rarity':
-          const rarityOrder = { common: 1, uncommon: 2, rare: 3, mythic: 4 };
-          const aRarity = rarityOrder[a.rarity as keyof typeof rarityOrder] || 0;
-          const bRarity = rarityOrder[b.rarity as keyof typeof rarityOrder] || 0;
-          comparison = aRarity - bRarity;
-          break;
-        case 'type':
-          const aType = a.type_line || '';
-          const bType = b.type_line || '';
-          comparison = aType.localeCompare(bType);
-          break;
-        default:
-          comparison = a.name.localeCompare(b.name);
-      }
-      
-      return direction === 'desc' ? -comparison : comparison;
-    });
-    
-    return sorted;
-  }, []);
-
-  // Get sorted cards for each area
-  const sortedCollectionCards = useMemo(() => {
-    return sortCards(cards, collectionSortCriteria, collectionSortDirection);
-  }, [cards, collectionSortCriteria, collectionSortDirection, sortCards]);
-
-  const sortedMainDeck = useMemo((): DeckCard[] => {
-    return layout.viewModes.deck === 'pile' ? mainDeck : sortCards(mainDeck, deckSortCriteria, deckSortDirection) as DeckCard[];
-  }, [mainDeck, deckSortCriteria, deckSortDirection, layout.viewModes.deck, sortCards]);
-
-  const sortedSideboard = useMemo((): DeckCard[] => {
-    return layout.viewModes.sideboard === 'pile' ? sideboard : sortCards(sideboard, sideboardSortCriteria, sideboardSortDirection) as DeckCard[];
-  }, [sideboard, sideboardSortCriteria, sideboardSortDirection, layout.viewModes.sideboard, sortCards]);
-
-    // Mobile fallback
+  // Mobile fallback
   if (!canUseMTGO) {
     return (
       <div className="mtgo-mobile-warning">
@@ -931,89 +870,6 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
                 className="size-slider"
                 title={`Card size: ${Math.round(cardSizes.collection * 100)}%`}
               />
-              <div className="sort-button-container" ref={collectionSortRef}>
-                <button 
-                  className="sort-toggle-btn"
-                  onClick={() => setShowCollectionSortMenu(!showCollectionSortMenu)}
-                  title="Sort options"
-                >
-                  Sort
-                </button>
-                {showCollectionSortMenu && (
-                  <div className="sort-menu">
-                    <button 
-                      className={collectionSortCriteria === 'name' ? 'active' : ''}
-                      onClick={() => { 
-                        if (collectionSortCriteria === 'name') {
-                          setCollectionSortDirection(collectionSortDirection === 'asc' ? 'desc' : 'asc');
-                        } else {
-                          setCollectionSortCriteria('name'); 
-                          setCollectionSortDirection('asc');
-                        }
-                        setShowCollectionSortMenu(false); 
-                      }}
-                    >
-                      Name {collectionSortCriteria === 'name' ? (collectionSortDirection === 'asc' ? '↑' : '↓') : ''}
-                    </button>
-                    <button 
-                      className={collectionSortCriteria === 'mana' ? 'active' : ''}
-                      onClick={() => { 
-                        if (collectionSortCriteria === 'mana') {
-                          setCollectionSortDirection(collectionSortDirection === 'asc' ? 'desc' : 'asc');
-                        } else {
-                          setCollectionSortCriteria('mana'); 
-                          setCollectionSortDirection('asc');
-                        }
-                        setShowCollectionSortMenu(false); 
-                      }}
-                    >
-                      Mana Value {collectionSortCriteria === 'mana' ? (collectionSortDirection === 'asc' ? '↑' : '↓') : ''}
-                    </button>
-                    <button 
-                      className={collectionSortCriteria === 'color' ? 'active' : ''}
-                      onClick={() => { 
-                        if (collectionSortCriteria === 'color') {
-                          setCollectionSortDirection(collectionSortDirection === 'asc' ? 'desc' : 'asc');
-                        } else {
-                          setCollectionSortCriteria('color'); 
-                          setCollectionSortDirection('asc');
-                        }
-                        setShowCollectionSortMenu(false); 
-                      }}
-                    >
-                      Color {collectionSortCriteria === 'color' ? (collectionSortDirection === 'asc' ? '↑' : '↓') : ''}
-                    </button>
-                    <button 
-                      className={collectionSortCriteria === 'rarity' ? 'active' : ''}
-                      onClick={() => { 
-                        if (collectionSortCriteria === 'rarity') {
-                          setCollectionSortDirection(collectionSortDirection === 'asc' ? 'desc' : 'asc');
-                        } else {
-                          setCollectionSortCriteria('rarity'); 
-                          setCollectionSortDirection('asc');
-                        }
-                        setShowCollectionSortMenu(false); 
-                      }}
-                    >
-                      Rarity {collectionSortCriteria === 'rarity' ? (collectionSortDirection === 'asc' ? '↑' : '↓') : ''}
-                    </button>
-                    <button 
-                      className={collectionSortCriteria === 'type' ? 'active' : ''}
-                      onClick={() => { 
-                        if (collectionSortCriteria === 'type') {
-                          setCollectionSortDirection(collectionSortDirection === 'asc' ? 'desc' : 'asc');
-                        } else {
-                          setCollectionSortCriteria('type'); 
-                          setCollectionSortDirection('asc');
-                        }
-                        setShowCollectionSortMenu(false); 
-                      }}
-                    >
-                      Card Type {collectionSortCriteria === 'type' ? (collectionSortDirection === 'asc' ? '↑' : '↓') : ''}
-                    </button>
-                  </div>
-                )}
-              </div>
               <span>View: </span>
               <button className="active">Card</button>
               <button>List</button>
@@ -1048,7 +904,7 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
                 </div>
               </div>
             )}
-            {sortedCollectionCards.map((card: ScryfallCard | DeckCard) => (
+            {cards.map(card => (
               <DraggableCard
                 key={card.id}
                 card={card}
@@ -1132,75 +988,45 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
                   className="size-slider"
                   title={`Card size: ${Math.round(cardSizes.deck * 100)}%`}
                 />
-                <div className="sort-button-container" ref={deckSortRef}>
-                  <button 
-                    className="sort-toggle-btn"
-                    onClick={() => setShowDeckSortMenu(!showDeckSortMenu)}
-                    title="Sort options"
-                  >
-                    Sort
-                  </button>
-                  {showDeckSortMenu && (
-                    <div className="sort-menu">
-                      <button 
-                        className={deckSortCriteria === 'mana' ? 'active' : ''}
-                        onClick={() => { 
-                          if (layout.viewModes.deck === 'card' && deckSortCriteria === 'mana') {
-                            setDeckSortDirection(deckSortDirection === 'asc' ? 'desc' : 'asc');
-                          } else {
-                            setDeckSortCriteria('mana'); 
-                            if (layout.viewModes.deck === 'card') setDeckSortDirection('asc');
-                          }
-                          setShowDeckSortMenu(false); 
-                        }}
-                      >
-                        Mana Value {deckSortCriteria === 'mana' && layout.viewModes.deck === 'card' ? (deckSortDirection === 'asc' ? '↑' : '↓') : ''}
-                      </button>
-                      <button 
-                        className={deckSortCriteria === 'color' ? 'active' : ''}
-                        onClick={() => { 
-                          if (layout.viewModes.deck === 'card' && deckSortCriteria === 'color') {
-                            setDeckSortDirection(deckSortDirection === 'asc' ? 'desc' : 'asc');
-                          } else {
-                            setDeckSortCriteria('color'); 
-                            if (layout.viewModes.deck === 'card') setDeckSortDirection('asc');
-                          }
-                          setShowDeckSortMenu(false); 
-                        }}
-                      >
-                        Color {deckSortCriteria === 'color' && layout.viewModes.deck === 'card' ? (deckSortDirection === 'asc' ? '↑' : '↓') : ''}
-                      </button>
-                      <button 
-                        className={deckSortCriteria === 'rarity' ? 'active' : ''}
-                        onClick={() => { 
-                          if (layout.viewModes.deck === 'card' && deckSortCriteria === 'rarity') {
-                            setDeckSortDirection(deckSortDirection === 'asc' ? 'desc' : 'asc');
-                          } else {
-                            setDeckSortCriteria('rarity'); 
-                            if (layout.viewModes.deck === 'card') setDeckSortDirection('asc');
-                          }
-                          setShowDeckSortMenu(false); 
-                        }}
-                      >
-                        Rarity {deckSortCriteria === 'rarity' && layout.viewModes.deck === 'card' ? (deckSortDirection === 'asc' ? '↑' : '↓') : ''}
-                      </button>
-                      <button 
-                        className={deckSortCriteria === 'type' ? 'active' : ''}
-                        onClick={() => { 
-                          if (layout.viewModes.deck === 'card' && deckSortCriteria === 'type') {
-                            setDeckSortDirection(deckSortDirection === 'asc' ? 'desc' : 'asc');
-                          } else {
-                            setDeckSortCriteria('type'); 
-                            if (layout.viewModes.deck === 'card') setDeckSortDirection('asc');
-                          }
-                          setShowDeckSortMenu(false); 
-                        }}
-                      >
-                        Card Type {deckSortCriteria === 'type' && layout.viewModes.deck === 'card' ? (deckSortDirection === 'asc' ? '↑' : '↓') : ''}
-                      </button>
-                    </div>
-                  )}
-                </div>
+                {layout.viewModes.deck === 'pile' && (
+                  <div className="sort-button-container" ref={deckSortRef}>
+                    <button 
+                      className="sort-toggle-btn"
+                      onClick={() => setShowDeckSortMenu(!showDeckSortMenu)}
+                      title="Sort options"
+                    >
+                      Sort
+                    </button>
+                    {showDeckSortMenu && (
+                      <div className="sort-menu">
+                        <button 
+                          className={deckSortCriteria === 'mana' ? 'active' : ''}
+                          onClick={() => { setDeckSortCriteria('mana'); setShowDeckSortMenu(false); }}
+                        >
+                          Mana Value
+                        </button>
+                        <button 
+                          className={deckSortCriteria === 'color' ? 'active' : ''}
+                          onClick={() => { setDeckSortCriteria('color'); setShowDeckSortMenu(false); }}
+                        >
+                          Color
+                        </button>
+                        <button 
+                          className={deckSortCriteria === 'rarity' ? 'active' : ''}
+                          onClick={() => { setDeckSortCriteria('rarity'); setShowDeckSortMenu(false); }}
+                        >
+                          Rarity
+                        </button>
+                        <button 
+                          className={deckSortCriteria === 'type' ? 'active' : ''}
+                          onClick={() => { setDeckSortCriteria('type'); setShowDeckSortMenu(false); }}
+                        >
+                          Card Type
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
                 <span>View: </span>
                 <button 
                   className={layout.viewModes.deck === 'card' ? 'active' : ''}
@@ -1227,7 +1053,7 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
                   cards={mainDeck}
                   zone="deck"
                   scaleFactor={cardSizes.deck}
-                  forcedSortCriteria={deckSortCriteria === 'name' ? 'mana' : deckSortCriteria}
+                  forcedSortCriteria={deckSortCriteria}
                   onClick={(card, event) => handleCardClick(card, event)}
                   onDoubleClick={handleAddToDeck}
                   onEnhancedDoubleClick={handleDoubleClick}
@@ -1252,7 +1078,7 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
                     paddingBottom: '40px'
                   }}
                 >
-                  {sortedMainDeck.map((deckCard) => (
+                  {mainDeck.map((deckCard: DeckCard) => (
                     <DraggableCard
                       key={deckCard.id}
                       card={deckCard}
@@ -1306,75 +1132,45 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
                   className="size-slider"
                   title={`Card size: ${Math.round(cardSizes.sideboard * 100)}%`}
                 />
-                <div className="sort-button-container" ref={sideboardSortRef}>
-                  <button 
-                    className="sort-toggle-btn"
-                    onClick={() => setShowSideboardSortMenu(!showSideboardSortMenu)}
-                    title="Sort options"
-                  >
-                    Sort
-                  </button>
-                  {showSideboardSortMenu && (
-                    <div className="sort-menu">
-                      <button 
-                        className={sideboardSortCriteria === 'mana' ? 'active' : ''}
-                        onClick={() => { 
-                          if (layout.viewModes.sideboard === 'card' && sideboardSortCriteria === 'mana') {
-                            setSideboardSortDirection(sideboardSortDirection === 'asc' ? 'desc' : 'asc');
-                          } else {
-                            setSideboardSortCriteria('mana'); 
-                            if (layout.viewModes.sideboard === 'card') setSideboardSortDirection('asc');
-                          }
-                          setShowSideboardSortMenu(false); 
-                        }}
-                      >
-                        Mana Value {sideboardSortCriteria === 'mana' && layout.viewModes.sideboard === 'card' ? (sideboardSortDirection === 'asc' ? '↑' : '↓') : ''}
-                      </button>
-                      <button 
-                        className={sideboardSortCriteria === 'color' ? 'active' : ''}
-                        onClick={() => { 
-                          if (layout.viewModes.sideboard === 'card' && sideboardSortCriteria === 'color') {
-                            setSideboardSortDirection(sideboardSortDirection === 'asc' ? 'desc' : 'asc');
-                          } else {
-                            setSideboardSortCriteria('color'); 
-                            if (layout.viewModes.sideboard === 'card') setSideboardSortDirection('asc');
-                          }
-                          setShowSideboardSortMenu(false); 
-                        }}
-                      >
-                        Color {sideboardSortCriteria === 'color' && layout.viewModes.sideboard === 'card' ? (sideboardSortDirection === 'asc' ? '↑' : '↓') : ''}
-                      </button>
-                      <button 
-                        className={sideboardSortCriteria === 'rarity' ? 'active' : ''}
-                        onClick={() => { 
-                          if (layout.viewModes.sideboard === 'card' && sideboardSortCriteria === 'rarity') {
-                            setSideboardSortDirection(sideboardSortDirection === 'asc' ? 'desc' : 'asc');
-                          } else {
-                            setSideboardSortCriteria('rarity'); 
-                            if (layout.viewModes.sideboard === 'card') setSideboardSortDirection('asc');
-                          }
-                          setShowSideboardSortMenu(false); 
-                        }}
-                      >
-                        Rarity {sideboardSortCriteria === 'rarity' && layout.viewModes.sideboard === 'card' ? (sideboardSortDirection === 'asc' ? '↑' : '↓') : ''}
-                      </button>
-                      <button 
-                        className={sideboardSortCriteria === 'type' ? 'active' : ''}
-                        onClick={() => { 
-                          if (layout.viewModes.sideboard === 'card' && sideboardSortCriteria === 'type') {
-                            setSideboardSortDirection(sideboardSortDirection === 'asc' ? 'desc' : 'asc');
-                          } else {
-                            setSideboardSortCriteria('type'); 
-                            if (layout.viewModes.sideboard === 'card') setSideboardSortDirection('asc');
-                          }
-                          setShowSideboardSortMenu(false); 
-                        }}
-                      >
-                        Card Type {sideboardSortCriteria === 'type' && layout.viewModes.sideboard === 'card' ? (sideboardSortDirection === 'asc' ? '↑' : '↓') : ''}
-                      </button>
-                    </div>
-                  )}
-                </div>
+                {layout.viewModes.sideboard === 'pile' && (
+                  <div className="sort-button-container" ref={sideboardSortRef}>
+                    <button 
+                      className="sort-toggle-btn"
+                      onClick={() => setShowSideboardSortMenu(!showSideboardSortMenu)}
+                      title="Sort options"
+                    >
+                      Sort
+                    </button>
+                    {showSideboardSortMenu && (
+                      <div className="sort-menu">
+                        <button 
+                          className={sideboardSortCriteria === 'mana' ? 'active' : ''}
+                          onClick={() => { setSideboardSortCriteria('mana'); setShowSideboardSortMenu(false); }}
+                        >
+                          Mana Value
+                        </button>
+                        <button 
+                          className={sideboardSortCriteria === 'color' ? 'active' : ''}
+                          onClick={() => { setSideboardSortCriteria('color'); setShowSideboardSortMenu(false); }}
+                        >
+                          Color
+                        </button>
+                        <button 
+                          className={sideboardSortCriteria === 'rarity' ? 'active' : ''}
+                          onClick={() => { setSideboardSortCriteria('rarity'); setShowSideboardSortMenu(false); }}
+                        >
+                          Rarity
+                        </button>
+                        <button 
+                          className={sideboardSortCriteria === 'type' ? 'active' : ''}
+                          onClick={() => { setSideboardSortCriteria('type'); setShowSideboardSortMenu(false); }}
+                        >
+                          Card Type
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
                 <span>View: </span>
                 <button 
                   className={layout.viewModes.sideboard === 'card' ? 'active' : ''}
@@ -1400,7 +1196,7 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
                   cards={sideboard}
                   zone="sideboard"
                   scaleFactor={cardSizes.sideboard}
-                  forcedSortCriteria={sideboardSortCriteria === 'name' ? 'mana' : sideboardSortCriteria}
+                  forcedSortCriteria={sideboardSortCriteria}
                   onClick={(card, event) => handleCardClick(card, event)}
                   onDoubleClick={handleAddToDeck}
                   onEnhancedDoubleClick={handleDoubleClick}
@@ -1425,7 +1221,7 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
                     paddingBottom: '40px'
                   }}
                 >
-                  {sortedSideboard.map((sideCard) => (
+                  {sideboard.map((sideCard: DeckCard) => (
                     <DraggableCard
                       key={sideCard.id}
                       card={sideCard}
