@@ -45,14 +45,20 @@ export const searchCards = async (
   order = 'name'
 ): Promise<ScryfallSearchResponse> => {
   try {
+    // Handle empty queries - Scryfall doesn't accept empty q parameter
+    if (!query || query.trim() === '') {
+      throw new Error('Search query cannot be empty');
+    }
+    
     const params = new URLSearchParams({
-      q: query,
+      q: query.trim(),
       page: page.toString(),
       unique,
       order,
     });
     
     const url = `${SCRYFALL_API_BASE}/cards/search?${params.toString()}`;
+    console.log('🌐 API Request:', url);
     const response = await rateLimitedFetch(url);
     const data = await response.json();
     
@@ -175,12 +181,16 @@ export const getSets = async (): Promise<any[]> => {
 export interface SearchFilters {
   format?: string;
   colors?: string[];
+  colorIdentity?: 'exact' | 'subset' | 'include'; // How to match colors
   types?: string[];
   rarity?: string[];
-  set?: string;
+  sets?: string[];
   cmc?: { min?: number; max?: number };
   power?: { min?: number; max?: number };
   toughness?: { min?: number; max?: number };
+  keywords?: string[];
+  artist?: string;
+  price?: { min?: number; max?: number };
 }
 
 export const searchCardsWithFilters = async (
@@ -188,17 +198,70 @@ export const searchCardsWithFilters = async (
   filters: SearchFilters = {},
   page = 1
 ): Promise<ScryfallSearchResponse> => {
-  let searchQuery = query;
+  // Start with base query - ensure we never have empty query
+  let searchQuery = query || '*';
   
-  // Add format filter
+  console.log('🔧 Building search query from:', { baseQuery: query, filters });
+  
+  // Add format filter with Custom Standard support
   if (filters.format) {
-    searchQuery += ` legal:${filters.format}`;
+    if (filters.format === 'custom-standard') {
+      // Custom Standard: Use standard legality as base
+      // In future phases, this will be extended to include unreleased sets
+      searchQuery += ` legal:standard`;
+    } else {
+      searchQuery += ` legal:${filters.format}`;
+    }
   }
   
-  // Add color filters
+  // Add color identity filters with advanced logic
   if (filters.colors && filters.colors.length > 0) {
-    const colorQuery = filters.colors.join('');
-    searchQuery += ` color:${colorQuery}`;
+    // Handle colorless separately
+    if (filters.colors.includes('C')) {
+      // If colorless is selected with other colors, handle as multicolor search
+      if (filters.colors.length > 1) {
+        const otherColors = filters.colors.filter(c => c !== 'C').join('');
+        const colorMode = filters.colorIdentity || 'exact';
+        
+        switch (colorMode) {
+          case 'exact':
+            // For exact with colorless + colors, search for colorless OR exact colors
+            if (otherColors) {
+              searchQuery += ` (color=C OR color=${otherColors})`;
+            } else {
+              searchQuery += ` color=C`;
+            }
+            break;
+          case 'subset':
+            searchQuery += ` color<=${otherColors}C`;
+            break;
+          case 'include':
+          default:
+            searchQuery += ` (color:C OR color:${otherColors})`;
+            break;
+        }
+      } else {
+        // Only colorless selected
+        searchQuery += ` color=C`;
+      }
+    } else {
+      // No colorless, handle normally
+      const colorQuery = filters.colors.join('');
+      const colorMode = filters.colorIdentity || 'exact';
+      
+      switch (colorMode) {
+        case 'exact':
+          searchQuery += ` color=${colorQuery}`;
+          break;
+        case 'subset':
+          searchQuery += ` color<=${colorQuery}`;
+          break;
+        case 'include':
+        default:
+          searchQuery += ` color:${colorQuery}`;
+          break;
+      }
+    }
   }
   
   // Add type filters
@@ -213,11 +276,16 @@ export const searchCardsWithFilters = async (
     searchQuery += ` (${rarityQuery})`;
   }
   
-  // Add set filter
-  if (filters.set) {
-    searchQuery += ` set:${filters.set}`;
+  // Add set filters (multiple sets support)
+  if (filters.sets && filters.sets.length > 0) {
+    if (filters.sets.length === 1) {
+      searchQuery += ` set:${filters.sets[0]}`;
+    } else {
+      const setQuery = filters.sets.map(set => `set:${set}`).join(' OR ');
+      searchQuery += ` (${setQuery})`;
+    }
   }
-  
+
   // Add CMC filter
   if (filters.cmc) {
     if (filters.cmc.min !== undefined) {

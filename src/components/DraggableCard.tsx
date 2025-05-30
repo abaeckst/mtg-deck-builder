@@ -8,6 +8,7 @@ interface DraggableCardProps {
   card: ScryfallCard | DeckCard;
   zone: DropZone;
   size?: 'small' | 'normal' | 'large';
+  scaleFactor?: number;
   onClick?: (card: ScryfallCard | DeckCard, event?: React.MouseEvent) => void;
   onDoubleClick?: (card: ScryfallCard | DeckCard) => void;
   onRightClick?: (card: ScryfallCard | DeckCard, zone: DropZone, event: React.MouseEvent) => void;
@@ -31,6 +32,7 @@ const DraggableCard: React.FC<DraggableCardProps> = ({
   card,
   zone,
   size = 'normal',
+  scaleFactor = 1,
   onClick,
   onDoubleClick,
   onRightClick,
@@ -243,6 +245,7 @@ const DraggableCard: React.FC<DraggableCardProps> = ({
       <MagicCard
         card={card}
         size={size}
+        scaleFactor={scaleFactor}
         showQuantity={showQuantity}
         quantity={quantity}
         availableQuantity={availableQuantity}

@@ -77,9 +77,9 @@
   overflow-y: auto;
   flex: 1; /* Take remaining space after header */
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-  gap: 8px;
+  /* Grid columns and gap set dynamically by JavaScript */
   align-content: start;
+  transition: gap 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* SIMPLE FIX: Bottom Area - Fixed to 30% of viewport */
@@ -198,6 +198,106 @@
   background-color: #3b82f6;
   border-color: #2563eb;
 }
+/* PHASE 3B-1: Size slider styles - Professional larger sliders */
+.size-slider {
+  width: 180px;  /* Triple the original size for better precision */
+  height: 20px;
+  margin: 0 12px 0 6px;
+  background: linear-gradient(to right, #404040, #666666);
+  border-radius: 10px;
+  outline: none;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+  transition: all 0.2s ease;
+}
+
+.size-slider:hover {
+  background: linear-gradient(to right, #4a4a4a, #707070);
+}
+
+.size-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  background: #3b82f6;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid #ffffff;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+  transition: all 0.2s ease;
+}
+
+.size-slider::-webkit-slider-thumb:hover {
+  background: #2563eb;
+  transform: scale(1.15);
+  box-shadow: 0 3px 6px rgba(0,0,0,0.5);
+}
+
+.size-slider::-webkit-slider-thumb:active {
+  background: #1d4ed8;
+  transform: scale(1.1);
+}
+
+.size-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  background: #3b82f6;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+  transition: all 0.2s ease;
+}
+
+.size-slider::-moz-range-thumb:hover {
+  background: #2563eb;
+  transform: scale(1.15);
+  box-shadow: 0 3px 6px rgba(0,0,0,0.5);
+}
+
+.size-slider::-moz-range-thumb:active {
+  background: #1d4ed8;
+  transform: scale(1.1);
+}
+
+/* Consistent sizing across all areas */
+.deck-controls .size-slider,
+.sideboard-controls .size-slider {
+  width: 180px;  /* Same size as collection slider for consistency */
+  margin: 0 12px 0 6px;
+}
+
+/* Responsive grid styles with proportional spacing */
+.collection-grid-container {
+  overflow-y: auto;
+  flex: 1;
+}
+
+.collection-grid {
+  display: grid;
+  align-content: start;
+  /* Grid columns and gap will be set by JavaScript for consistency */
+}
+
+.deck-grid {
+  display: grid;
+  /* Grid columns and gap will be set dynamically by individual card grids */
+  align-content: start;
+  min-height: 150px;
+  padding-bottom: 40px;
+  transition: gap 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sideboard-grid {
+  display: grid;
+  /* Grid columns and gap will be set dynamically by individual card grids */
+  align-content: start;
+  min-height: 150px;
+  padding-bottom: 40px;
+  transition: gap 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
 
 /* Deck Controls */
 .deck-controls {
@@ -311,7 +411,7 @@
 /* Color Filter Grid */
 .color-filter-grid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(6, 1fr);
   gap: 4px;
 }
 
@@ -346,6 +446,7 @@
 .color-button.color-b { background-color: #150b00; }
 .color-button.color-r { background-color: #d3202a; }
 .color-button.color-g { background-color: #00733e; }
+.color-button.color-c { background-color: #ccc2c0; color: #000000; }
 
 /* Quick Actions */
 .quick-actions {
@@ -427,6 +528,299 @@
   border: 1px solid rgba(239, 68, 68, 0.3);
 }
 
+
+/* PHASE 3C: Enhanced Filter Panel Styles */
+
+/* Filter Panel Collapse/Expand */
+.mtgo-filter-panel.collapsed {
+  min-width: 40px;
+  max-width: 40px;
+}
+
+.mtgo-filter-panel.collapsed .panel-header h3 {
+  display: none;
+}
+
+.filter-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.clear-filters-btn {
+  background-color: #ef4444;
+  color: #ffffff;
+  border: 1px solid #dc2626;
+  padding: 4px 8px;
+  border-radius: 3px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.clear-filters-btn:hover {
+  background-color: #dc2626;
+  transform: scale(1.05);
+}
+
+.collapse-toggle-btn {
+  background-color: #3b82f6;
+  color: #ffffff;
+  border: 1px solid #2563eb;
+  padding: 4px 8px;
+  border-radius: 3px;
+  font-size: 12px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 24px;
+}
+
+.collapse-toggle-btn:hover {
+  background-color: #2563eb;
+  transform: scale(1.1);
+}
+
+/* Color Identity Controls */
+.color-identity-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.color-mode-select {
+  width: 100%;
+  background-color: #1a1a1a;
+  border: 1px solid #404040;
+  color: #ffffff;
+  padding: 6px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.color-mode-select:focus {
+  outline: none;
+  border-color: #3b82f6;
+}
+
+/* Range Filter Styles */
+.range-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.range-input {
+  width: 60px;
+  background-color: #1a1a1a;
+  border: 1px solid #404040;
+  color: #ffffff;
+  padding: 6px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  text-align: center;
+}
+
+.range-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 1px #3b82f6;
+}
+
+.range-filter span {
+  color: #cccccc;
+  font-size: 11px;
+}
+
+/* Multi-Select Grid for Card Types */
+.multi-select-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 4px;
+}
+
+.type-button {
+  background-color: #404040;
+  color: #ffffff;
+  border: 1px solid #555555;
+  padding: 6px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: center;
+}
+
+.type-button:hover {
+  background-color: #4a4a4a;
+  transform: scale(1.02);
+}
+
+.type-button.selected {
+  background-color: #3b82f6;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 1px #2563eb;
+}
+
+/* Rarity Filter Grid */
+.rarity-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+}
+
+.rarity-button {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  border: 2px solid #404040;
+  color: #ffffff;
+  font-weight: bold;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rarity-button:hover {
+  border-color: #ffffff;
+  transform: scale(1.1);
+}
+
+.rarity-button.selected {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px #3b82f6;
+}
+
+/* Rarity-specific colors */
+.rarity-button.rarity-common { background-color: #6b7280; }
+.rarity-button.rarity-uncommon { background-color: #c0c0c0; color: #000000; }
+.rarity-button.rarity-rare { background-color: #fbbf24; color: #000000; }
+.rarity-button.rarity-mythic { background-color: #f59e0b; color: #000000; }
+
+/* Creature Stats Filter */
+.stats-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.stat-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.stat-row span {
+  color: #cccccc;
+  font-size: 11px;
+  min-width: 65px;
+}
+
+.stat-input {
+  width: 50px;
+  background-color: #1a1a1a;
+  border: 1px solid #404040;
+  color: #ffffff;
+  padding: 4px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  text-align: center;
+}
+
+.stat-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 1px #3b82f6;
+}
+
+/* Enhanced Filter Group Spacing */
+.filter-group {
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #333333;
+}
+
+.filter-group:last-child {
+  border-bottom: none;
+}
+
+.filter-group label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: #ffffff;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Filter Panel Collapse Animation */
+.mtgo-filter-panel {
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+
+.filter-content {
+  opacity: 1;
+  transition: opacity 0.2s ease;
+}
+
+.mtgo-filter-panel.collapsed .filter-content {
+  opacity: 0;
+  display: none;
+}
+
+/* Active Filter Indicators */
+.filter-group.has-active-filters label::after {
+  content: " •";
+  color: #3b82f6;
+  font-weight: bold;
+}
+
+/* Responsive Filter Adjustments */
+@media (max-width: 1200px) {
+  .multi-select-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .rarity-filter-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .range-filter {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+  }
+  
+  .range-input {
+    width: 100%;
+  }
+}
+
+/* Enhanced Scrollbar for Filter Content */
+.filter-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.filter-content::-webkit-scrollbar-track {
+  background-color: #1a1a1a;
+  border-radius: 3px;
+}
+
+.filter-content::-webkit-scrollbar-thumb {
+  background-color: #404040;
+  border-radius: 3px;
+}
+
+.filter-content::-webkit-scrollbar-thumb:hover {
+  background-color: #555555;
+}
+
 /* Enhanced Resize Handles - Larger hit zones */
 .resize-handle {
   position: absolute;
@@ -473,6 +867,133 @@
   right: 0;
   height: 30px;
   cursor: ns-resize;
+}
+
+
+/* No Results State Styling */
+.no-results-message {
+  grid-column: 1 / -1;
+  text-align: center;
+  color: #cccccc;
+  padding: 60px 40px;
+  background-color: rgba(255, 255, 255, 0.02);
+  border: 2px dashed #404040;
+  border-radius: 12px;
+  margin: 20px;
+  max-width: 500px;
+  justify-self: center;
+}
+
+.no-results-icon {
+  font-size: 48px;
+  margin-bottom: 20px;
+  opacity: 0.7;
+}
+
+.no-results-message h3 {
+  color: #ffffff;
+  font-size: 24px;
+  margin: 0 0 12px 0;
+  font-weight: 600;
+}
+
+.no-results-message p {
+  color: #cccccc;
+  font-size: 16px;
+  margin: 0 0 20px 0;
+  line-height: 1.5;
+}
+
+.no-results-suggestions {
+  background-color: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 8px;
+  padding: 16px;
+  text-align: left;
+  margin-top: 20px;
+}
+
+.no-results-suggestions p {
+  margin: 0 0 8px 0;
+  font-weight: 600;
+  color: #3b82f6;
+}
+
+.no-results-suggestions ul {
+  margin: 0;
+  padding-left: 20px;
+  color: #cccccc;
+}
+
+.no-results-suggestions li {
+  margin-bottom: 4px;
+  font-size: 14px;
+}
+
+/* Validation Error Styling */
+.validation-error {
+  background-color: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.5);
+  color: #ef4444;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.validation-error::before {
+  content: "⚠️";
+  font-size: 14px;
+}
+
+/* Enhanced Loading and Error Messages */
+.loading-message {
+  background-color: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  color: #3b82f6;
+  padding: 20px;
+  border-radius: 8px;
+  margin: 20px;
+  text-align: center;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.loading-message::before {
+  content: "⏳";
+  font-size: 20px;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.error-message {
+  background-color: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #ef4444;
+  padding: 20px;
+  border-radius: 8px;
+  margin: 20px;
+  text-align: center;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.error-message::before {
+  content: "❌";
+  font-size: 20px;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
 }
 
 /* Scrollbar Styling */
@@ -532,7 +1053,7 @@
 .draggable-card {
   position: relative;
   display: inline-block;
-  transition: transform 0.2s ease, opacity 0.2s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: grab;
 }
 
@@ -733,6 +1254,35 @@
   }
 }
 
+
+/* SMOOTH SLIDER SCALING - Eliminates card jumping during size changes */
+.collection-grid > *,
+.deck-grid > *,
+.sideboard-grid > * {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Enhanced grid container smoothness */
+.collection-grid,
+.deck-grid,
+.sideboard-grid {
+  transition: gap 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+              grid-template-columns 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Smooth slider handle transitions */
+.size-slider {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.size-slider::-webkit-slider-thumb {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.size-slider::-moz-range-thumb {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
 /* Reduced motion support */
 @media (prefers-reduced-motion: reduce) {
   .draggable-card,
@@ -766,9 +1316,7 @@
     min-width: 180px;
   }
   
-  .collection-grid {
-    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
-  }
+  /* Collection grid sizing controlled by JavaScript */
 }
 
 @media (max-width: 900px) {
@@ -781,8 +1329,5 @@
     display: none;
   }
   
-  .collection-grid {
-    grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
-    gap: 6px;
-  }
+  /* Collection grid sizing controlled by JavaScript */
 }

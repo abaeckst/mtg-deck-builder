@@ -10,6 +10,7 @@ import { ScryfallCard, DeckCard, getCardImageUri } from '../types/card';
 interface MagicCardProps {
   card: ScryfallCard | DeckCard;
   size?: 'small' | 'normal' | 'large';
+  scaleFactor?: number;
   onClick?: (card: ScryfallCard | DeckCard) => void;
   onDoubleClick?: (card: ScryfallCard | DeckCard) => void;
   showQuantity?: boolean;
@@ -35,30 +36,26 @@ const rarityColors = {
 };
 
 /**
- * Get size styles for different card sizes
+ * Get size styles for different card sizes with dynamic scaling
  */
-const getSizeStyles = (size: 'small' | 'normal' | 'large') => {
-  switch (size) {
-    case 'small':
-      return {
-        width: '60px',
-        height: '84px',
-        fontSize: '10px',
-      };
-    case 'large':
-      return {
-        width: '200px',
-        height: '279px',
-        fontSize: '14px',
-      };
-    case 'normal':
-    default:
-      return {
-        width: '120px',
-        height: '168px',
-        fontSize: '12px',
-      };
-  }
+const getSizeStyles = (size: 'small' | 'normal' | 'large', scaleFactor: number = 1) => {
+  // Base dimensions for each size category
+  const baseSizes = {
+    small: { width: 60, height: 84, fontSize: 10 },
+    normal: { width: 120, height: 168, fontSize: 12 },
+    large: { width: 200, height: 279, fontSize: 14 }
+  };
+  
+  const baseSize = baseSizes[size] || baseSizes.normal;
+  
+  // Apply scale factor with reasonable bounds
+  const clampedScale = Math.max(0.5, Math.min(3.0, scaleFactor));
+  
+  return {
+    width: `${Math.round(baseSize.width * clampedScale)}px`,
+    height: `${Math.round(baseSize.height * clampedScale)}px`,
+    fontSize: `${Math.round(baseSize.fontSize * clampedScale)}px`,
+  };
 };
 
 /**
@@ -67,6 +64,7 @@ const getSizeStyles = (size: 'small' | 'normal' | 'large') => {
 export const MagicCard: React.FC<MagicCardProps> = ({
   card,
   size = 'normal',
+  scaleFactor = 1,
   onClick,
   onDoubleClick,
   showQuantity = false,
@@ -81,7 +79,7 @@ export const MagicCard: React.FC<MagicCardProps> = ({
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
 
-  const sizeStyles = getSizeStyles(size);
+  const sizeStyles = getSizeStyles(size, scaleFactor);
   const imageUri = 'image_uri' in card 
     ? card.image_uri 
     : getCardImageUri(card as ScryfallCard, size === 'small' ? 'small' : 'normal');
@@ -131,7 +129,7 @@ export const MagicCard: React.FC<MagicCardProps> = ({
     backgroundColor: '#1a1a1a',
     cursor: selectable || onClick ? 'pointer' : 'default',
     opacity: disabled ? 0.5 : 1,
-    transition: 'all 0.2s ease-in-out',
+    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
     overflow: 'hidden',
     boxShadow: selected 
       ? '0 0 0 2px #3b82f6, 0 4px 8px rgba(0,0,0,0.3)' 
@@ -326,10 +324,11 @@ export const MagicCard: React.FC<MagicCardProps> = ({
  */
 export const CardPlaceholder: React.FC<{
   size?: 'small' | 'normal' | 'large';
+  scaleFactor?: number;
   className?: string;
   style?: React.CSSProperties;
-}> = ({ size = 'normal', className = '', style }) => {
-  const sizeStyles = getSizeStyles(size);
+}> = ({ size = 'normal', scaleFactor = 1, className = '', style }) => {
+  const sizeStyles = getSizeStyles(size, scaleFactor);
 
   return (
     <div
@@ -362,29 +361,64 @@ export const CardPlaceholder: React.FC<{
 export const CardGrid: React.FC<{
   cards: (ScryfallCard | DeckCard)[];
   cardSize?: 'small' | 'normal' | 'large';
+  scaleFactor?: number;
   onCardClick?: (card: ScryfallCard | DeckCard) => void;
   onCardDoubleClick?: (card: ScryfallCard | DeckCard) => void;
   showQuantities?: boolean;
   selectedCards?: Set<string>;
   className?: string;
   style?: React.CSSProperties;
+  area?: 'collection' | 'deck' | 'sideboard';
 }> = ({
   cards,
   cardSize = 'normal',
+  scaleFactor = 1,
   onCardClick,
   onCardDoubleClick,
   showQuantities = false,
   selectedCards = new Set(),
   className = '',
   style,
+  area = 'collection',
 }) => {
+  // Calculate dynamic grid column size and gap with area-specific behavior
+  const getGridSettings = () => {
+    const baseSizes = {
+      small: 70,
+      normal: 130, 
+      large: 210
+    };
+    const baseSize = baseSizes[cardSize] || baseSizes.normal;
+    const clampedScale = Math.max(0.7, Math.min(2.5, scaleFactor));
+    const scaledSize = Math.round(baseSize * clampedScale);
+    
+    // Smooth proportional gap scaling - no artificial bounds
+    const baseGap = 4;  // Base gap size
+    const scaledGap = Math.round(baseGap * clampedScale);
+    
+    // Area-specific grid template behavior
+    let gridTemplate;
+    if (area === 'collection') {
+      // Collection: Use max-content to prevent cards from expanding
+      gridTemplate = `repeat(auto-fill, minmax(${scaledSize}px, max-content))`;
+    } else {
+      // Deck/Sideboard: Use 1fr for flexible sizing
+      gridTemplate = `repeat(auto-fill, minmax(${scaledSize}px, 1fr))`;
+    }
+    
+    return {
+      columnSize: `${scaledSize}px`,
+      gap: `${scaledGap}px`,
+      gridTemplate: gridTemplate
+    };
+  };
+
+  const { columnSize, gap, gridTemplate } = getGridSettings();
+
   const gridStyles: React.CSSProperties = {
     display: 'grid',
-    gridTemplateColumns: `repeat(auto-fill, minmax(${
-      cardSize === 'small' ? '70px' : 
-      cardSize === 'large' ? '210px' : '130px'
-    }, 1fr))`,
-    gap: '8px',
+    gridTemplateColumns: gridTemplate,
+    gap: gap,
     padding: '8px',
     ...style,
   };
@@ -396,6 +430,7 @@ export const CardGrid: React.FC<{
           key={card.id}
           card={card}
           size={cardSize}
+          scaleFactor={scaleFactor}
           onClick={onCardClick}
           onDoubleClick={onCardDoubleClick}
           showQuantity={showQuantities}

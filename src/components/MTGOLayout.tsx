@@ -10,6 +10,7 @@ import './ContextMenu.css';
 
 // Import components
 import { useCards } from '../hooks/useCards';
+import { useCardSizing } from '../hooks/useCardSizing';
 import DraggableCard from './DraggableCard';
 import DropZoneComponent from './DropZone';
 import DragPreview from './DragPreview';
@@ -32,10 +33,36 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
     cards, 
     loading, 
     error, 
-    searchForCards, 
+    searchForCards,
+    searchWithAllFilters,
     loadPopularCards, 
-    loadRandomCard 
+    loadRandomCard,
+    activeFilters,
+    isFiltersCollapsed,
+    updateFilter,
+    clearAllFilters,
+    toggleFiltersCollapsed,
+    hasActiveFilters
   } = useCards();
+  
+  // PHASE 3B-1: Card sizing system
+  const { 
+    sizes: cardSizes, 
+    updateCollectionSize, 
+    updateDeckSize, 
+    updateSideboardSize 
+  } = useCardSizing();
+  
+  // Debug logging for sizing issues
+  console.log('Current card sizes:', cardSizes);
+  console.log('Collection grid calc:', {
+    minmax: Math.max(90, Math.round(110 * cardSizes.collection)),
+    gap: Math.max(6, Math.min(12, Math.round(8 * cardSizes.collection)))
+  });
+  console.log('Deck grid calc:', {
+    minmax: Math.max(90, Math.round(110 * cardSizes.deck)),
+    gap: Math.max(6, Math.min(12, Math.round(8 * cardSizes.deck)))
+  });
   
   // UPDATED: Initialize resize functionality with new percentage-based system
   const { handlers: resizeHandlers } = useResize({ 
@@ -45,10 +72,8 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
     constraints 
   });
   
-  // Local state for search and filters
+  // Local state for search only - filters now managed by useCards hook
   const [searchText, setSearchText] = useState('');
-  const [selectedFormat, setSelectedFormat] = useState('');
-  const [selectedColors, setSelectedColors] = useState<string[]>([]);
   
   // Deck state with proper typing
   const [mainDeck, setMainDeck] = useState<Array<{ id: string; name: string; quantity: number; [key: string]: any }>>([]);
@@ -374,15 +399,67 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
   // Check if device supports MTGO interface
   const canUseMTGO = DeviceCapabilities.canUseAdvancedInterface();
   
-  // Search handling
-  const handleSearch = (text: string) => {
+  // Enhanced search handling with comprehensive filters - FIXED
+  const handleSearch = useCallback((text: string) => {
     setSearchText(text);
+    console.log('🔍 Search triggered:', { text, hasFilters: hasActiveFilters() });
+    // Always search when there's text OR filters are active
     if (text.trim()) {
-      searchForCards(text);
+      searchWithAllFilters(text);
+    } else if (hasActiveFilters()) {
+      searchWithAllFilters('');
     } else {
       loadPopularCards();
     }
-  };
+  }, [searchWithAllFilters, loadPopularCards, hasActiveFilters]);
+  
+  // Handle any filter change with validation - FIXED v3 (Integrated Validation)
+  const handleFilterChange = useCallback((filterType: string, value: any) => {
+    console.log('🔧 Filter changing with validation:', filterType, '=', value);
+    
+    // Input validation for range fields
+    if (filterType === 'cmc' && value && typeof value === 'object') {
+      if (value.min !== null && value.max !== null && value.min > value.max) {
+        console.log('⚠️ Validation error: CMC min cannot exceed max');
+        alert('Invalid CMC range: Minimum cannot be greater than maximum');
+        return;
+      }
+    }
+    
+    if (filterType === 'power' && value && typeof value === 'object') {
+      if (value.min !== null && value.max !== null && value.min > value.max) {
+        console.log('⚠️ Validation error: Power min cannot exceed max');
+        alert('Invalid Power range: Minimum cannot be greater than maximum');
+        return;
+      }
+    }
+    
+    if (filterType === 'toughness' && value && typeof value === 'object') {
+      if (value.min !== null && value.max !== null && value.min > value.max) {
+        console.log('⚠️ Validation error: Toughness min cannot exceed max');
+        alert('Invalid Toughness range: Minimum cannot be greater than maximum');
+        return;
+      }
+    }
+    
+    // Build the new filter state manually to avoid closure issues
+    const newFilters = {
+      ...activeFilters,
+      [filterType]: value,
+    };
+    
+    console.log('🔧 New filters will be:', newFilters);
+    
+    // Update the filter state
+    updateFilter(filterType, value);
+    
+    // Trigger search immediately with the new filters (don't wait for state update)
+    setTimeout(() => {
+      console.log('🔧 Triggering search with new filters');
+      searchWithAllFilters(searchText, newFilters);
+    }, 50);
+  }, [updateFilter, searchWithAllFilters, searchText, activeFilters]);
+  
   
   // Card interaction handlers
   const handleCardClick = (card: any, event?: React.MouseEvent) => {
@@ -441,77 +518,255 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
       {/* Drag Preview */}
       <DragPreview dragState={dragState} />
       
-      {/* Filter Panel - Left Side */}
+      {/* Enhanced Filter Panel - Left Side */}
       <div 
-        className="mtgo-filter-panel"
-        style={{ width: layout.panels.filterPanelWidth }}
+        className={`mtgo-filter-panel ${isFiltersCollapsed ? 'collapsed' : ''}`}
+        style={{ width: isFiltersCollapsed ? '40px' : layout.panels.filterPanelWidth }}
       >
         <div className="panel-header">
-          <h3>Filters</h3>
-        </div>
-        
-        <div className="filter-content">
-          <div className="filter-group">
-            <label>Search</label>
-            <input
-              type="text"
-              value={searchText}
-              onChange={(e) => handleSearch(e.target.value)}
-              placeholder="Card name..."
-              className="search-input"
-            />
-          </div>
-          
-          <div className="filter-group">
-            <label>Format</label>
-            <select 
-              value={selectedFormat} 
-              onChange={(e) => setSelectedFormat(e.target.value)}
-              className="format-select"
+          <h3>{isFiltersCollapsed ? '' : 'Filters'}</h3>
+          <div className="filter-controls">
+            {!isFiltersCollapsed && hasActiveFilters() && (
+              <button onClick={clearAllFilters} className="clear-filters-btn" title="Clear all filters">
+                Clear
+              </button>
+            )}
+            <button 
+              onClick={toggleFiltersCollapsed} 
+              className="collapse-toggle-btn"
+              title={isFiltersCollapsed ? 'Expand filters' : 'Collapse filters'}
             >
-              <option value="">All Formats</option>
-              <option value="standard">Standard</option>
-              <option value="pioneer">Pioneer</option>
-              <option value="modern">Modern</option>
-              <option value="legacy">Legacy</option>
-              <option value="vintage">Vintage</option>
-            </select>
-          </div>
-          
-          <div className="filter-group">
-            <label>Colors</label>
-            <div className="color-filter-grid">
-              {['W', 'U', 'B', 'R', 'G'].map((color: string) => (
-                <button
-                  key={color}
-                  className={`color-button color-${color.toLowerCase()} ${
-                    selectedColors.includes(color) ? 'selected' : ''
-                  }`}
-                  onClick={() => {
-                    setSelectedColors((prev: string[]) => 
-                      prev.includes(color) 
-                        ? prev.filter((c: string) => c !== color)
-                        : [...prev, color]
-                    );
-                  }}
-                >
-                  {color}
-                </button>
-              ))}
-            </div>
-          </div>
-          
-          <div className="filter-group">
-            <label>Quick Load</label>
-            <div className="quick-actions">
-              <button onClick={loadPopularCards}>Popular Cards</button>
-              <button onClick={loadRandomCard}>Random Card</button>
-              <button onClick={clearSelection}>Clear Selection</button>
-            </div>
+              {isFiltersCollapsed ? '→' : '←'}
+            </button>
           </div>
         </div>
         
-        {/* PHASE 3A: Enhanced Resize Handle with larger hit zone */}
+        {!isFiltersCollapsed && (
+          <div className="filter-content">
+            {/* Search Group */}
+            <div className="filter-group">
+              <label>Search</label>
+              <input
+                type="text"
+                value={searchText}
+                onChange={(e) => handleSearch(e.target.value)}
+                placeholder="Card name..."
+                className="search-input"
+              />
+            </div>
+            
+            {/* Format Group */}
+            <div className="filter-group">
+              <label>Format</label>
+              <select 
+                value={activeFilters.format} 
+                onChange={(e) => handleFilterChange('format', e.target.value)}
+                className="format-select"
+              >
+                <option value="">All Formats</option>
+                <option value="standard">Standard</option>
+                <option value="custom-standard">Custom Standard (Standard + Unreleased)</option>
+                <option value="pioneer">Pioneer</option>
+                <option value="modern">Modern</option>
+                <option value="legacy">Legacy</option>
+                <option value="vintage">Vintage</option>
+                <option value="commander">Commander</option>
+                <option value="pauper">Pauper</option>
+              </select>
+            </div>
+            
+            {/* Color Identity Group */}
+            <div className="filter-group">
+              <label>Color Identity</label>
+              <div className="color-identity-controls">
+                <div className="color-filter-grid">
+                  {['W', 'U', 'B', 'R', 'G', 'C'].map((color: string) => (
+                    <button
+                      key={color}
+                      className={`color-button color-${color.toLowerCase()} ${
+                        activeFilters.colors.includes(color) ? 'selected' : ''
+                      }`}
+                      onClick={() => {
+                        const newColors = activeFilters.colors.includes(color)
+                          ? activeFilters.colors.filter((c: string) => c !== color)
+                          : [...activeFilters.colors, color];
+                        handleFilterChange('colors', newColors);
+                      }}
+                    >
+                      {color}
+                    </button>
+                  ))}
+                </div>
+                <select
+                  value={activeFilters.colorIdentity}
+                  onChange={(e) => handleFilterChange('colorIdentity', e.target.value)}
+                  className="color-mode-select"
+                >
+                  <option value="exact">Exactly these colors</option>
+                  <option value="include">Include these colors</option>
+                  <option value="subset">At most these colors</option>
+                </select>
+              </div>
+            </div>
+            
+            {/* Mana Cost Group */}
+            <div className="filter-group">
+              <label>Mana Cost (CMC)</label>
+              <div className="range-filter">
+                <input
+                  type="number"
+                  placeholder="Min"
+                  min="0"
+                  max="20"
+                  value={activeFilters.cmc.min || ''}
+                  onChange={(e) => handleFilterChange('cmc', {
+                    ...activeFilters.cmc,
+                    min: e.target.value ? parseInt(e.target.value) : null
+                  })}
+                  className="range-input"
+                />
+                <span>to</span>
+                <input
+                  type="number"
+                  placeholder="Max"
+                  min="0"
+                  max="20"
+                  value={activeFilters.cmc.max || ''}
+                  onChange={(e) => handleFilterChange('cmc', {
+                    ...activeFilters.cmc,
+                    max: e.target.value ? parseInt(e.target.value) : null
+                  })}
+                  className="range-input"
+                />
+              </div>
+            </div>
+            
+            {/* Card Types Group */}
+            <div className="filter-group">
+              <label>Card Types</label>
+              <div className="multi-select-grid">
+                {['Creature', 'Instant', 'Sorcery', 'Artifact', 'Enchantment', 'Planeswalker', 'Land'].map((type: string) => (
+                  <button
+                    key={type}
+                    className={`type-button ${activeFilters.types.includes(type.toLowerCase()) ? 'selected' : ''}`}
+                    onClick={() => {
+                      const newTypes = activeFilters.types.includes(type.toLowerCase())
+                        ? activeFilters.types.filter((t: string) => t !== type.toLowerCase())
+                        : [...activeFilters.types, type.toLowerCase()];
+                      handleFilterChange('types', newTypes);
+                    }}
+                  >
+                    {type}
+                  </button>
+                ))}
+              </div>
+            </div>
+            
+            {/* Rarity Group */}
+            <div className="filter-group">
+              <label>Rarity</label>
+              <div className="rarity-filter-grid">
+                {[
+                  { key: 'common', label: 'Common', symbol: 'C' },
+                  { key: 'uncommon', label: 'Uncommon', symbol: 'U' },
+                  { key: 'rare', label: 'Rare', symbol: 'R' },
+                  { key: 'mythic', label: 'Mythic', symbol: 'M' }
+                ].map((rarity) => (
+                  <button
+                    key={rarity.key}
+                    className={`rarity-button rarity-${rarity.key} ${
+                      activeFilters.rarity.includes(rarity.key) ? 'selected' : ''
+                    }`}
+                    onClick={() => {
+                      const newRarity = activeFilters.rarity.includes(rarity.key)
+                        ? activeFilters.rarity.filter((r: string) => r !== rarity.key)
+                        : [...activeFilters.rarity, rarity.key];
+                      handleFilterChange('rarity', newRarity);
+                    }}
+                    title={rarity.label}
+                  >
+                    {rarity.symbol}
+                  </button>
+                ))}
+              </div>
+            </div>
+            
+            {/* Creature Stats Group */}
+            <div className="filter-group">
+              <label>Creature Stats</label>
+              <div className="stats-filter">
+                <div className="stat-row">
+                  <span>Power:</span>
+                  <input
+                    type="number"
+                    placeholder="Min"
+                    min="0"
+                    max="20"
+                    value={activeFilters.power.min || ''}
+                    onChange={(e) => handleFilterChange('power', {
+                      ...activeFilters.power,
+                      min: e.target.value ? parseInt(e.target.value) : null
+                    })}
+                    className="stat-input"
+                  />
+                  <span>to</span>
+                  <input
+                    type="number"
+                    placeholder="Max"
+                    min="0"
+                    max="20"
+                    value={activeFilters.power.max || ''}
+                    onChange={(e) => handleFilterChange('power', {
+                      ...activeFilters.power,
+                      max: e.target.value ? parseInt(e.target.value) : null
+                    })}
+                    className="stat-input"
+                  />
+                </div>
+                <div className="stat-row">
+                  <span>Toughness:</span>
+                  <input
+                    type="number"
+                    placeholder="Min"
+                    min="0"
+                    max="20"
+                    value={activeFilters.toughness.min || ''}
+                    onChange={(e) => handleFilterChange('toughness', {
+                      ...activeFilters.toughness,
+                      min: e.target.value ? parseInt(e.target.value) : null
+                    })}
+                    className="stat-input"
+                  />
+                  <span>to</span>
+                  <input
+                    type="number"
+                    placeholder="Max"
+                    min="0"
+                    max="20"
+                    value={activeFilters.toughness.max || ''}
+                    onChange={(e) => handleFilterChange('toughness', {
+                      ...activeFilters.toughness,
+                      max: e.target.value ? parseInt(e.target.value) : null
+                    })}
+                    className="stat-input"
+                  />
+                </div>
+              </div>
+            </div>
+            
+            {/* Quick Actions Group */}
+            <div className="filter-group">
+              <label>Quick Actions</label>
+              <div className="quick-actions">
+                <button onClick={loadPopularCards}>Popular Cards</button>
+                <button onClick={loadRandomCard}>Random Card</button>
+                <button onClick={clearSelection}>Clear Selection</button>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Enhanced Resize Handle */}
         <div 
           className="resize-handle resize-handle-right"
           onMouseDown={resizeHandlers.onFilterPanelResize}
@@ -543,21 +798,58 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
           <div className="panel-header">
             <h3>Collection ({cards.length} cards)</h3>
             <div className="view-controls">
+              <span>Size: </span>
+              <input
+                type="range"
+                min="0.7"
+                max="2.5"
+                step="0.1"
+                value={cardSizes.collection}
+                onChange={(e) => updateCollectionSize(parseFloat(e.target.value))}
+                className="size-slider"
+                title={`Card size: ${Math.round(cardSizes.collection * 100)}%`}
+              />
               <span>View: </span>
               <button className="active">Card</button>
               <button>List</button>
             </div>
           </div>
           
-          <div className="collection-grid">
+          <div 
+            className="collection-grid"
+            style={{
+              display: 'grid',
+              gridTemplateColumns: `repeat(auto-fill, minmax(${Math.round(130 * cardSizes.collection)}px, max-content))`,
+              gap: `${Math.round(4 * cardSizes.collection)}px`,
+              alignContent: 'start',
+              padding: '8px'
+            }}
+          >
             {loading && <div className="loading-message">Loading cards...</div>}
             {error && <div className="error-message">Error: {error}</div>}
+            {!loading && !error && cards.length === 0 && (
+              <div className="no-results-message">
+                <div className="no-results-icon">🔍</div>
+                <h3>No cards found</h3>
+                <p>No cards match your current search and filter criteria.</p>
+                <div className="no-results-suggestions">
+                  <p><strong>Try:</strong></p>
+                  <ul>
+                    <li>Adjusting your search terms</li>
+                    <li>Changing filter settings</li>
+                    <li>Using broader criteria</li>
+                    <li>Clearing some filters</li>
+                  </ul>
+                </div>
+              </div>
+            )}
             {cards.map(card => (
               <DraggableCard
                 key={card.id}
                 card={card}
                 zone="collection"
                 size="normal"
+                scaleFactor={cardSizes.collection}
                 onClick={(card, event) => handleCardClick(card, event)} 
                 onDoubleClick={handleAddToDeck}
                 onEnhancedDoubleClick={handleDoubleClick}
@@ -624,6 +916,17 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
             <div className="panel-header">
               <h3>Main Deck ({mainDeck.reduce((sum: number, card: any) => sum + card.quantity, 0)} cards)</h3>
               <div className="deck-controls">
+                <span>Size: </span>
+                <input
+                  type="range"
+                  min="0.7"
+                  max="2.5"
+                  step="0.1"
+                  value={cardSizes.deck}
+                  onChange={(e) => updateDeckSize(parseFloat(e.target.value))}
+                  className="size-slider"
+                  title={`Card size: ${Math.round(cardSizes.deck * 100)}%`}
+                />
                 <button>Save Deck</button>
                 <button onClick={handleClearDeck} title="Clear all cards from deck">
                   Clear Deck
@@ -632,13 +935,24 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
             </div>
             
             <div className="deck-content">
-              <div className="deck-grid">
+              <div 
+                className="deck-grid"
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: `repeat(auto-fill, minmax(${Math.round(130 * cardSizes.deck)}px, 1fr))`,
+                  gap: `${Math.round(4 * cardSizes.deck)}px`,
+                  alignContent: 'start',
+                  minHeight: '150px',
+                  paddingBottom: '40px'
+                }}
+              >
                 {mainDeck.map((deckCard: any) => (
                   <DraggableCard
                     key={deckCard.id}
                     card={deckCard}
                     zone="deck"
-                    size="small"
+                    size="normal"
+                    scaleFactor={cardSizes.deck}
                     onClick={(card, event) => handleCardClick(card, event)}
                     onEnhancedDoubleClick={handleDoubleClick}
                     onRightClick={handleRightClick}
@@ -674,6 +988,17 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
             <div className="panel-header">
               <h3>Sideboard ({sideboard.reduce((sum: number, card: any) => sum + card.quantity, 0)})</h3>
               <div className="sideboard-controls">
+                <span>Size: </span>
+                <input
+                  type="range"
+                  min="0.7"
+                  max="2.5"
+                  step="0.1"
+                  value={cardSizes.sideboard}
+                  onChange={(e) => updateSideboardSize(parseFloat(e.target.value))}
+                  className="size-slider"
+                  title={`Card size: ${Math.round(cardSizes.sideboard * 100)}%`}
+                />
                 <button onClick={handleClearSideboard} title="Clear all cards from sideboard">
                   Clear
                 </button>
@@ -681,13 +1006,24 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
             </div>
             
             <div className="sideboard-content">
-              <div className="sideboard-grid">
+              <div 
+                className="sideboard-grid"
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: `repeat(auto-fill, minmax(${Math.round(130 * cardSizes.sideboard)}px, 1fr))`,
+                  gap: `${Math.round(4 * cardSizes.sideboard)}px`,
+                  alignContent: 'start',
+                  minHeight: '150px',
+                  paddingBottom: '40px'
+                }}
+              >
                 {sideboard.map((sideCard: any) => (
                   <DraggableCard
                     key={sideCard.id}
                     card={sideCard}
                     zone="sideboard"
-                    size="small"
+                    size="normal"
+                    scaleFactor={cardSizes.sideboard}
                     onClick={(card, event) => handleCardClick(card, event)}
                     onEnhancedDoubleClick={handleDoubleClick}
                     onRightClick={handleRightClick}
