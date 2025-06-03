@@ -1,20 +1,20 @@
 // src/components/DraggableCard.tsx - Phase 3A: Perfect Click/Drag Separation
 import React, { useCallback, useRef } from 'react';
 import MagicCard from './MagicCard';
-import { ScryfallCard, DeckCard } from '../types/card';
+import { ScryfallCard, DeckCard, DeckCardInstance, getCardId, getSelectionId, isCardInstance } from '../types/card';
 import { DropZone } from '../hooks/useDragAndDrop';
 
 interface DraggableCardProps {
-  card: ScryfallCard | DeckCard;
+  card: ScryfallCard | DeckCard | DeckCardInstance;
   zone: DropZone;
   size?: 'small' | 'normal' | 'large';
   scaleFactor?: number;
-  onClick?: (card: ScryfallCard | DeckCard, event?: React.MouseEvent) => void;
-  onDoubleClick?: (card: ScryfallCard | DeckCard) => void;
-  onRightClick?: (card: ScryfallCard | DeckCard, zone: DropZone, event: React.MouseEvent) => void;
-  onDragStart?: (cards: (ScryfallCard | DeckCard)[], zone: DropZone, event: React.MouseEvent) => void;
+  onClick?: (card: ScryfallCard | DeckCard | DeckCardInstance, event?: React.MouseEvent) => void;
+  onDoubleClick?: (card: ScryfallCard | DeckCard | DeckCardInstance) => void;
+  onRightClick?: (card: ScryfallCard | DeckCard | DeckCardInstance, zone: DropZone, event: React.MouseEvent) => void;
+  onDragStart?: (cards: (ScryfallCard | DeckCard | DeckCardInstance)[], zone: DropZone, event: React.MouseEvent) => void;
   // Enhanced double-click handler
-  onEnhancedDoubleClick?: (card: ScryfallCard | DeckCard, zone: DropZone, event: React.MouseEvent) => void;
+  onEnhancedDoubleClick?: (card: ScryfallCard | DeckCard | DeckCardInstance, zone: DropZone, event: React.MouseEvent) => void;
   showQuantity?: boolean;
   quantity?: number;
   availableQuantity?: number;
@@ -25,7 +25,11 @@ interface DraggableCardProps {
   disabled?: boolean;
   isDragActive?: boolean;
   isBeingDragged?: boolean;
-  selectedCards?: (ScryfallCard | DeckCard)[];
+  selectedCards?: (ScryfallCard | DeckCard | DeckCardInstance)[];
+  // Instance-specific props
+  instanceId?: string;  // For deck/sideboard cards
+  isInstance?: boolean; // Flag to determine behavior
+  onInstanceClick?: (instanceId: string, instance: DeckCardInstance, event: React.MouseEvent) => void;
 }
 
 const DraggableCard: React.FC<DraggableCardProps> = ({
@@ -49,6 +53,9 @@ const DraggableCard: React.FC<DraggableCardProps> = ({
   isDragActive = false,
   isBeingDragged = false,
   selectedCards = [],
+  instanceId,
+  isInstance = false,
+  onInstanceClick,
 }) => {
   // Interaction state tracking
   const interactionRef = useRef<{
@@ -64,6 +71,12 @@ const DraggableCard: React.FC<DraggableCardProps> = ({
     isDoubleClick: false,
     preventNextClick: false,
   });
+
+  // Determine if this is an instance card and get appropriate IDs
+  const cardIsInstance = isCardInstance(card) || isInstance;
+  const cardInstanceId = isCardInstance(card) ? card.instanceId : instanceId;
+  const cardId = getCardId(card);
+  const selectionId = getSelectionId(card);
 
   // Enhanced mouse down handler - detects all double-clicks
   const handleMouseDown = useCallback((event: React.MouseEvent) => {
@@ -102,7 +115,7 @@ const DraggableCard: React.FC<DraggableCardProps> = ({
     console.log(`Mouse down on ${card.name} at (${event.clientX}, ${event.clientY})`);
 
     // Determine which cards would be dragged
-    let cardsToDrag: (ScryfallCard | DeckCard)[];
+    let cardsToDrag: (ScryfallCard | DeckCard | DeckCardInstance)[];
     if (selected && selectedCards.length > 0) {
       cardsToDrag = selectedCards;
     } else {
@@ -113,7 +126,7 @@ const DraggableCard: React.FC<DraggableCardProps> = ({
     onDragStart?.(cardsToDrag, zone, event);
   }, [card, zone, selected, selectedCards, onDragStart, onEnhancedDoubleClick, onDoubleClick, disabled]);
 
-  // Enhanced click handler - only for single clicks
+  // Enhanced click handler - handles both card and instance clicks
   const handleClick = useCallback((event: React.MouseEvent) => {
     // Skip if this was part of a double-click or drag operation
     if (interactionRef.current.preventNextClick || 
@@ -125,11 +138,17 @@ const DraggableCard: React.FC<DraggableCardProps> = ({
     
     if (disabled) return;
     
-    console.log(`Single click on ${card.name}, ctrlKey=${event.ctrlKey}`);
+    console.log(`Single click on ${card.name} in ${zone}, ctrlKey=${event.ctrlKey}, isInstance=${cardIsInstance}, selectionId=${selectionId}`);
     
-    // Execute single click action
-    onClick?.(card, event);
-  }, [card, onClick, disabled, isDragActive]);
+    // Execute appropriate click action based on card type
+    if (cardIsInstance && cardInstanceId && onInstanceClick) {
+      // Instance-based click for deck/sideboard cards
+      onInstanceClick(cardInstanceId, card as DeckCardInstance, event);
+    } else {
+      // Card-based click for collection cards
+      onClick?.(card, event);
+    }
+  }, [card, onClick, onInstanceClick, disabled, isDragActive, cardIsInstance, cardInstanceId, zone, selectionId]);
 
   // Simplified double-click handler (mainly for fallback)
   const handleDoubleClick = useCallback((event: React.MouseEvent) => {
@@ -225,6 +244,49 @@ const DraggableCard: React.FC<DraggableCardProps> = ({
     return 'grab';
   };
 
+  // Create a card-compatible object for MagicCard component
+  const cardForMagicCard = React.useMemo(() => {
+    if (isCardInstance(card)) {
+      // Convert DeckCardInstance to card-like object for MagicCard
+      // Include all required ScryfallCard properties with sensible defaults
+      return {
+        id: card.cardId, // Use original card ID for MagicCard
+        oracle_id: card.cardId, // Use cardId as fallback for oracle_id
+        name: card.name,
+        image_uris: undefined, // Will be handled by image_uri
+        image_uri: card.image_uri,
+        mana_cost: card.mana_cost,
+        cmc: card.cmc,
+        type_line: card.type_line,
+        colors: card.colors,
+        color_identity: card.color_identity,
+        set: card.set,
+        set_name: card.set, // Use set as fallback for set_name
+        rarity: card.rarity,
+        oracle_text: card.oracle_text,
+        power: card.power,
+        toughness: card.toughness,
+        loyalty: card.loyalty,
+        legalities: {
+          standard: 'legal',
+          pioneer: 'legal',
+          modern: 'legal',
+          legacy: 'legal',
+          vintage: 'legal',
+          commander: 'legal',
+          brawl: 'legal',
+          historic: 'legal',
+          timeless: 'legal',
+          pauper: 'legal'
+        },
+        keywords: [],
+        layout: 'normal',
+        card_faces: undefined,
+      } as ScryfallCard;
+    }
+    return card as ScryfallCard | DeckCard;
+  }, [card]);
+
   return (
     <div
       className={`draggable-card ${className}`}
@@ -243,7 +305,7 @@ const DraggableCard: React.FC<DraggableCardProps> = ({
       onContextMenu={handleContextMenu}
     >
       <MagicCard
-        card={card}
+        card={cardForMagicCard}
         size={size}
         scaleFactor={scaleFactor}
         showQuantity={showQuantity}

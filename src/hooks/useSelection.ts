@@ -1,9 +1,11 @@
 // src/hooks/useSelection.ts
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { ScryfallCard } from '../types/card';
+import { ScryfallCard, DeckCardInstance } from '../types/card';
 
 export interface SelectionState {
-  selectedCards: Set<string>; // Set of card IDs
+  selectedInstances: Set<string>;     // Instance IDs for deck/sideboard cards
+  selectedCards: Set<string>;         // Card IDs for collection cards
+  lastSelectedType: 'card' | 'instance';
   lastSelectedId: string | null;
   selectionMode: 'single' | 'multiple';
   dragSelection: {
@@ -14,21 +16,44 @@ export interface SelectionState {
 }
 
 export interface SelectionActions {
+  // Instance-based selection (for deck/sideboard)
+  selectInstance: (instanceId: string, instance: DeckCardInstance, ctrlKey?: boolean) => void;
+  deselectInstance: (instanceId: string) => void;
+  toggleInstance: (instanceId: string, instance: DeckCardInstance) => void;
+  isInstanceSelected: (instanceId: string) => boolean;
+  getSelectedInstances: () => string[];
+  getSelectedInstanceCount: () => number;
+  
+  // Card-based selection (for collection)
   selectCard: (cardId: string, card: ScryfallCard, ctrlKey?: boolean) => void;
   deselectCard: (cardId: string) => void;
   toggleCard: (cardId: string, card: ScryfallCard) => void;
-  selectAll: (cardIds: string[]) => void;
-  clearSelection: () => void;
-  isSelected: (cardId: string) => boolean;
+  isCardSelected: (cardId: string) => boolean;
   getSelectedCards: () => string[];
-  getSelectedCount: () => number;
+  getSelectedCardCount: () => number;
+  
+  // Legacy compatibility (determines type automatically)
+  isSelected: (id: string) => boolean;
+  
+  // General actions
+  selectAll: (ids: string[], type: 'card' | 'instance') => void;
+  clearSelection: () => void;
+  clearOnFilterChange: () => void;
+  
+  // Drag selection
   startDragSelection: (point: { x: number; y: number }) => void;
   updateDragSelection: (point: { x: number; y: number }) => void;
-  endDragSelection: (cardIds: string[]) => void;
+  endDragSelection: (ids: string[], type: 'card' | 'instance') => void;
+  
+  // Access to card/instance objects
+  getSelectedCardObjects: () => ScryfallCard[];
+  getSelectedInstanceObjects: () => DeckCardInstance[];
 }
 
 const INITIAL_STATE: SelectionState = {
+  selectedInstances: new Set(),
   selectedCards: new Set(),
+  lastSelectedType: 'card',
   lastSelectedId: null,
   selectionMode: 'single',
   dragSelection: {
@@ -41,57 +66,125 @@ const INITIAL_STATE: SelectionState = {
 export const useSelection = () => {
   const [state, setState] = useState<SelectionState>(INITIAL_STATE);
   const selectedCardsRef = useRef<Map<string, ScryfallCard>>(new Map());
+  const selectedInstancesRef = useRef<Map<string, DeckCardInstance>>(new Map());
 
   // Clear selection when filters change (from external trigger)
   const clearOnFilterChange = useCallback(() => {
     setState(prev => ({
       ...prev,
+      selectedInstances: new Set(),
       selectedCards: new Set(),
       lastSelectedId: null,
+      lastSelectedType: 'card',
       selectionMode: 'single',
     }));
     selectedCardsRef.current.clear();
+    selectedInstancesRef.current.clear();
   }, []);
 
-  // Select a single card or add to multi-selection
-  const selectCard = useCallback((cardId: string, card: ScryfallCard, ctrlKey = false) => {
+  // Instance-based selection (for deck/sideboard cards)
+  const selectInstance = useCallback((instanceId: string, instance: DeckCardInstance, ctrlKey = false) => {
     setState(prev => {
       if (ctrlKey || prev.selectionMode === 'multiple') {
         // Multi-selection mode
-        const newSelected = new Set(prev.selectedCards);
+        const newSelectedInstances = new Set(prev.selectedInstances);
         
-        if (newSelected.has(cardId)) {
+        if (newSelectedInstances.has(instanceId)) {
           // Deselect if already selected
-          newSelected.delete(cardId);
-          selectedCardsRef.current.delete(cardId);
+          newSelectedInstances.delete(instanceId);
+          selectedInstancesRef.current.delete(instanceId);
         } else {
           // Add to selection
-          newSelected.add(cardId);
-          selectedCardsRef.current.set(cardId, card);
+          newSelectedInstances.add(instanceId);
+          selectedInstancesRef.current.set(instanceId, instance);
         }
 
         return {
           ...prev,
-          selectedCards: newSelected,
-          lastSelectedId: cardId,
-          selectionMode: newSelected.size > 1 ? 'multiple' : 'single',
+          selectedInstances: newSelectedInstances,
+          selectedCards: new Set(), // Clear card selection when selecting instances
+          lastSelectedId: instanceId,
+          lastSelectedType: 'instance',
+          selectionMode: newSelectedInstances.size > 1 ? 'multiple' : 'single',
         };
       } else {
         // Single selection mode
+        selectedInstancesRef.current.clear();
         selectedCardsRef.current.clear();
-        selectedCardsRef.current.set(cardId, card);
+        selectedInstancesRef.current.set(instanceId, instance);
         
         return {
           ...prev,
-          selectedCards: new Set([cardId]),
-          lastSelectedId: cardId,
+          selectedInstances: new Set([instanceId]),
+          selectedCards: new Set(), // Clear card selection
+          lastSelectedId: instanceId,
+          lastSelectedType: 'instance',
           selectionMode: 'single',
         };
       }
     });
   }, []);
 
-  // Deselect a specific card
+  // Card-based selection (for collection cards)
+  const selectCard = useCallback((cardId: string, card: ScryfallCard, ctrlKey = false) => {
+    setState(prev => {
+      if (ctrlKey || prev.selectionMode === 'multiple') {
+        // Multi-selection mode
+        const newSelectedCards = new Set(prev.selectedCards);
+        
+        if (newSelectedCards.has(cardId)) {
+          // Deselect if already selected
+          newSelectedCards.delete(cardId);
+          selectedCardsRef.current.delete(cardId);
+        } else {
+          // Add to selection
+          newSelectedCards.add(cardId);
+          selectedCardsRef.current.set(cardId, card);
+        }
+
+        return {
+          ...prev,
+          selectedCards: newSelectedCards,
+          selectedInstances: new Set(), // Clear instance selection when selecting cards
+          lastSelectedId: cardId,
+          lastSelectedType: 'card',
+          selectionMode: newSelectedCards.size > 1 ? 'multiple' : 'single',
+        };
+      } else {
+        // Single selection mode
+        selectedCardsRef.current.clear();
+        selectedInstancesRef.current.clear();
+        selectedCardsRef.current.set(cardId, card);
+        
+        return {
+          ...prev,
+          selectedCards: new Set([cardId]),
+          selectedInstances: new Set(), // Clear instance selection
+          lastSelectedId: cardId,
+          lastSelectedType: 'card',
+          selectionMode: 'single',
+        };
+      }
+    });
+  }, []);
+
+  // Deselect specific instance
+  const deselectInstance = useCallback((instanceId: string) => {
+    setState(prev => {
+      const newSelected = new Set(prev.selectedInstances);
+      newSelected.delete(instanceId);
+      selectedInstancesRef.current.delete(instanceId);
+
+      return {
+        ...prev,
+        selectedInstances: newSelected,
+        lastSelectedId: newSelected.size > 0 ? Array.from(newSelected)[0] : null,
+        selectionMode: newSelected.size > 1 ? 'multiple' : 'single',
+      };
+    });
+  }, []);
+
+  // Deselect specific card
   const deselectCard = useCallback((cardId: string) => {
     setState(prev => {
       const newSelected = new Set(prev.selectedCards);
@@ -102,6 +195,32 @@ export const useSelection = () => {
         ...prev,
         selectedCards: newSelected,
         lastSelectedId: newSelected.size > 0 ? Array.from(newSelected)[0] : null,
+        selectionMode: newSelected.size > 1 ? 'multiple' : 'single',
+      };
+    });
+  }, []);
+
+  // Toggle instance selection
+  const toggleInstance = useCallback((instanceId: string, instance: DeckCardInstance) => {
+    setState(prev => {
+      const newSelected = new Set(prev.selectedInstances);
+      
+      if (newSelected.has(instanceId)) {
+        newSelected.delete(instanceId);
+        selectedInstancesRef.current.delete(instanceId);
+      } else {
+        newSelected.add(instanceId);
+        selectedInstancesRef.current.set(instanceId, instance);
+        // Clear card selection when toggling instances
+        selectedCardsRef.current.clear();
+      }
+
+      return {
+        ...prev,
+        selectedInstances: newSelected,
+        selectedCards: newSelected.size > 0 ? new Set() : prev.selectedCards, // Clear cards if selecting instances
+        lastSelectedId: instanceId,
+        lastSelectedType: 'instance',
         selectionMode: newSelected.size > 1 ? 'multiple' : 'single',
       };
     });
@@ -118,52 +237,92 @@ export const useSelection = () => {
       } else {
         newSelected.add(cardId);
         selectedCardsRef.current.set(cardId, card);
+        // Clear instance selection when toggling cards
+        selectedInstancesRef.current.clear();
       }
 
       return {
         ...prev,
         selectedCards: newSelected,
+        selectedInstances: newSelected.size > 0 ? new Set() : prev.selectedInstances, // Clear instances if selecting cards
         lastSelectedId: cardId,
+        lastSelectedType: 'card',
         selectionMode: newSelected.size > 1 ? 'multiple' : 'single',
       };
     });
   }, []);
 
-  // Select all provided cards
-  const selectAll = useCallback((cardIds: string[]) => {
-    setState(prev => ({
-      ...prev,
-      selectedCards: new Set(cardIds),
-      lastSelectedId: cardIds.length > 0 ? cardIds[cardIds.length - 1] : null,
-      selectionMode: cardIds.length > 1 ? 'multiple' : 'single',
-    }));
-    // Note: selectedCardsRef would need card objects to be fully populated
-    // This is a simplified version - in real usage, you'd pass card objects too
+  // Select all provided items
+  const selectAll = useCallback((ids: string[], type: 'card' | 'instance') => {
+    setState(prev => {
+      if (type === 'instance') {
+        return {
+          ...prev,
+          selectedInstances: new Set(ids),
+          selectedCards: new Set(), // Clear card selection
+          lastSelectedId: ids.length > 0 ? ids[ids.length - 1] : null,
+          lastSelectedType: 'instance',
+          selectionMode: ids.length > 1 ? 'multiple' : 'single',
+        };
+      } else {
+        return {
+          ...prev,
+          selectedCards: new Set(ids),
+          selectedInstances: new Set(), // Clear instance selection
+          lastSelectedId: ids.length > 0 ? ids[ids.length - 1] : null,
+          lastSelectedType: 'card',
+          selectionMode: ids.length > 1 ? 'multiple' : 'single',
+        };
+      }
+    });
   }, []);
 
   // Clear all selections
   const clearSelection = useCallback(() => {
     setState(prev => ({
       ...prev,
+      selectedInstances: new Set(),
       selectedCards: new Set(),
       lastSelectedId: null,
+      lastSelectedType: 'card',
       selectionMode: 'single',
     }));
     selectedCardsRef.current.clear();
+    selectedInstancesRef.current.clear();
   }, []);
 
-  // Check if a card is selected
-  const isSelected = useCallback((cardId: string) => {
+  // Legacy compatibility - check both card and instance selection
+  const isSelected = useCallback((id: string) => {
+    return state.selectedCards.has(id) || state.selectedInstances.has(id);
+  }, [state.selectedCards, state.selectedInstances]);
+
+  // Check if instance is selected
+  const isInstanceSelected = useCallback((instanceId: string) => {
+    return state.selectedInstances.has(instanceId);
+  }, [state.selectedInstances]);
+
+  // Check if card is selected
+  const isCardSelected = useCallback((cardId: string) => {
     return state.selectedCards.has(cardId);
   }, [state.selectedCards]);
+
+  // Get array of selected instance IDs
+  const getSelectedInstances = useCallback(() => {
+    return Array.from(state.selectedInstances);
+  }, [state.selectedInstances]);
 
   // Get array of selected card IDs
   const getSelectedCards = useCallback(() => {
     return Array.from(state.selectedCards);
   }, [state.selectedCards]);
 
+  // Get count of selected instances
+  const getSelectedInstanceCount = useCallback(() => {
+    return state.selectedInstances.size;
+  }, [state.selectedInstances]);
+
   // Get count of selected cards
-  const getSelectedCount = useCallback(() => {
+  const getSelectedCardCount = useCallback(() => {
     return state.selectedCards.size;
   }, [state.selectedCards]);
 
@@ -190,29 +349,54 @@ export const useSelection = () => {
     }));
   }, []);
 
-  // End drag selection and select cards within rectangle
-  const endDragSelection = useCallback((cardIds: string[]) => {
+  // End drag selection and select items within rectangle
+  const endDragSelection = useCallback((ids: string[], type: 'card' | 'instance') => {
     setState(prev => {
-      const newSelected = new Set(cardIds);
-      
-      return {
-        ...prev,
-        selectedCards: newSelected,
-        lastSelectedId: cardIds.length > 0 ? cardIds[cardIds.length - 1] : null,
-        selectionMode: cardIds.length > 1 ? 'multiple' : 'single',
-        dragSelection: {
-          active: false,
-          startPoint: null,
-          currentPoint: null,
-        },
-      };
+      if (type === 'instance') {
+        return {
+          ...prev,
+          selectedInstances: new Set(ids),
+          selectedCards: new Set(), // Clear card selection
+          lastSelectedId: ids.length > 0 ? ids[ids.length - 1] : null,
+          lastSelectedType: 'instance',
+          selectionMode: ids.length > 1 ? 'multiple' : 'single',
+          dragSelection: {
+            active: false,
+            startPoint: null,
+            currentPoint: null,
+          },
+        };
+      } else {
+        return {
+          ...prev,
+          selectedCards: new Set(ids),
+          selectedInstances: new Set(), // Clear instance selection
+          lastSelectedId: ids.length > 0 ? ids[ids.length - 1] : null,
+          lastSelectedType: 'card',
+          selectionMode: ids.length > 1 ? 'multiple' : 'single',
+          dragSelection: {
+            active: false,
+            startPoint: null,
+            currentPoint: null,
+          },
+        };
+      }
     });
+  }, []);
+
+  // Get selected card objects
+  const getSelectedCardObjects = useCallback(() => {
+    return Array.from(selectedCardsRef.current.values());
+  }, []);
+
+  // Get selected instance objects
+  const getSelectedInstanceObjects = useCallback(() => {
+    return Array.from(selectedInstancesRef.current.values());
   }, []);
 
   // Keyboard event handler for selection shortcuts
   useEffect(() => {
     const handleKeyboard = (event: KeyboardEvent) => {
-      // Ctrl+A to select all (would need to be implemented by parent component)
       // Escape to clear selection
       if (event.key === 'Escape') {
         clearSelection();
@@ -224,24 +408,42 @@ export const useSelection = () => {
   }, [clearSelection]);
 
   const actions: SelectionActions = {
+    // Instance-based actions
+    selectInstance,
+    deselectInstance,
+    toggleInstance,
+    isInstanceSelected,
+    getSelectedInstances,
+    getSelectedInstanceCount,
+    
+    // Card-based actions
     selectCard,
     deselectCard,
     toggleCard,
+    isCardSelected,
+    getSelectedCards,
+    getSelectedCardCount,
+    
+    // Legacy compatibility
+    isSelected,
+    
+    // General actions
     selectAll,
     clearSelection,
-    isSelected,
-    getSelectedCards,
-    getSelectedCount,
+    clearOnFilterChange,
+    
+    // Drag selection
     startDragSelection,
     updateDragSelection,
     endDragSelection,
+    
+    // Object access
+    getSelectedCardObjects,
+    getSelectedInstanceObjects,
   };
 
   return {
     ...state,
     ...actions,
-    clearOnFilterChange,
-    // Access to the actual card objects (for context menus, etc.)
-    getSelectedCardObjects: () => Array.from(selectedCardsRef.current.values()),
   };
 };

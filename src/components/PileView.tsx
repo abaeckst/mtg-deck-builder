@@ -1,6 +1,6 @@
 // ===== FILE: src/components/PileView.tsx - PERFORMANCE OPTIMIZATION =====
 import React, { useState, useCallback, useMemo } from 'react';
-import { ScryfallCard, DeckCard } from '../types/card';
+import { ScryfallCard, DeckCard, DeckCardInstance, getCardId } from '../types/card';
 import { DropZone } from '../hooks/useDragAndDrop';
 import PileColumn from './PileColumn';
 import PileSortControls from './PileSortControls';
@@ -9,19 +9,20 @@ export type PileSortCriteria = 'mana' | 'color' | 'rarity' | 'type';
 export type SortCriteria = 'name' | 'mana' | 'color' | 'rarity' | 'type';
 
 interface PileViewProps {
-  cards: (ScryfallCard | DeckCard)[];
+  cards: (ScryfallCard | DeckCard | DeckCardInstance)[];
   zone: 'deck' | 'sideboard';
   scaleFactor: number;
   forcedSortCriteria?: PileSortCriteria; // External sort control from parent
-  // Existing card interaction handlers from MTGOLayout
-  onClick?: (card: ScryfallCard | DeckCard, event?: React.MouseEvent) => void;
-  onDoubleClick?: (card: ScryfallCard | DeckCard) => void;
-  onEnhancedDoubleClick?: (card: ScryfallCard | DeckCard, zone: DropZone, event: React.MouseEvent) => void;
-  onRightClick?: (card: ScryfallCard | DeckCard, zone: DropZone, event: React.MouseEvent) => void;
-  onDragStart?: (cards: (ScryfallCard | DeckCard)[], zone: DropZone, event: React.MouseEvent) => void;
+  // Enhanced card interaction handlers - now supporting both card and instance clicks
+  onClick?: (card: ScryfallCard | DeckCard | DeckCardInstance, event?: React.MouseEvent) => void;
+  onInstanceClick?: (instanceId: string, instance: DeckCardInstance, event: React.MouseEvent) => void;
+  onDoubleClick?: (card: ScryfallCard | DeckCard | DeckCardInstance) => void;
+  onEnhancedDoubleClick?: (card: ScryfallCard | DeckCard | DeckCardInstance, zone: DropZone, event: React.MouseEvent) => void;
+  onRightClick?: (card: ScryfallCard | DeckCard | DeckCardInstance, zone: DropZone, event: React.MouseEvent) => void;
+  onDragStart?: (cards: (ScryfallCard | DeckCard | DeckCardInstance)[], zone: DropZone, event: React.MouseEvent) => void;
   // Selection and drag state
-  isSelected?: (cardId: string) => boolean;
-  selectedCards?: (ScryfallCard | DeckCard)[];
+  isSelected?: (id: string) => boolean; // Now accepts both card IDs and instance IDs
+  selectedCards?: (ScryfallCard | DeckCard | DeckCardInstance)[];
   isDragActive?: boolean;
   // Drop zone handlers
   onDragEnter?: (zone: DropZone, canDrop: boolean) => void;
@@ -32,7 +33,7 @@ interface PileViewProps {
 interface ColumnData {
   id: string;
   title: string;
-  cards: (ScryfallCard | DeckCard)[];
+  cards: (ScryfallCard | DeckCard | DeckCardInstance)[];
   sortValue: string | number;
 }
 
@@ -42,6 +43,7 @@ const PileView: React.FC<PileViewProps> = ({
   scaleFactor,
   forcedSortCriteria,
   onClick,
+  onInstanceClick,
   onDoubleClick,
   onEnhancedDoubleClick,
   onRightClick,
@@ -86,7 +88,7 @@ const PileView: React.FC<PileViewProps> = ({
   }), []);
 
   // Organize by mana value (0|1|2|3|4|5|6|7+) - Only show columns with cards
-  const organizeByManaValue = useCallback((cardList: (ScryfallCard | DeckCard)[]): ColumnData[] => {
+  const organizeByManaValue = useCallback((cardList: (ScryfallCard | DeckCard | DeckCardInstance)[]): ColumnData[] => {
     const columns: ColumnData[] = [];
     
     // Create columns for CMC 0-6 - only if they have cards
@@ -123,8 +125,8 @@ const PileView: React.FC<PileViewProps> = ({
   }, []);
 
   // Organize by color (W|U|B|R|G|Multi|C) - separate column for each combination
-  const organizeByColor = useCallback((cardList: (ScryfallCard | DeckCard)[]): ColumnData[] => {
-    const colorGroups = new Map<string, (ScryfallCard | DeckCard)[]>();
+  const organizeByColor = useCallback((cardList: (ScryfallCard | DeckCard | DeckCardInstance)[]): ColumnData[] => {
+    const colorGroups = new Map<string, (ScryfallCard | DeckCard | DeckCardInstance)[]>();
     
     cardList.forEach(card => {
       const colors = card.colors ?? [];
@@ -180,7 +182,7 @@ const PileView: React.FC<PileViewProps> = ({
   }, [getColorName]);
 
   // Organize by rarity (C|U|R|M) - now using memoized config
-  const organizeByRarity = useCallback((cardList: (ScryfallCard | DeckCard)[]): ColumnData[] => {
+  const organizeByRarity = useCallback((cardList: (ScryfallCard | DeckCard | DeckCardInstance)[]): ColumnData[] => {
     return rarityConfig.order
       .map(rarity => {
         const rarityCards = cardList.filter(card => card.rarity === rarity);
@@ -200,8 +202,8 @@ const PileView: React.FC<PileViewProps> = ({
   ], []);
 
   // Organize by card type (Creatures, Instants, Sorceries, etc.)
-  const organizeByType = useCallback((cardList: (ScryfallCard | DeckCard)[]): ColumnData[] => {
-    const typeGroups = new Map<string, (ScryfallCard | DeckCard)[]>();
+  const organizeByType = useCallback((cardList: (ScryfallCard | DeckCard | DeckCardInstance)[]): ColumnData[] => {
+    const typeGroups = new Map<string, (ScryfallCard | DeckCard | DeckCardInstance)[]>();
     
     cardList.forEach(card => {
       const typeLine = card.type_line ?? '';
@@ -295,12 +297,12 @@ const PileView: React.FC<PileViewProps> = ({
       // Apply manual arrangements
       const columnsWithManual = organizedColumns.map(column => ({
         ...column,
-        cards: column.cards.filter(card => !manualArrangements.has(card.id))
+        cards: column.cards.filter(card => !manualArrangements.has(getCardId(card)))
       }));
       
       // Add manually arranged cards to their designated columns
       manualArrangements.forEach((targetColumnId, cardId) => {
-        const card = cards.find(c => c.id === cardId);
+        const card = cards.find(c => getCardId(c) === cardId);
         if (card) {
           let targetColumn = columnsWithManual.find(col => col.id === targetColumnId);
           if (!targetColumn) {
@@ -350,6 +352,7 @@ const PileView: React.FC<PileViewProps> = ({
         isEmpty={column.isEmpty}
         // Pass through all interaction handlers
         onClick={onClick}
+        onInstanceClick={onInstanceClick}
         onDoubleClick={onDoubleClick}
         onEnhancedDoubleClick={onEnhancedDoubleClick}
         onRightClick={onRightClick}

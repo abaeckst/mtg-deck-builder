@@ -125,7 +125,7 @@ export const MagicCard: React.FC<MagicCardProps> = ({
     ...style,
     position: 'relative',
     borderRadius: '8px',
-    border: `2px solid ${selected ? '#3b82f6' : rarityColor}`,
+    border: `2px solid ${selected ? '#3b82f6' : '#404040'}`,
     backgroundColor: '#1a1a1a',
     cursor: selectable || onClick ? 'pointer' : 'default',
     opacity: disabled ? 0.5 : 1,

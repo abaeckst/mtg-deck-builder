@@ -1,8 +1,8 @@
 // src/hooks/useDragAndDrop.ts - Phase 3A: Rock-Solid Click/Drag Interaction System
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { ScryfallCard, DeckCard } from '../types/card';
+import { ScryfallCard, DeckCard, DeckCardInstance, getCardId } from '../types/card';
 
-export type DraggedCard = ScryfallCard | DeckCard;
+export type DraggedCard = ScryfallCard | DeckCard | DeckCardInstance;
 export type DropZone = 'collection' | 'deck' | 'sideboard';
 
 export interface DragState {
@@ -102,7 +102,8 @@ export const useDragAndDrop = (callbacks: DragCallbacks) => {
     
     const now = Date.now();
     const timeDiff = now - interactionRef.current.lastClickTime;
-    const isSameCard = interactionRef.current.lastClickCard === card.id;
+    const cardId = getCardId(card); // Use utility function
+    const isSameCard = interactionRef.current.lastClickCard === cardId;
     
     console.log(`🖱️ Double-click handler: ${card.name} in ${zone}`);
     console.log(`📊 Timing: ${timeDiff}ms since last, same card: ${isSameCard}, event.detail: ${event.detail}`);
@@ -121,7 +122,7 @@ export const useDragAndDrop = (callbacks: DragCallbacks) => {
     } else {
       // This is either a new card or too much time has passed
       interactionRef.current.clickCount = 1;
-      interactionRef.current.lastClickCard = card.id; // FIXED: Set card ID immediately
+      interactionRef.current.lastClickCard = cardId; // FIXED: Set card ID immediately
       console.log(`🆕 Starting new click sequence on ${card.name}`);
     }
     

@@ -1,25 +1,25 @@
 // src/components/ListView.tsx - Universal List View Component
 import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
-import { ScryfallCard, DeckCard, isBasicLand } from '../types/card';
+import { ScryfallCard, DeckCard, DeckCardInstance, isBasicLand } from '../types/card';
 import { DropZone } from '../hooks/useDragAndDrop';
 
 export type SortCriteria = 'name' | 'mana' | 'color' | 'rarity' | 'type';
 
 interface ListViewProps {
-  cards: (ScryfallCard | DeckCard)[];
+  cards: (ScryfallCard | DeckCard | DeckCardInstance)[];
   area: 'collection' | 'deck' | 'sideboard';
   scaleFactor: number;
   sortCriteria: SortCriteria;
   sortDirection: 'asc' | 'desc';
   onSortChange: (criteria: SortCriteria, direction: 'asc' | 'desc') => void;
   // Standard card interaction handlers
-  onClick: (card: ScryfallCard | DeckCard, event?: React.MouseEvent) => void;
-  onDoubleClick: (card: ScryfallCard | DeckCard) => void;
-  onRightClick: (card: ScryfallCard | DeckCard, zone: DropZone, event: React.MouseEvent) => void;
-  onDragStart: (cards: (ScryfallCard | DeckCard)[], zone: DropZone, event: React.MouseEvent) => void;
+  onClick: (card: ScryfallCard | DeckCard | DeckCardInstance, event?: React.MouseEvent) => void;
+  onDoubleClick: (card: ScryfallCard | DeckCard | DeckCardInstance) => void;
+  onRightClick: (card: ScryfallCard | DeckCard | DeckCardInstance, zone: DropZone, event: React.MouseEvent) => void;
+  onDragStart: (cards: (ScryfallCard | DeckCard | DeckCardInstance)[], zone: DropZone, event: React.MouseEvent) => void;
   // Selection and drag state
   isSelected: (cardId: string) => boolean;
-  selectedCards: (ScryfallCard | DeckCard)[];
+  selectedCards: (ScryfallCard | DeckCard | DeckCardInstance)[];
   isDragActive: boolean;
   // Quantity management (deck/sideboard only)
   onQuantityChange?: (cardId: string, newQuantity: number) => void;
@@ -171,27 +171,28 @@ const ListView: React.FC<ListViewProps> = ({
   }, []);
 
   // Handle row click
-  const handleRowClick = useCallback((card: ScryfallCard | DeckCard, event: React.MouseEvent) => {
+  const handleRowClick = useCallback((card: ScryfallCard | DeckCard | DeckCardInstance, event: React.MouseEvent) => {
     onClick(card, event);
   }, [onClick]);
 
   // Handle row double-click
-  const handleRowDoubleClick = useCallback((card: ScryfallCard | DeckCard) => {
+  const handleRowDoubleClick = useCallback((card: ScryfallCard | DeckCard | DeckCardInstance) => {
     onDoubleClick(card);
   }, [onDoubleClick]);
 
   // Handle row right-click
-  const handleRowRightClick = useCallback((card: ScryfallCard | DeckCard, event: React.MouseEvent) => {
+  const handleRowRightClick = useCallback((card: ScryfallCard | DeckCard | DeckCardInstance, event: React.MouseEvent) => {
     event.preventDefault();
     onRightClick(card, area as DropZone, event);
   }, [onRightClick, area]);
 
   // Handle row drag start
-  const handleRowDragStart = useCallback((card: ScryfallCard | DeckCard, event: React.MouseEvent) => {
+  const handleRowDragStart = useCallback((card: ScryfallCard | DeckCard | DeckCardInstance, event: React.MouseEvent) => {
     // Only handle left mouse button for drag
     if (event.button !== 0) return;
     
-    const dragCards = isSelected(card.id) && selectedCards.length > 1 
+    const cardIdOrInstanceId = 'instanceId' in card ? card.instanceId : card.id;
+    const dragCards = isSelected(cardIdOrInstanceId) && selectedCards.length > 1 
       ? selectedCards 
       : [card];
     
@@ -199,14 +200,22 @@ const ListView: React.FC<ListViewProps> = ({
   }, [isSelected, selectedCards, onDragStart, area]);
 
   // Handle quantity change
-  const handleQuantityChange = useCallback((card: ScryfallCard | DeckCard, delta: number) => {
-    if (!onQuantityChange || !('quantity' in card)) return;
+  const handleQuantityChange = useCallback((card: ScryfallCard | DeckCard | DeckCardInstance, delta: number) => {
+    if (!onQuantityChange) return;
     
-    const currentQuantity = card.quantity || 0;
-    const maxQuantity = isBasicLand(card) ? Infinity : 4;
-    const newQuantity = Math.max(0, Math.min(maxQuantity, currentQuantity + delta));
-    
-    onQuantityChange(card.id, newQuantity);
+    // For instances, quantity is always 1, so we handle add/remove differently
+    if ('instanceId' in card) {
+      // For deck instances, we use the original card ID for quantity management
+      const currentQuantity = 1; // Each instance represents 1 copy
+      const newQuantity = delta > 0 ? 1 : 0; // Adding or removing the instance
+      onQuantityChange(card.cardId, newQuantity);
+    } else if ('quantity' in card) {
+      // For DeckCard objects, use existing logic
+      const currentQuantity = card.quantity || 0;
+      const maxQuantity = isBasicLand(card) ? Infinity : 4;
+      const newQuantity = Math.max(0, Math.min(maxQuantity, currentQuantity + delta));
+      onQuantityChange(card.id, newQuantity);
+    }
   }, [onQuantityChange]);
 
   // Calculate total table width
@@ -306,8 +315,8 @@ const ListView: React.FC<ListViewProps> = ({
               
               return (
                 <tr
-                  key={card.id}
-                  className={`list-view-row ${isSelected(card.id) ? 'selected' : ''} ${
+                  key={'instanceId' in card ? card.instanceId : card.id}
+                  className={`list-view-row ${isSelected('instanceId' in card ? card.instanceId : card.id) ? 'selected' : ''} ${
                     index % 2 === 0 ? 'even' : 'odd'
                   }`}
                   onClick={(e) => handleRowClick(card, e)}
@@ -368,9 +377,11 @@ const ListView: React.FC<ListViewProps> = ({
                         </span>
                       )}
                       
-                      {column.id === 'quantity' && 'quantity' in card && onQuantityChange && (
+                      {column.id === 'quantity' && onQuantityChange && (
                         <div className="quantity-controls">
-                          <span className="quantity-display">{card.quantity}</span>
+                          <span className="quantity-display">
+                            {'instanceId' in card ? 1 : ('quantity' in card ? card.quantity : 0)}
+                          </span>
                           <div className="quantity-buttons">
                             <button 
                               className="quantity-btn minus"
@@ -378,7 +389,7 @@ const ListView: React.FC<ListViewProps> = ({
                                 e.stopPropagation();
                                 handleQuantityChange(card, -1);
                               }}
-                              disabled={card.quantity === 0}
+                              disabled={'instanceId' in card ? false : ('quantity' in card ? card.quantity === 0 : true)}
                             >
                               −
                             </button>
@@ -388,7 +399,7 @@ const ListView: React.FC<ListViewProps> = ({
                                 e.stopPropagation();
                                 handleQuantityChange(card, 1);
                               }}
-                              disabled={!isBasicLand(card) && card.quantity >= 4}
+                              disabled={'instanceId' in card ? false : (!isBasicLand(card) && 'quantity' in card && card.quantity >= 4)}
                             >
                               +
                             </button>

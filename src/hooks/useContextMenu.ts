@@ -1,6 +1,6 @@
 // src/hooks/useContextMenu.ts
 import { useState, useCallback } from 'react';
-import { ScryfallCard, DeckCard } from '../types/card';
+import { ScryfallCard, DeckCard, DeckCardInstance, getCardId } from '../types/card';
 import { DropZone } from '../hooks/useDragAndDrop';
 import { ContextMenuAction } from '../components/ContextMenu';
 
@@ -8,18 +8,18 @@ export interface ContextMenuState {
   visible: boolean;
   x: number;
   y: number;
-  targetCard: ScryfallCard | DeckCard | null;
+  targetCard: ScryfallCard | DeckCard | DeckCardInstance | null;
   targetZone: DropZone | null;
-  selectedCards: (ScryfallCard | DeckCard)[];
+  selectedCards: (ScryfallCard | DeckCard | DeckCardInstance)[];
 }
 
 export interface DeckManagementCallbacks {
-  addToDeck: (cards: (ScryfallCard | DeckCard)[], quantity?: number) => void;
-  removeFromDeck: (cards: (ScryfallCard | DeckCard)[], quantity?: number) => void;
-  addToSideboard: (cards: (ScryfallCard | DeckCard)[], quantity?: number) => void;
-  removeFromSideboard: (cards: (ScryfallCard | DeckCard)[], quantity?: number) => void;
-  moveDeckToSideboard: (cards: (ScryfallCard | DeckCard)[], quantity?: number) => void;
-  moveSideboardToDeck: (cards: (ScryfallCard | DeckCard)[], quantity?: number) => void;
+  addToDeck: (cards: (ScryfallCard | DeckCard | DeckCardInstance)[], quantity?: number) => void;
+  removeFromDeck: (cards: (ScryfallCard | DeckCard | DeckCardInstance)[], quantity?: number) => void;
+  addToSideboard: (cards: (ScryfallCard | DeckCard | DeckCardInstance)[], quantity?: number) => void;
+  removeFromSideboard: (cards: (ScryfallCard | DeckCard | DeckCardInstance)[], quantity?: number) => void;
+  moveDeckToSideboard: (cards: (ScryfallCard | DeckCard | DeckCardInstance)[], quantity?: number) => void;
+  moveSideboardToDeck: (cards: (ScryfallCard | DeckCard | DeckCardInstance)[], quantity?: number) => void;
   getDeckQuantity: (cardId: string) => number;
   getSideboardQuantity: (cardId: string) => number;
 }
@@ -39,9 +39,9 @@ export const useContextMenu = (callbacks: DeckManagementCallbacks) => {
   // Show context menu
   const showContextMenu = useCallback((
     event: React.MouseEvent,
-    card: ScryfallCard | DeckCard,
+    card: ScryfallCard | DeckCard | DeckCardInstance,
     zone: DropZone,
-    selectedCards: (ScryfallCard | DeckCard)[] = []
+    selectedCards: (ScryfallCard | DeckCard | DeckCardInstance)[] = []
   ) => {
     event.preventDefault();
     event.stopPropagation();
@@ -70,9 +70,10 @@ export const useContextMenu = (callbacks: DeckManagementCallbacks) => {
     const cardCount = isMultiSelection ? selectedCards.length : 1;
     const cardsToAct = isMultiSelection ? selectedCards : [targetCard];
     
-    // Get current quantities for the target card
-    const deckQuantity = callbacks.getDeckQuantity(targetCard.id);
-    const sideboardQuantity = callbacks.getSideboardQuantity(targetCard.id);
+    // Get current quantities for the target card using the utility function
+    const cardId = getCardId(targetCard);
+    const deckQuantity = callbacks.getDeckQuantity(cardId);
+    const sideboardQuantity = callbacks.getSideboardQuantity(cardId);
 
     const actions: ContextMenuAction[] = [];
 

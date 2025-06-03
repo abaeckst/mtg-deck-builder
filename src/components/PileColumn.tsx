@@ -1,25 +1,26 @@
 // ===== FILE: src/components/PileColumn.tsx - FINAL VERSION =====
 import React, { useCallback } from 'react';
-import { ScryfallCard, DeckCard } from '../types/card';
+import { ScryfallCard, DeckCard, DeckCardInstance, getCardId, getSelectionId } from '../types/card';
 import { DropZone } from '../hooks/useDragAndDrop';
 import DraggableCard from './DraggableCard';
 
 interface PileColumnProps {
   columnId: string;
   title: string;
-  cards: (ScryfallCard | DeckCard)[];
+  cards: (ScryfallCard | DeckCard | DeckCardInstance)[];
   zone: 'deck' | 'sideboard';
   scaleFactor: number;
   isEmpty?: boolean;
-  // Card interaction handlers
-  onClick?: (card: ScryfallCard | DeckCard, event?: React.MouseEvent) => void;
-  onDoubleClick?: (card: ScryfallCard | DeckCard) => void;
-  onEnhancedDoubleClick?: (card: ScryfallCard | DeckCard, zone: DropZone, event: React.MouseEvent) => void;
-  onRightClick?: (card: ScryfallCard | DeckCard, zone: DropZone, event: React.MouseEvent) => void;
-  onDragStart?: (cards: (ScryfallCard | DeckCard)[], zone: DropZone, event: React.MouseEvent) => void;
+  // Enhanced card interaction handlers - supporting both card and instance selection
+  onClick?: (card: ScryfallCard | DeckCard | DeckCardInstance, event?: React.MouseEvent) => void;
+  onInstanceClick?: (instanceId: string, instance: DeckCardInstance, event: React.MouseEvent) => void;
+  onDoubleClick?: (card: ScryfallCard | DeckCard | DeckCardInstance) => void;
+  onEnhancedDoubleClick?: (card: ScryfallCard | DeckCard | DeckCardInstance, zone: DropZone, event: React.MouseEvent) => void;
+  onRightClick?: (card: ScryfallCard | DeckCard | DeckCardInstance, zone: DropZone, event: React.MouseEvent) => void;
+  onDragStart?: (cards: (ScryfallCard | DeckCard | DeckCardInstance)[], zone: DropZone, event: React.MouseEvent) => void;
   // Selection and drag state
-  isSelected?: (cardId: string) => boolean;
-  selectedCards?: (ScryfallCard | DeckCard)[];
+  isSelected?: (id: string) => boolean; // Now accepts both card IDs and instance IDs
+  selectedCards?: (ScryfallCard | DeckCard | DeckCardInstance)[];
   isDragActive?: boolean;
   // Drop zone handlers
   onDragEnter?: (zone: DropZone, canDrop: boolean) => void;
@@ -37,6 +38,7 @@ const PileColumn: React.FC<PileColumnProps> = ({
   scaleFactor,
   isEmpty = false,
   onClick,
+  onInstanceClick,
   onDoubleClick,
   onEnhancedDoubleClick,
   onRightClick,
@@ -62,7 +64,7 @@ const PileColumn: React.FC<PileColumnProps> = ({
     event.preventDefault();
   }, []);
 
-  // MTGO-style card stacking - ALL cards stack together with proper overlap
+  // MTGO-style card stacking - optimized for instance-based selection
   const renderCards = useCallback(() => {
     try {
       const renderedCards: React.ReactElement[] = [];
@@ -70,15 +72,20 @@ const PileColumn: React.FC<PileColumnProps> = ({
       
       cards.forEach(card => {
         // Validate card has required properties
-        if (!card || !card.id) {
+        if (!card || !getCardId(card)) {
           console.warn('Invalid card object:', card);
           return;
         }
 
-        // Get quantity for this card
+        // For instances, render each one individually
+        // For legacy cards with quantity, render multiple copies
         let cardQuantity = 1;
         if (typeof card === 'object' && card !== null) {
-          if ('quantity' in card && typeof card.quantity === 'number' && card.quantity > 0) {
+          if ('instanceId' in card) {
+            // DeckCardInstance - each instance represents 1 copy
+            cardQuantity = 1;
+          } else if ('quantity' in card && typeof card.quantity === 'number' && card.quantity > 0) {
+            // DeckCard - use quantity property
             cardQuantity = card.quantity;
           }
         }
@@ -91,9 +98,13 @@ const PileColumn: React.FC<PileColumnProps> = ({
           const visiblePortion = Math.round(cardHeight * 0.14); // Show 14% of card (name area)
           const stackOffset = -(cardHeight - visiblePortion); // Negative offset to stack tightly
           
+          // Determine if this is an instance card and use appropriate selection logic
+          const isInstance = 'instanceId' in card;
+          const selectionId = isInstance ? card.instanceId : `${card.id}-${i}`;
+          
           renderedCards.push(
             <div
-              key={`${card.id}-${i}`}
+              key={selectionId}
               className="pile-card-stack-item"
               style={{
                 marginTop: cardIndex > 0 ? `${stackOffset}px` : '0px', // Stack ALL cards, not just same card
@@ -106,17 +117,24 @@ const PileColumn: React.FC<PileColumnProps> = ({
                 zone={zone}
                 size="normal"
                 scaleFactor={scaleFactor}
-                onClick={onClick}
+                onClick={isInstance ? undefined : onClick} // Use card click for non-instances
+                onInstanceClick={isInstance ? onInstanceClick : undefined} // Pass instance click handler
                 onDoubleClick={onDoubleClick}
                 onEnhancedDoubleClick={onEnhancedDoubleClick}
                 onRightClick={onRightClick}
                 onDragStart={onDragStart}
                 showQuantity={false} // Don't show quantity on individual cards
                 quantity={1} // Each rendered card represents 1 copy
-                selected={isSelected ? isSelected(card.id) : false}
+                selected={isSelected ? isSelected(selectionId) : false}
                 selectable={true}
                 isDragActive={isDragActive}
-                isBeingDragged={isDragActive && selectedCards.some(sc => sc.id === card.id)}
+                isBeingDragged={isDragActive && selectedCards.some(sc => {
+                  if (isInstance) {
+                    return 'instanceId' in sc ? sc.instanceId === card.instanceId : false;
+                  } else {
+                    return getCardId(sc) === getCardId(card);
+                  }
+                })}
                 selectedCards={selectedCards}
               />
             </div>

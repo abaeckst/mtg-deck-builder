@@ -1,5 +1,6 @@
 // src/components/DragPreview.tsx
 import React from 'react';
+import { ScryfallCard, DeckCard, DeckCardInstance, getCardId } from '../types/card';
 import { DragState, DraggedCard } from '../hooks/useDragAndDrop';
 import MagicCard from './MagicCard';
 
@@ -35,7 +36,7 @@ const DragPreview: React.FC<DragPreviewProps> = ({ dragState }) => {
       <div style={{ position: 'relative' }}>
         {cardsToShow.map((card, index) => (
           <div
-            key={`${card.id}-${index}`}
+            key={`${getCardId(card)}-${index}`}
             style={{
               position: index === 0 ? 'relative' : 'absolute',
               top: index * 2,
@@ -44,7 +45,7 @@ const DragPreview: React.FC<DragPreviewProps> = ({ dragState }) => {
             }}
           >
             <MagicCard
-              card={card}
+              card={card as any}
               size="small"
               style={{
                 boxShadow: '0 4px 12px rgba(0,0,0,0.4)',

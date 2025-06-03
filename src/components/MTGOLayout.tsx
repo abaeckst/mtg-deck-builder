@@ -9,7 +9,9 @@ import './MTGOLayout.css';
 import './ContextMenu.css';
 
 // Card types import
-import { ScryfallCard, DeckCard, scryfallToDeckCard } from '../types/card';
+import { ScryfallCard, DeckCard, DeckCardInstance, scryfallToDeckCard, scryfallToDeckInstance, 
+         deckCardToDeckInstance, isBasicLand, getTotalCardQuantity, getCardQuantityInZone, 
+         removeInstancesForCard } from '../types/card';
 
 // Import components
 import { useCards } from '../hooks/useCards';
@@ -30,15 +32,20 @@ interface MTGOLayoutProps {
 // Pile view sort state
 type SortCriteria = 'name' | 'mana' | 'color' | 'rarity' | 'type';
 
-// Helper function to convert any card to DeckCard
-const toDeckCard = (card: ScryfallCard | DeckCard, quantity: number = 1): DeckCard => {
-  // If it's already a DeckCard, just update quantity
-  if ('quantity' in card && 'maxQuantity' in card) {
-    return { ...card, quantity };
+// MJ's Championship Helper: Pure instance creation
+const createDeckInstance = (card: ScryfallCard | DeckCard | DeckCardInstance, zone: 'deck' | 'sideboard'): DeckCardInstance => {
+  // If already an instance, just update zone
+  if ('instanceId' in card) {
+    return { ...card, zone };
   }
   
-  // If it's a ScryfallCard, convert it
-  return { ...scryfallToDeckCard(card as ScryfallCard), quantity };
+  // If ScryfallCard, convert directly
+  if ('oracle_id' in card) {
+    return scryfallToDeckInstance(card as ScryfallCard, zone);
+  }
+  
+  // If DeckCard, convert using bridge function
+  return deckCardToDeckInstance(card as DeckCard, zone);
 };
 
 const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
@@ -104,8 +111,8 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
   const [searchText, setSearchText] = useState('');
   
   // Deck state with proper typing
-  const [mainDeck, setMainDeck] = useState<DeckCard[]>([]);
-  const [sideboard, setSideboard] = useState<DeckCard[]>([]);
+  const [mainDeck, setMainDeck] = useState<DeckCardInstance[]>([]);
+  const [sideboard, setSideboard] = useState<DeckCardInstance[]>([]);
   
   // Universal sort state for all areas and view modes
   const [collectionSortCriteria, setCollectionSortCriteria] = useState<SortCriteria>('name');
@@ -152,6 +159,35 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
     console.log('Deck and sideboard cleared - all cards moved back to collection');
   }, [clearSelection]);
 
+  // Helper to safely get card ID from any card type
+  // Helper to safely get card ID from any card type
+  const getCardId = (card: ScryfallCard | DeckCard | DeckCardInstance): string => {
+    if ('instanceId' in card) {
+      return card.cardId; // DeckCardInstance - use cardId (original Scryfall ID)
+    }
+    return card.id; // ScryfallCard or DeckCard - use id
+  };
+  
+  // Helper to get original card ID for quantity tracking
+  const getOriginalCardId = (card: ScryfallCard | DeckCard | DeckCardInstance): string => {
+    if ('cardId' in card) return card.cardId;
+    return card.id;
+  };
+
+// Helper function to get total copies across deck and sideboard
+  const getTotalCopies = useCallback((cardId: string): number => {
+    return getTotalCardQuantity(mainDeck, sideboard, cardId);
+  }, [mainDeck, sideboard]);
+  
+  // Helper functions for individual zone quantities
+  const getDeckQuantity = useCallback((cardId: string): number => {
+    return getCardQuantityInZone(mainDeck, cardId);
+  }, [mainDeck]);
+
+  const getSideboardQuantity = useCallback((cardId: string): number => {
+    return getCardQuantityInZone(sideboard, cardId);
+  }, [sideboard]);
+
   // PHASE 3A: Clear sideboard functionality
   const handleClearSideboard = useCallback(() => {
     setSideboard([]);
@@ -161,158 +197,101 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
 
   // Context menu callback implementations
   const deckManagementCallbacks: DeckManagementCallbacks = {
-    addToDeck: useCallback((cards: (ScryfallCard | DeckCard)[], quantity = 1) => {
+    addToDeck: useCallback((cards: (ScryfallCard | DeckCard | DeckCardInstance)[], quantity = 1) => {
       cards.forEach(card => {
-        const existingCard = mainDeck.find(deckCard => deckCard.id === card.id);
-        const currentQuantity = existingCard?.quantity || 0;
+        const cardId = getCardId(card);
+        const totalCopies = getTotalCopies(cardId);
+        const isBasic = isBasicLand(card);
+        const maxAllowed = isBasic ? Infinity : 4;
+        const canAdd = Math.max(0, maxAllowed - totalCopies);
+        const actualQuantity = Math.min(quantity, canAdd);
         
-        if (existingCard) {
-          const newQuantity = Math.min(currentQuantity + quantity, 4);
-          if (newQuantity > currentQuantity) {
-            setMainDeck(prev => prev.map(deckCard => 
-              deckCard.id === card.id 
-                ? { ...deckCard, quantity: newQuantity }
-                : deckCard
-            ));
-          }
-        } else {
-          const addQuantity = Math.min(quantity, 4);
-          setMainDeck(prev => [...prev, toDeckCard(card, addQuantity)]);
+        // MJ's way: Create the exact number of instances needed
+        const newInstances: DeckCardInstance[] = [];
+        for (let i = 0; i < actualQuantity; i++) {
+          newInstances.push(createDeckInstance(card, 'deck'));
         }
-      });
-    }, [mainDeck]),
-
-    removeFromDeck: useCallback((cards: (ScryfallCard | DeckCard)[], quantity = 1) => {
-      cards.forEach(card => {
-        const existingCard = mainDeck.find(deckCard => deckCard.id === card.id);
-        if (existingCard) {
-          const newQuantity = Math.max(0, existingCard.quantity - quantity);
-          if (newQuantity === 0) {
-            setMainDeck(prev => prev.filter(deckCard => deckCard.id !== card.id));
-          } else {
-            setMainDeck(prev => prev.map(deckCard => 
-              deckCard.id === card.id 
-                ? { ...deckCard, quantity: newQuantity }
-                : deckCard
-            ));
-          }
-        }
-      });
-    }, [mainDeck]),
-
-    addToSideboard: useCallback((cards: (ScryfallCard | DeckCard)[], quantity = 1) => {
-      cards.forEach(card => {
-        const existingCard = sideboard.find(sideCard => sideCard.id === card.id);
-        const currentQuantity = existingCard?.quantity || 0;
         
-        if (existingCard) {
-          const newQuantity = Math.min(currentQuantity + quantity, 4);
-          if (newQuantity > currentQuantity) {
-            setSideboard(prev => prev.map(sideCard => 
-              sideCard.id === card.id 
-                ? { ...sideCard, quantity: newQuantity }
-                : sideCard
-            ));
-          }
-        } else {
-          const addQuantity = Math.min(quantity, 4);
-          setSideboard(prev => [...prev, toDeckCard(card, addQuantity)]);
+        if (newInstances.length > 0) {
+          setMainDeck(prev => [...prev, ...newInstances]);
         }
       });
-    }, [sideboard]),
+    }, [getTotalCopies]),
 
-    removeFromSideboard: useCallback((cards: (ScryfallCard | DeckCard)[], quantity = 1) => {
+    removeFromDeck: useCallback((cards: (ScryfallCard | DeckCard | DeckCardInstance)[], quantity = 1) => {
       cards.forEach(card => {
-        const existingCard = sideboard.find(sideCard => sideCard.id === card.id);
-        if (existingCard) {
-          const newQuantity = Math.max(0, existingCard.quantity - quantity);
-          if (newQuantity === 0) {
-            setSideboard(prev => prev.filter(sideCard => sideCard.id !== card.id));
-          } else {
-            setSideboard(prev => prev.map(sideCard => 
-              sideCard.id === card.id 
-                ? { ...sideCard, quantity: newQuantity }
-                : sideCard
-            ));
-          }
+        const cardId = 'cardId' in card ? card.cardId : getCardId(card);
+        setMainDeck(prev => removeInstancesForCard(prev, cardId, quantity));
+      });
+    }, []),
+
+    addToSideboard: useCallback((cards: (ScryfallCard | DeckCard | DeckCardInstance)[], quantity = 1) => {
+      cards.forEach(card => {
+        const cardId = getCardId(card);
+        const totalCopies = getTotalCopies(cardId);
+        const isBasic = isBasicLand(card);
+        const maxAllowed = isBasic ? Infinity : 4;
+        const canAdd = Math.max(0, maxAllowed - totalCopies);
+        const actualQuantity = Math.min(quantity, canAdd);
+        
+        // MJ's way: Create the exact number of instances needed
+        const newInstances: DeckCardInstance[] = [];
+        for (let i = 0; i < actualQuantity; i++) {
+          newInstances.push(createDeckInstance(card, 'sideboard'));
+        }
+        
+        if (newInstances.length > 0) {
+          setSideboard(prev => [...prev, ...newInstances]);
         }
       });
-    }, [sideboard]),
+    }, [getTotalCopies]),
 
-    moveDeckToSideboard: useCallback((cards: (ScryfallCard | DeckCard)[], quantity = 1) => {
+    removeFromSideboard: useCallback((cards: (ScryfallCard | DeckCard | DeckCardInstance)[], quantity = 1) => {
       cards.forEach(card => {
-        const deckCard = mainDeck.find(dc => dc.id === card.id);
-        if (deckCard) {
-          const moveQuantity = Math.min(quantity, deckCard.quantity);
-          
+        const cardId = 'cardId' in card ? card.cardId : getCardId(card);
+        setSideboard(prev => removeInstancesForCard(prev, cardId, quantity));
+      });
+    }, []),
+
+    moveDeckToSideboard: useCallback((cards: (ScryfallCard | DeckCard | DeckCardInstance)[], quantity = 1) => {
+      cards.forEach(card => {
+        const cardId = getCardId(card);
+        // MJ's approach: Find actual instances and move them
+        const instancesToMove = mainDeck.filter(instance => instance.cardId === cardId).slice(0, quantity);
+        
+        if (instancesToMove.length > 0) {
           // Remove from deck
-          const newDeckQuantity = deckCard.quantity - moveQuantity;
-          if (newDeckQuantity === 0) {
-            setMainDeck(prev => prev.filter(dc => dc.id !== card.id));
-          } else {
-            setMainDeck(prev => prev.map(dc => 
-              dc.id === card.id 
-                ? { ...dc, quantity: newDeckQuantity }
-                : dc
-            ));
-          }
-          
-          // Add to sideboard
-          const existingSideCard = sideboard.find(sc => sc.id === card.id);
-          if (existingSideCard) {
-            setSideboard(prev => prev.map(sc => 
-              sc.id === card.id 
-                ? { ...sc, quantity: sc.quantity + moveQuantity }
-                : sc
-            ));
-          } else {
-            setSideboard(prev => [...prev, toDeckCard(card, moveQuantity)]);
-          }
+          setMainDeck(prev => prev.filter(instance => !instancesToMove.includes(instance)));
+          // Add to sideboard with updated zone
+          const sideboardInstances = instancesToMove.map(instance => ({ ...instance, zone: 'sideboard' as const }));
+          setSideboard(prev => [...prev, ...sideboardInstances]);
         }
       });
-    }, [mainDeck, sideboard]),
+    }, [mainDeck]),
 
-    moveSideboardToDeck: useCallback((cards: (ScryfallCard | DeckCard)[], quantity = 1) => {
+    moveSideboardToDeck: useCallback((cards: (ScryfallCard | DeckCard | DeckCardInstance)[], quantity = 1) => {
       cards.forEach(card => {
-        const sideCard = sideboard.find(sc => sc.id === card.id);
-        if (sideCard) {
-          const moveQuantity = Math.min(quantity, sideCard.quantity);
-          
+        const cardId = getCardId(card);
+        // MJ's approach: Find actual instances and move them
+        const instancesToMove = sideboard.filter(instance => instance.cardId === cardId).slice(0, quantity);
+        
+        if (instancesToMove.length > 0) {
           // Remove from sideboard
-          const newSideQuantity = sideCard.quantity - moveQuantity;
-          if (newSideQuantity === 0) {
-            setSideboard(prev => prev.filter(sc => sc.id !== card.id));
-          } else {
-            setSideboard(prev => prev.map(sc => 
-              sc.id === card.id 
-                ? { ...sc, quantity: newSideQuantity }
-                : sc
-            ));
-          }
-          
-          // Add to deck
-          const existingDeckCard = mainDeck.find(dc => dc.id === card.id);
-          if (existingDeckCard) {
-            const newDeckQuantity = Math.min(existingDeckCard.quantity + moveQuantity, 4);
-            setMainDeck(prev => prev.map(dc => 
-              dc.id === card.id 
-                ? { ...dc, quantity: newDeckQuantity }
-                : dc
-            ));
-          } else {
-            setMainDeck(prev => [...prev, { ...scryfallToDeckCard(card as ScryfallCard), quantity: moveQuantity }]);
-          }
+          setSideboard(prev => prev.filter(instance => !instancesToMove.includes(instance)));
+          // Add to deck with updated zone  
+          const deckInstances = instancesToMove.map(instance => ({ ...instance, zone: 'deck' as const }));
+          setMainDeck(prev => [...prev, ...deckInstances]);
         }
       });
-    }, [mainDeck, sideboard]),
+    }, [sideboard]),
 
     getDeckQuantity: useCallback((cardId: string) => {
-      return mainDeck.find(card => card.id === cardId)?.quantity || 0;
-    }, [mainDeck]),
+      return getDeckQuantity(cardId);
+    }, [getDeckQuantity]),
 
     getSideboardQuantity: useCallback((cardId: string) => {
-      return sideboard.find(card => card.id === cardId)?.quantity || 0;
-    }, [sideboard]),
+      return getSideboardQuantity(cardId);
+    }, [getSideboardQuantity]),
   };
 
   // Initialize context menu hook
@@ -321,134 +300,60 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
   // PHASE 3A: Enhanced drag and drop callbacks
   const dragCallbacks = {
     onCardMove: useCallback((cards: DraggedCard[], from: DropZoneType, to: DropZoneType) => {
-      console.log('🚀 DRAG CALLBACK TRIGGERED');
-      console.log('📊 Cards being moved:', cards.map(c => c.name));
-      console.log('📊 From zone:', from, 'To zone:', to);
-      console.log('📊 BEFORE - MainDeck:', mainDeck.map(c => `${c.name}(${c.quantity})`));
-      console.log('📊 BEFORE - Sideboard:', sideboard.map(c => `${c.name}(${c.quantity})`));
+      console.log(`🏀 MJ's drag handler: Moving ${cards.length} cards from ${from} to ${to}`);
       
       cards.forEach(card => {
-        console.log(`🎯 Processing card: ${card.name}`);
+        const cardId = getCardId(card);
         
         if (from === 'collection' && to === 'deck') {
-          console.log('➡️ COLLECTION → DECK');
-          const existingCard = mainDeck.find(deckCard => deckCard.id === card.id);
-          console.log('📋 Existing in deck:', existingCard ? `${existingCard.name}(${existingCard.quantity})` : 'none');
+          const totalCopies = getTotalCopies(cardId);
+          const isBasic = isBasicLand(card);
+          const maxAllowed = isBasic ? Infinity : 4;
           
-          if (existingCard && existingCard.quantity < 4) {
-            console.log('🔄 Updating existing deck card quantity');
-            setMainDeck(prev => prev.map(deckCard => 
-              deckCard.id === card.id 
-                ? { ...deckCard, quantity: deckCard.quantity + 1 }
-                : deckCard
-            ));
-          } else if (!existingCard) {
-            console.log('🆕 Adding new card to deck');
-            setMainDeck(prev => [...prev, toDeckCard(card, 1)]);
-          } else {
-            console.log('❌ Cannot add - deck limit reached');
+          if (totalCopies < maxAllowed) {
+            const newInstance = createDeckInstance(card, 'deck');
+            setMainDeck(prev => [...prev, newInstance]);
           }
         } else if (from === 'collection' && to === 'sideboard') {
-          console.log('➡️ COLLECTION → SIDEBOARD');
-          const existingCard = sideboard.find(sideCard => sideCard.id === card.id);
-          if (existingCard && existingCard.quantity < 4) {
-            setSideboard(prev => prev.map(sideCard => 
-              sideCard.id === card.id 
-                ? { ...sideCard, quantity: sideCard.quantity + 1 }
-                : sideCard
-            ));
-          } else if (!existingCard) {
-            setSideboard(prev => [...prev, toDeckCard(card, 1)]);
+          const totalCopies = getTotalCopies(cardId);
+          const isBasic = isBasicLand(card);
+          const maxAllowed = isBasic ? Infinity : 4;
+          
+          if (totalCopies < maxAllowed) {
+            const newInstance = createDeckInstance(card, 'sideboard');
+            setSideboard(prev => [...prev, newInstance]);
           }
         } else if (from === 'deck' && to === 'sideboard') {
-          console.log('➡️ DECK → SIDEBOARD');
-          const deckCard = mainDeck.find(dc => dc.id === card.id);
-          if (deckCard) {
-            if (deckCard.quantity > 1) {
-              setMainDeck(prev => prev.map(dc => 
-                dc.id === card.id 
-                  ? { ...dc, quantity: dc.quantity - 1 }
-                  : dc
-              ));
-            } else {
-              setMainDeck(prev => prev.filter(dc => dc.id !== card.id));
-            }
-            
-            const existingCard = sideboard.find(sc => sc.id === card.id);
-            if (existingCard) {
-              setSideboard(prev => prev.map(sc => 
-                sc.id === card.id 
-                  ? { ...sc, quantity: sc.quantity + 1 }
-                  : sc
-              ));
-            } else {
-              setSideboard(prev => [...prev, toDeckCard(card, 1)]);
-            }
+          // Move one instance from deck to sideboard
+          const instanceToMove = mainDeck.find(instance => instance.cardId === cardId);
+          if (instanceToMove) {
+            setMainDeck(prev => prev.filter(instance => instance !== instanceToMove));
+            setSideboard(prev => [...prev, { ...instanceToMove, zone: 'sideboard' }]);
           }
         } else if (from === 'sideboard' && to === 'deck') {
-          console.log('➡️ SIDEBOARD → DECK');
-          const sideCard = sideboard.find(sc => sc.id === card.id);
-          if (sideCard) {
-            if (sideCard.quantity > 1) {
-              setSideboard(prev => prev.map(sc => 
-                sc.id === card.id 
-                  ? { ...sc, quantity: sc.quantity - 1 }
-                  : sc
-              ));
-            } else {
-              setSideboard(prev => prev.filter(sc => sc.id !== card.id));
-            }
-            
-            const existingCard = mainDeck.find(dc => dc.id === card.id);
-            if (existingCard && existingCard.quantity < 4) {
-              setMainDeck(prev => prev.map(dc => 
-                dc.id === card.id 
-                  ? { ...dc, quantity: dc.quantity + 1 }
-                  : dc
-              ));
-            } else if (!existingCard) {
-              setMainDeck(prev => [...prev, toDeckCard(card, 1)]);
-            }
+          // Move one instance from sideboard to deck
+          const instanceToMove = sideboard.find(instance => instance.cardId === cardId);
+          if (instanceToMove) {
+            setSideboard(prev => prev.filter(instance => instance !== instanceToMove));
+            setMainDeck(prev => [...prev, { ...instanceToMove, zone: 'deck' }]);
           }
         } else if (from === 'deck' && to === 'collection') {
-          console.log('➡️ DECK → COLLECTION');
-          const deckCard = mainDeck.find(dc => dc.id === card.id);
-          if (deckCard) {
-            if (deckCard.quantity > 1) {
-              setMainDeck(prev => prev.map(dc => 
-                dc.id === card.id 
-                  ? { ...dc, quantity: dc.quantity - 1 }
-                  : dc
-              ));
-            } else {
-              setMainDeck(prev => prev.filter(dc => dc.id !== card.id));
-            }
+          // Remove one instance from deck
+          const instanceToRemove = mainDeck.find(instance => instance.cardId === cardId);
+          if (instanceToRemove) {
+            setMainDeck(prev => prev.filter(instance => instance !== instanceToRemove));
           }
         } else if (from === 'sideboard' && to === 'collection') {
-          console.log('➡️ SIDEBOARD → COLLECTION');
-          const sideCard = sideboard.find(sc => sc.id === card.id);
-          if (sideCard) {
-            if (sideCard.quantity > 1) {
-              setSideboard(prev => prev.map(sc => 
-                sc.id === card.id 
-                  ? { ...sc, quantity: sc.quantity - 1 }
-                  : sc
-              ));
-            } else {
-              setSideboard(prev => prev.filter(sc => sc.id !== card.id));
-            }
+          // Remove one instance from sideboard
+          const instanceToRemove = sideboard.find(instance => instance.cardId === cardId);
+          if (instanceToRemove) {
+            setSideboard(prev => prev.filter(instance => instance !== instanceToRemove));
           }
         }
       });
       
-      // Check state after processing  
-      setTimeout(() => {
-        console.log('📊 AFTER - MainDeck:', mainDeck.map(c => `${c.name}(${c.quantity})`));
-        console.log('📊 AFTER - Sideboard:', sideboard.map(c => `${c.name}(${c.quantity})`));
-      }, 100);
-      
       clearSelection();
-    }, [mainDeck, sideboard, clearSelection]),
+    }, [mainDeck, sideboard, getTotalCopies, clearSelection]),
 
     onDragStart: useCallback((cards: DraggedCard[], from: DropZoneType) => {
       console.log(`Started dragging ${cards.length} cards from ${from}`);
@@ -525,34 +430,42 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
       enhancedSearch(searchText, newFilters);
     }, 50);
   }, [updateFilter, enhancedSearch, searchText, activeFilters]);
-  
-  
+
   // Card interaction handlers
-  const handleCardClick = (card: ScryfallCard | DeckCard, event?: React.MouseEvent) => {
+  const handleCardClick = useCallback((card: ScryfallCard | DeckCard | DeckCardInstance, event?: React.MouseEvent) => {
     if (contextMenuState.visible) {
       hideContextMenu();
     }
-    selectCard(card.id, card as any, event?.ctrlKey);
-  };
+    selectCard(getCardId(card), card as any, event?.ctrlKey);
+  }, [contextMenuState.visible, hideContextMenu, selectCard]);
 
-  const handleRightClick = useCallback((card: any, zone: DropZoneType, event: React.MouseEvent) => {
+  // Instance-based click handler for deck/sideboard cards
+  const handleInstanceClick = useCallback((instanceId: string, instance: DeckCardInstance, event: React.MouseEvent) => {
+    if (contextMenuState.visible) {
+      hideContextMenu();
+    }
+    // Use instance-based selection for deck/sideboard cards
+    console.log(`Instance click: ${instanceId} for card ${instance.name}`);
+    selectCard(instanceId, instance as any, event.ctrlKey);
+  }, [contextMenuState.visible, hideContextMenu, selectCard]);
+
+    const handleRightClick = useCallback((card: any, zone: DropZoneType, event: React.MouseEvent) => {
     const selectedCardObjects = getSelectedCardObjects();
     showContextMenu(event, card, zone, selectedCardObjects);
   }, [showContextMenu, getSelectedCardObjects]);
   
   // Legacy double-click handler for fallback
-  const handleAddToDeck = (card: ScryfallCard | DeckCard) => {
-    const existingCard = mainDeck.find((deckCard: DeckCard) => deckCard.id === card.id);
-    if (existingCard && existingCard.quantity < 4) {
-      setMainDeck((prev: DeckCard[]) => prev.map((deckCard: DeckCard) => 
-        deckCard.id === card.id 
-          ? { ...deckCard, quantity: deckCard.quantity + 1 }
-          : deckCard
-      ));
-    } else if (!existingCard) {
-      setMainDeck((prev: DeckCard[]) => [...prev, toDeckCard(card, 1)]);
+  const handleAddToDeck = useCallback((card: ScryfallCard | DeckCard | DeckCardInstance) => {
+    const cardId = getCardId(card);
+    const totalCopies = getTotalCopies(cardId);
+    const isBasic = isBasicLand(card);
+    const maxAllowed = isBasic ? Infinity : 4;
+    
+    if (totalCopies < maxAllowed) {
+      const newInstance = createDeckInstance(card, 'deck');
+      setMainDeck(prev => [...prev, newInstance]);
     }
-  };
+  }, [getTotalCopies]);
 
   // Enhanced drag start handler
   const handleDragStart = useCallback((cards: DraggedCard[], zone: DropZoneType, event: React.MouseEvent) => {
@@ -567,10 +480,9 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
   const handleDragLeave = useCallback(() => {
     setDropZone(null, false);
   }, [setDropZone]);
-  
 
   // Card sorting helper function for all areas
-  const sortCards = useCallback((cards: (ScryfallCard | DeckCard)[], criteria: SortCriteria, direction: 'asc' | 'desc'): (ScryfallCard | DeckCard)[] => {
+  const sortCards = useCallback((cards: (ScryfallCard | DeckCard | DeckCardInstance)[], criteria: SortCriteria, direction: 'asc' | 'desc'): (ScryfallCard | DeckCard | DeckCardInstance)[] => {
     const sorted = [...cards].sort((a, b) => {
       let comparison = 0;
       
@@ -612,12 +524,12 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
     return sortCards(cards, collectionSortCriteria, collectionSortDirection);
   }, [cards, collectionSortCriteria, collectionSortDirection, sortCards]);
 
-  const sortedMainDeck = useMemo((): DeckCard[] => {
-    return layout.viewModes.deck === 'pile' ? mainDeck : sortCards(mainDeck, deckSortCriteria, deckSortDirection) as DeckCard[];
+  const sortedMainDeck = useMemo((): DeckCardInstance[] => {
+    return layout.viewModes.deck === 'pile' ? mainDeck : sortCards(mainDeck as any, deckSortCriteria, deckSortDirection) as DeckCardInstance[];
   }, [mainDeck, deckSortCriteria, deckSortDirection, layout.viewModes.deck, sortCards]);
 
-  const sortedSideboard = useMemo((): DeckCard[] => {
-    return layout.viewModes.sideboard === 'pile' ? sideboard : sortCards(sideboard, sideboardSortCriteria, sideboardSortDirection) as DeckCard[];
+  const sortedSideboard = useMemo((): DeckCardInstance[] => {
+    return layout.viewModes.sideboard === 'pile' ? sideboard : sortCards(sideboard as any, sideboardSortCriteria, sideboardSortDirection) as DeckCardInstance[];
   }, [sideboard, sideboardSortCriteria, sideboardSortDirection, layout.viewModes.sideboard, sortCards]);
 
     // Mobile fallback
@@ -788,7 +700,6 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
               </div>
             </div>
 
-            
             {/* Rarity Group */}
             <div className="filter-group">
               <label>Rarity</label>
@@ -1022,13 +933,13 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
               <span>View: </span>
               <button 
                 className={layout.viewModes.collection === 'grid' ? 'active' : ''}
-                onClick={() => updateViewMode('collection', 'grid')}
+                onClick={() => { clearSelection(); updateViewMode('collection', 'grid'); }}
               >
                 Card
               </button>
               <button 
                 className={layout.viewModes.collection === 'list' ? 'active' : ''}
-                onClick={() => updateViewMode('collection', 'list')}
+                onClick={() => { clearSelection(); updateViewMode('collection', 'list'); }}
               >
                 List
               </button>
@@ -1086,9 +997,9 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
                   padding: '8px'
                 }}
               >
-                {sortedCollectionCards.map((card: ScryfallCard | DeckCard) => (
+                {sortedCollectionCards.map((card) => (
                   <DraggableCard
-                    key={card.id}
+                    key={getCardId(card)}
                     card={card}
                     zone="collection"
                     size="normal"
@@ -1100,11 +1011,11 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
                     onDragStart={handleDragStart}
                     showQuantity={true}
                     availableQuantity={4}
-                    quantity={mainDeck.find((dc: any) => dc.id === card.id)?.quantity || 0}
-                    selected={isSelected(card.id)}
+                    quantity={getTotalCopies(getCardId(card))}
+                    selected={isSelected(getCardId(card))}
                     selectable={true}
                     isDragActive={dragState.isDragging}
-                    isBeingDragged={dragState.draggedCards.some(dc => dc.id === card.id)}
+                    isBeingDragged={dragState.draggedCards.some(dc => getCardId(dc) === getCardId(card))}
                     selectedCards={getSelectedCardObjects()}
                   />
                 ))}
@@ -1159,7 +1070,7 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
             className="mtgo-deck-area"
           >
             <div className="panel-header">
-              <h3>Main Deck ({mainDeck.reduce((sum: number, card: any) => sum + card.quantity, 0)} cards)</h3>
+              <h3>Main Deck ({mainDeck.length} cards)</h3>
               <div className="deck-controls">
                 <span>Size: </span>
                 <input
@@ -1244,19 +1155,19 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
                 <span>View: </span>
                 <button 
                   className={layout.viewModes.deck === 'card' ? 'active' : ''}
-                  onClick={() => updateViewMode('deck', 'card')}
+                  onClick={() => { clearSelection(); updateViewMode('deck', 'card'); }}
                 >
                   Card
                 </button>
                 <button 
                   className={layout.viewModes.deck === 'pile' ? 'active' : ''}
-                  onClick={() => updateViewMode('deck', 'pile')}
+                  onClick={() => { clearSelection(); updateViewMode('deck', 'pile'); }}
                 >
                   Pile
                 </button>
                 <button 
                   className={layout.viewModes.deck === 'list' ? 'active' : ''}
-                  onClick={() => updateViewMode('deck', 'list')}
+                  onClick={() => { clearSelection(); updateViewMode('deck', 'list'); }}
                 >
                   List
                 </button>
@@ -1275,6 +1186,7 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
                   scaleFactor={cardSizes.deck}
                   forcedSortCriteria={deckSortCriteria === 'name' ? 'mana' : deckSortCriteria}
                   onClick={(card, event) => handleCardClick(card, event)}
+                  onInstanceClick={handleInstanceClick}
                   onDoubleClick={handleAddToDeck}
                   onEnhancedDoubleClick={handleDoubleClick}
                   onRightClick={handleRightClick}
@@ -1306,11 +1218,27 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
                   isDragActive={dragState.isDragging}
                   onQuantityChange={(cardId, newQuantity) => {
                     if (newQuantity === 0) {
-                      setMainDeck(prev => prev.filter(card => card.id !== cardId));
+                      // Remove all instances of this card
+                      setMainDeck(prev => prev.filter(instance => instance.cardId !== cardId));
                     } else {
-                      setMainDeck(prev => prev.map(card => 
-                        card.id === cardId ? { ...card, quantity: newQuantity } : card
-                      ));
+                      // Add or remove instances to match desired quantity
+                      const currentQuantity = getDeckQuantity(cardId);
+                      const diff = newQuantity - currentQuantity;
+                      
+                      if (diff > 0) {
+                        // Add instances
+                        const cardData = cards.find(c => c.id === cardId);
+                        if (cardData) {
+                          const newInstances: DeckCardInstance[] = [];
+                          for (let i = 0; i < diff; i++) {
+                            newInstances.push(createDeckInstance(cardData, 'deck'));
+                          }
+                          setMainDeck(prev => [...prev, ...newInstances]);
+                        }
+                      } else if (diff < 0) {
+                        // Remove instances
+                        setMainDeck(prev => removeInstancesForCard(prev, cardId, Math.abs(diff)));
+                      }
                     }
                   }}
                 />
@@ -1326,23 +1254,26 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
                     paddingBottom: '40px'
                   }}
                 >
-                  {sortedMainDeck.map((deckCard) => (
+                  {sortedMainDeck.map((deckInstance) => (
                     <DraggableCard
-                      key={deckCard.id}
-                      card={deckCard}
+                      key={deckInstance.instanceId}
+                      card={deckInstance}
                       zone="deck"
                       size="normal"
                       scaleFactor={cardSizes.deck}
                       onClick={(card, event) => handleCardClick(card, event)}
+                      instanceId={deckInstance.instanceId}
+                      isInstance={true}
+                      onInstanceClick={handleInstanceClick}
                       onEnhancedDoubleClick={handleDoubleClick}
                       onRightClick={handleRightClick}
                       onDragStart={handleDragStart}
                       showQuantity={true}
-                      quantity={deckCard.quantity}
-                      selected={isSelected(deckCard.id)}
+                      quantity={1}
+                      selected={isSelected(deckInstance.instanceId)}
                       selectable={true}
                       isDragActive={dragState.isDragging}
-                      isBeingDragged={dragState.draggedCards.some(dc => dc.id === deckCard.id)}
+                      isBeingDragged={dragState.draggedCards.some(dc => 'instanceId' in dc ? dc.instanceId === deckInstance.instanceId : dc.id === deckInstance.cardId)}
                       selectedCards={getSelectedCardObjects()}
                     />
                   ))}
@@ -1367,7 +1298,7 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
             style={{ width: layout.panels.sideboardWidth }}
           >
             <div className="panel-header">
-              <h3>Sideboard ({sideboard.reduce((sum: number, card: any) => sum + card.quantity, 0)})</h3>
+              <h3>Sideboard ({sideboard.length})</h3>
               <div className="sideboard-controls">
                 <span>Size: </span>
                 <input
@@ -1452,19 +1383,19 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
                 <span>View: </span>
                 <button 
                   className={layout.viewModes.sideboard === 'card' ? 'active' : ''}
-                  onClick={() => updateViewMode('sideboard', 'card')}
+                  onClick={() => { clearSelection(); updateViewMode('sideboard', 'card'); }}
                 >
                   Card
                 </button>
                 <button 
                   className={layout.viewModes.sideboard === 'pile' ? 'active' : ''}
-                  onClick={() => updateViewMode('sideboard', 'pile')}
+                  onClick={() => { clearSelection(); updateViewMode('sideboard', 'pile'); }}
                 >
                   Pile
                 </button>
                 <button 
                   className={layout.viewModes.sideboard === 'list' ? 'active' : ''}
-                  onClick={() => updateViewMode('sideboard', 'list')}
+                  onClick={() => { clearSelection(); updateViewMode('sideboard', 'list'); }}
                 >
                   List
                 </button>
@@ -1482,6 +1413,7 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
                   scaleFactor={cardSizes.sideboard}
                   forcedSortCriteria={sideboardSortCriteria === 'name' ? 'mana' : sideboardSortCriteria}
                   onClick={(card, event) => handleCardClick(card, event)}
+                  onInstanceClick={handleInstanceClick}
                   onDoubleClick={handleAddToDeck}
                   onEnhancedDoubleClick={handleDoubleClick}
                   onRightClick={handleRightClick}
@@ -1513,11 +1445,27 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
                   isDragActive={dragState.isDragging}
                   onQuantityChange={(cardId, newQuantity) => {
                     if (newQuantity === 0) {
-                      setSideboard(prev => prev.filter(card => card.id !== cardId));
+                      // Remove all instances of this card
+                      setSideboard(prev => prev.filter(instance => instance.cardId !== cardId));
                     } else {
-                      setSideboard(prev => prev.map(card => 
-                        card.id === cardId ? { ...card, quantity: newQuantity } : card
-                      ));
+                      // Add or remove instances to match desired quantity
+                      const currentQuantity = getSideboardQuantity(cardId);
+                      const diff = newQuantity - currentQuantity;
+                      
+                      if (diff > 0) {
+                        // Add instances
+                        const cardData = cards.find(c => c.id === cardId);
+                        if (cardData) {
+                          const newInstances: DeckCardInstance[] = [];
+                          for (let i = 0; i < diff; i++) {
+                            newInstances.push(createDeckInstance(cardData, 'sideboard'));
+                          }
+                          setSideboard(prev => [...prev, ...newInstances]);
+                        }
+                      } else if (diff < 0) {
+                        // Remove instances
+                        setSideboard(prev => removeInstancesForCard(prev, cardId, Math.abs(diff)));
+                      }
                     }
                   }}
                 />
@@ -1533,23 +1481,26 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
                     paddingBottom: '40px'
                   }}
                 >
-                  {sortedSideboard.map((sideCard) => (
+                  {sortedSideboard.map((sideInstance) => (
                     <DraggableCard
-                      key={sideCard.id}
-                      card={sideCard}
+                      key={sideInstance.instanceId}
+                      card={sideInstance}
                       zone="sideboard"
                       size="normal"
                       scaleFactor={cardSizes.sideboard}
                       onClick={(card, event) => handleCardClick(card, event)}
+                      instanceId={sideInstance.instanceId}
+                      isInstance={true}
+                      onInstanceClick={handleInstanceClick}
                       onEnhancedDoubleClick={handleDoubleClick}
                       onRightClick={handleRightClick}
                       onDragStart={handleDragStart}
                       showQuantity={true}
-                      quantity={sideCard.quantity}
-                      selected={isSelected(sideCard.id)}
+                      quantity={1}
+                      selected={isSelected(sideInstance.instanceId)}
                       selectable={true}
                       isDragActive={dragState.isDragging}
-                      isBeingDragged={dragState.draggedCards.some(dc => dc.id === sideCard.id)}
+                      isBeingDragged={dragState.draggedCards.some(dc => 'instanceId' in dc ? dc.instanceId === sideInstance.instanceId : dc.id === sideInstance.cardId)}
                       selectedCards={getSelectedCardObjects()}
                     />
                   ))}
