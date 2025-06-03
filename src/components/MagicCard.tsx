@@ -226,7 +226,7 @@ export const MagicCard: React.FC<MagicCardProps> = ({
         {/* Quantity Indicators */}
         {showQuantity && (
           <>
-            {/* Available Quantity (Collection) */}
+            {/* Available Quantity (Collection) - Blue badge */}
             {availableQuantity !== undefined && (
               <div style={{
                 position: 'absolute',
@@ -243,18 +243,19 @@ export const MagicCard: React.FC<MagicCardProps> = ({
                 fontSize: size === 'small' ? '10px' : '12px',
                 fontWeight: 'bold',
                 border: '1px solid rgba(255,255,255,0.3)',
+                zIndex: 10,
               }}>
                 {availableQuantity}
               </div>
             )}
 
-            {/* Deck Quantity */}
+            {/* Deck Quantity - Orange badge, always show if quantity > 0 */}
             {quantity !== undefined && quantity > 0 && (
               <div style={{
                 position: 'absolute',
                 top: availableQuantity !== undefined ? '26px' : '4px',
                 right: '4px',
-                backgroundColor: '#ca8a04',
+                backgroundColor: '#ea580c',
                 color: 'white',
                 borderRadius: '50%',
                 width: size === 'small' ? '16px' : '20px',
@@ -265,8 +266,34 @@ export const MagicCard: React.FC<MagicCardProps> = ({
                 fontSize: size === 'small' ? '10px' : '12px',
                 fontWeight: 'bold',
                 border: '1px solid rgba(255,255,255,0.3)',
+                zIndex: 10,
+                boxShadow: '0 2px 4px rgba(0,0,0,0.3)',
               }}>
                 {quantity}
+              </div>
+            )}
+
+            {/* Force quantity display for deck cards when quantity is 1 */}
+            {quantity === 1 && availableQuantity === undefined && (
+              <div style={{
+                position: 'absolute',
+                top: '4px',
+                right: '4px',
+                backgroundColor: '#ea580c',
+                color: 'white',
+                borderRadius: '50%',
+                width: size === 'small' ? '16px' : '20px',
+                height: size === 'small' ? '16px' : '20px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: size === 'small' ? '10px' : '12px',
+                fontWeight: 'bold',
+                border: '1px solid rgba(255,255,255,0.3)',
+                zIndex: 10,
+                boxShadow: '0 2px 4px rgba(0,0,0,0.3)',
+              }}>
+                1
               </div>
             )}
           </>

@@ -56,9 +56,9 @@ const STORAGE_KEY = 'mtg-deckbuilder-layout';
 
 // PERCENTAGE-BASED CONSTRAINTS
 const CONSTRAINTS = {
-  filterPanelWidth: { min: 200, max: 500 },
-  deckAreaHeightPercent: { min: 25, max: 60 }, // 25% to 60% of screen height
-  sideboardWidth: { min: 200, max: 1000 },
+  filterPanelWidth: { min: 180, max: 500 },    // Keep search bar accessible (180px minimum)
+  deckAreaHeightPercent: { min: 8, max: 75 },  // Allow much smaller/larger ranges
+  sideboardWidth: { min: 20, max: 1000 },      // Allow near-invisible (20px = resize handle only)
   previewPane: {
     size: { minWidth: 250, maxWidth: 500, minHeight: 350, maxHeight: 700 },
     position: { minX: 0, minY: 0 },

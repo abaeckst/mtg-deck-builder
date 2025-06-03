@@ -33,16 +33,16 @@ interface ColumnDefinition {
   visible: boolean;
 }
 
-// Column definitions with minimum widths - Quantity first!
+// Column definitions with minimum widths - Much smaller for better resizing
 const COLUMN_DEFINITIONS: ColumnDefinition[] = [
-  { id: 'quantity', title: 'Qty', minWidth: 80, sortable: false, visible: true },
-  { id: 'name', title: 'Name', minWidth: 200, sortable: true, visible: true },
-  { id: 'mana', title: 'Mana', minWidth: 80, sortable: true, visible: true },
-  { id: 'type', title: 'Type', minWidth: 150, sortable: true, visible: true },
-  { id: 'power', title: 'Power', minWidth: 60, sortable: true, visible: true },
-  { id: 'toughness', title: 'Toughness', minWidth: 60, sortable: true, visible: true },
-  { id: 'color', title: 'Color', minWidth: 80, sortable: true, visible: true },
-  { id: 'text', title: 'Text', minWidth: 250, sortable: true, visible: true },
+  { id: 'quantity', title: 'Qty', minWidth: 40, sortable: false, visible: true },
+  { id: 'name', title: 'Name', minWidth: 60, sortable: true, visible: true },
+  { id: 'mana', title: 'Mana', minWidth: 35, sortable: true, visible: true },
+  { id: 'type', title: 'Type', minWidth: 50, sortable: true, visible: true },
+  { id: 'power', title: 'Power', minWidth: 30, sortable: true, visible: true },
+  { id: 'toughness', title: 'Toughness', minWidth: 30, sortable: true, visible: true },
+  { id: 'color', title: 'Color', minWidth: 35, sortable: true, visible: true },
+  { id: 'text', title: 'Text', minWidth: 80, sortable: true, visible: true },
 ];
 
 const ListView: React.FC<ListViewProps> = ({
@@ -111,7 +111,7 @@ const ListView: React.FC<ListViewProps> = ({
       
       const deltaX = event.clientX - resizing.startX;
       const newWidth = Math.max(
-        COLUMN_DEFINITIONS.find(col => col.id === resizing.columnId)?.minWidth || 100,
+        COLUMN_DEFINITIONS.find(col => col.id === resizing.columnId)?.minWidth || 30,
         resizing.startWidth + deltaX
       );
       

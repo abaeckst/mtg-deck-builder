@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Script to integrate text export and screenshot features into MTGOLayout.tsx
+Corrected script to integrate text export and screenshot features into MTGOLayout.tsx
 This script adds the necessary imports, state, and UI buttons for the export features.
 """
 
@@ -20,6 +20,11 @@ def integrate_export_features():
     with open(mtgo_layout_path, 'r', encoding='utf-8') as f:
         content = f.read()
     
+    # Check if already integrated
+    if 'TextExportModal' in content:
+        print("⚠️  Export features already integrated!")
+        return True
+    
     # 1. Add new imports at the top (after existing imports)
     import_addition = '''
 // Export modal imports
@@ -27,15 +32,15 @@ import { TextExportModal } from './TextExportModal';
 import { ScreenshotModal } from './ScreenshotModal';
 import { getFormatDisplayName } from '../utils/deckFormatting';'''
     
-    # Find the last import statement and add after it
-    last_import_pattern = r"(import.*?from.*?;)"
-    matches = list(re.finditer(last_import_pattern, content))
-    if matches:
-        last_import_end = matches[-1].end()
-        content = content[:last_import_end] + import_addition + content[last_import_end:]
+    # Find the AdaptiveHeader import and add after it
+    adaptive_header_pattern = r"(import AdaptiveHeader from './AdaptiveHeader';)"
+    match = re.search(adaptive_header_pattern, content)
+    if match:
+        end_pos = match.end()
+        content = content[:end_pos] + import_addition + content[end_pos:]
         print("✅ Added import statements")
     else:
-        print("❌ Could not find import section")
+        print("❌ Could not find AdaptiveHeader import")
         return False
     
     # 2. Add modal state after existing state declarations
@@ -74,15 +79,15 @@ import { getFormatDisplayName } from '../utils/deckFormatting';'''
     setShowScreenshotModal(false);
   }, []);'''
     
-    # Find after the handleClearDeck function
-    clear_deck_pattern = r"(const handleClearDeck = useCallback\(\(\) => \{[^}]+\}, \[clearSelection\]\);)"
-    match = re.search(clear_deck_pattern, content, re.DOTALL)
+    # Find after the handleClearSideboard function
+    clear_sideboard_pattern = r"(const handleClearSideboard = useCallback\(\(\) => \{[^}]+\}, \[clearSelection\]\);)"
+    match = re.search(clear_sideboard_pattern, content, re.DOTALL)
     if match:
         end_pos = match.end()
         content = content[:end_pos] + modal_handlers + content[end_pos:]
         print("✅ Added modal handler functions")
     else:
-        print("❌ Could not find handleClearDeck function")
+        print("❌ Could not find handleClearSideboard function")
         return False
     
     # 4. Add buttons in the deck header (before "Save Deck" button)
@@ -166,7 +171,7 @@ def main():
         print("🎉 Integration completed successfully!")
         print()
         print("Next steps:")
-        print("1. Run: npm install html2canvas @types/html2canvas")
+        print("1. Make sure html2canvas is installed: npm install html2canvas @types/html2canvas")
         print("2. Run: npm start")
         print("3. Test the 'Export Text' and 'Screenshot' buttons in the main deck header")
         print()

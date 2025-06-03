@@ -24,6 +24,10 @@ import SearchAutocomplete from './SearchAutocomplete';
 import PileView from './PileView';
 import ListView from './ListView';
 import AdaptiveHeader from './AdaptiveHeader';
+// Export modal imports
+import { TextExportModal } from './TextExportModal';
+import { ScreenshotModal } from './ScreenshotModal';
+import { getFormatDisplayName } from '../utils/deckFormatting';
 
 interface MTGOLayoutProps {
   // Props for any data that needs to be passed down
@@ -113,6 +117,9 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
   // Deck state with proper typing
   const [mainDeck, setMainDeck] = useState<DeckCardInstance[]>([]);
   const [sideboard, setSideboard] = useState<DeckCardInstance[]>([]);
+  // Export modal state
+  const [showTextExportModal, setShowTextExportModal] = useState(false);
+  const [showScreenshotModal, setShowScreenshotModal] = useState(false);
   
   // Universal sort state for all areas and view modes
   const [collectionSortCriteria, setCollectionSortCriteria] = useState<SortCriteria>('name');
@@ -158,6 +165,22 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
     clearSelection();
     console.log('Deck and sideboard cleared - all cards moved back to collection');
   }, [clearSelection]);
+  // Export modal handlers
+  const handleTextExport = useCallback(() => {
+    setShowTextExportModal(true);
+  }, []);
+  
+  const handleScreenshot = useCallback(() => {
+    setShowScreenshotModal(true);
+  }, []);
+  
+  const handleCloseTextExport = useCallback(() => {
+    setShowTextExportModal(false);
+  }, []);
+  
+  const handleCloseScreenshot = useCallback(() => {
+    setShowScreenshotModal(false);
+  }, []);
 
   // Helper to safely get card ID from any card type
   // Helper to safely get card ID from any card type
@@ -1170,7 +1193,13 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
                   onClick={() => { clearSelection(); updateViewMode('deck', 'list'); }}
                 >
                   List
+                </button>                <button onClick={handleTextExport} title="Export deck as text for MTGO">
+                  Export Text
                 </button>
+                <button onClick={handleScreenshot} title="Generate deck image">
+                  Screenshot
+                </button>
+                
                 <button>Save Deck</button>
                 <button onClick={handleClearDeck} title="Clear all cards from deck and sideboard">
                   Clear All
@@ -1247,36 +1276,80 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
                   className="deck-grid"
                   style={{
                     display: 'grid',
-                    gridTemplateColumns: `repeat(auto-fill, minmax(${Math.round(130 * cardSizes.deck)}px, 1fr))`,
+                    gridTemplateColumns: `repeat(auto-fill, minmax(${Math.round(130 * cardSizes.deck)}px, max-content))`,
                     gap: `${Math.round(4 * cardSizes.deck)}px`,
                     alignContent: 'start',
                     minHeight: '150px',
                     paddingBottom: '40px'
                   }}
                 >
-                  {sortedMainDeck.map((deckInstance) => (
-                    <DraggableCard
-                      key={deckInstance.instanceId}
-                      card={deckInstance}
-                      zone="deck"
-                      size="normal"
-                      scaleFactor={cardSizes.deck}
-                      onClick={(card, event) => handleCardClick(card, event)}
-                      instanceId={deckInstance.instanceId}
-                      isInstance={true}
-                      onInstanceClick={handleInstanceClick}
-                      onEnhancedDoubleClick={handleDoubleClick}
-                      onRightClick={handleRightClick}
-                      onDragStart={handleDragStart}
-                      showQuantity={true}
-                      quantity={1}
-                      selected={isSelected(deckInstance.instanceId)}
-                      selectable={true}
-                      isDragActive={dragState.isDragging}
-                      isBeingDragged={dragState.draggedCards.some(dc => 'instanceId' in dc ? dc.instanceId === deckInstance.instanceId : dc.id === deckInstance.cardId)}
-                      selectedCards={getSelectedCardObjects()}
-                    />
-                  ))}
+                  {(() => {
+                    // Group instances by cardId for clean stacking (collection style)
+                    const groupedCards = new Map<string, DeckCardInstance[]>();
+                    sortedMainDeck.forEach(instance => {
+                      const cardId = instance.cardId;
+                      if (!groupedCards.has(cardId)) {
+                        groupedCards.set(cardId, []);
+                      }
+                      groupedCards.get(cardId)!.push(instance);
+                    });
+
+                    return Array.from(groupedCards.entries()).map(([cardId, instances]) => {
+                      const representativeCard = instances[0];
+                      const quantity = instances.length;
+                      const isAnySelected = instances.some(instance => isSelected(instance.instanceId));
+
+                      const handleStackClick = (card: any, event?: React.MouseEvent) => {
+                        // If multiple instances, select the first non-selected one, or all if all selected
+                        if (instances.length > 1) {
+                          const unselectedInstance = instances.find(inst => !isSelected(inst.instanceId));
+                          const targetInstance = unselectedInstance || instances[0];
+                          handleInstanceClick(targetInstance.instanceId, targetInstance, event as React.MouseEvent);
+                        } else {
+                          handleInstanceClick(representativeCard.instanceId, representativeCard, event as React.MouseEvent);
+                        }
+                      };
+
+                      const handleStackInstanceClick = (instanceId: string, instance: DeckCardInstance, event: React.MouseEvent) => {
+                        // For stacks, use the same logic but with proper signature
+                        handleStackClick(instance, event);
+                      };
+
+                      const handleStackDragStart = (cards: any[], zone: any, event: React.MouseEvent) => {
+                        // When dragging a stack, drag all instances of the card
+                        handleDragStart(instances as any[], zone, event);
+                      };
+
+                      return (
+                        <DraggableCard
+                          key={cardId}
+                          card={representativeCard}
+                          zone="deck"
+                          size="normal"
+                          scaleFactor={cardSizes.deck}
+                          onClick={handleStackClick}
+                          instanceId={representativeCard.instanceId}
+                          isInstance={true}
+                          onInstanceClick={handleStackInstanceClick}
+                          onEnhancedDoubleClick={handleDoubleClick}
+                          onRightClick={handleRightClick}
+                          onDragStart={handleStackDragStart}
+                          showQuantity={true}
+                          quantity={quantity}
+                          selected={isAnySelected}
+                          selectable={true}
+                          isDragActive={dragState.isDragging}
+                          isBeingDragged={dragState.draggedCards.some(dc => 
+                            instances.some(inst => 
+                              'instanceId' in dc ? dc.instanceId === inst.instanceId : dc.id === inst.cardId
+                            )
+                          )}
+                          selectedCards={getSelectedCardObjects()}
+                        />
+                      );
+                    });
+                  })()}
+                  
                   {mainDeck.length === 0 && (
                     <div className="empty-deck-message">
                       Double-click or drag cards from the collection to add them to your deck
@@ -1474,36 +1547,80 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
                   className="sideboard-grid"
                   style={{
                     display: 'grid',
-                    gridTemplateColumns: `repeat(auto-fill, minmax(${Math.round(130 * cardSizes.sideboard)}px, 1fr))`,
+                    gridTemplateColumns: `repeat(auto-fill, minmax(${Math.round(130 * cardSizes.sideboard)}px, max-content))`,
                     gap: `${Math.round(4 * cardSizes.sideboard)}px`,
                     alignContent: 'start',
                     minHeight: '150px',
                     paddingBottom: '40px'
                   }}
                 >
-                  {sortedSideboard.map((sideInstance) => (
-                    <DraggableCard
-                      key={sideInstance.instanceId}
-                      card={sideInstance}
-                      zone="sideboard"
-                      size="normal"
-                      scaleFactor={cardSizes.sideboard}
-                      onClick={(card, event) => handleCardClick(card, event)}
-                      instanceId={sideInstance.instanceId}
-                      isInstance={true}
-                      onInstanceClick={handleInstanceClick}
-                      onEnhancedDoubleClick={handleDoubleClick}
-                      onRightClick={handleRightClick}
-                      onDragStart={handleDragStart}
-                      showQuantity={true}
-                      quantity={1}
-                      selected={isSelected(sideInstance.instanceId)}
-                      selectable={true}
-                      isDragActive={dragState.isDragging}
-                      isBeingDragged={dragState.draggedCards.some(dc => 'instanceId' in dc ? dc.instanceId === sideInstance.instanceId : dc.id === sideInstance.cardId)}
-                      selectedCards={getSelectedCardObjects()}
-                    />
-                  ))}
+                  {(() => {
+                    // Group instances by cardId for clean stacking (collection style)
+                    const groupedCards = new Map<string, DeckCardInstance[]>();
+                    sortedSideboard.forEach(instance => {
+                      const cardId = instance.cardId;
+                      if (!groupedCards.has(cardId)) {
+                        groupedCards.set(cardId, []);
+                      }
+                      groupedCards.get(cardId)!.push(instance);
+                    });
+
+                    return Array.from(groupedCards.entries()).map(([cardId, instances]) => {
+                      const representativeCard = instances[0];
+                      const quantity = instances.length;
+                      const isAnySelected = instances.some(instance => isSelected(instance.instanceId));
+
+                      const handleStackClick = (card: any, event?: React.MouseEvent) => {
+                        // If multiple instances, select the first non-selected one, or all if all selected
+                        if (instances.length > 1) {
+                          const unselectedInstance = instances.find(inst => !isSelected(inst.instanceId));
+                          const targetInstance = unselectedInstance || instances[0];
+                          handleInstanceClick(targetInstance.instanceId, targetInstance, event as React.MouseEvent);
+                        } else {
+                          handleInstanceClick(representativeCard.instanceId, representativeCard, event as React.MouseEvent);
+                        }
+                      };
+
+                      const handleStackInstanceClick = (instanceId: string, instance: DeckCardInstance, event: React.MouseEvent) => {
+                        // For stacks, use the same logic but with proper signature
+                        handleStackClick(instance, event);
+                      };
+
+                      const handleStackDragStart = (cards: any[], zone: any, event: React.MouseEvent) => {
+                        // When dragging a stack, drag all instances of the card
+                        handleDragStart(instances as any[], zone, event);
+                      };
+
+                      return (
+                        <DraggableCard
+                          key={cardId}
+                          card={representativeCard}
+                          zone="sideboard"
+                          size="normal"
+                          scaleFactor={cardSizes.sideboard}
+                          onClick={handleStackClick}
+                          instanceId={representativeCard.instanceId}
+                          isInstance={true}
+                          onInstanceClick={handleStackInstanceClick}
+                          onEnhancedDoubleClick={handleDoubleClick}
+                          onRightClick={handleRightClick}
+                          onDragStart={handleStackDragStart}
+                          showQuantity={true}
+                          quantity={quantity}
+                          selected={isAnySelected}
+                          selectable={true}
+                          isDragActive={dragState.isDragging}
+                          isBeingDragged={dragState.draggedCards.some(dc => 
+                            instances.some(inst => 
+                              'instanceId' in dc ? dc.instanceId === inst.instanceId : dc.id === inst.cardId
+                            )
+                          )}
+                          selectedCards={getSelectedCardObjects()}
+                        />
+                      );
+                    });
+                  })()}
+                  
                   {sideboard.length === 0 && (
                     <div className="empty-sideboard-message">
                       Drag cards here for your sideboard
@@ -1532,6 +1649,24 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
           </DropZoneComponent>
         </div>
       </div>
+      {/* Export Modals */}
+      <TextExportModal
+        isOpen={showTextExportModal}
+        onClose={handleCloseTextExport}
+        mainDeck={mainDeck}
+        sideboard={sideboard}
+        format={activeFilters.format}
+        deckName="Untitled Deck"
+      />
+      
+      <ScreenshotModal
+        isOpen={showScreenshotModal}
+        onClose={handleCloseScreenshot}
+        mainDeck={mainDeck}
+        sideboard={sideboard}
+        deckName="Untitled Deck"
+      />
+
 
       {/* Context Menu */}
       <ContextMenu

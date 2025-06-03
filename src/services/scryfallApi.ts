@@ -25,6 +25,7 @@ const rateLimitedFetch = async (url: string): Promise<Response> => {
   const response = await fetch(url, {
     headers: {
       'Accept': 'application/json',
+      'User-Agent': 'MTGDeckBuilder/1.0',
     },
   });
   
@@ -352,58 +353,81 @@ export const enhancedSearchCards = async (
  * Build enhanced search query with operator support
  */
 function buildEnhancedSearchQuery(query: string): string {
+  // FIXED: Scryfall-compatible multi-word search syntax
+  console.log('🔍 Building enhanced query for:', query);
+  
   // For simple queries without operators, enable full-text search
-  // This searches across name, oracle text, and type line
   if (!query.includes('"') && !query.includes('-') && !query.includes(':')) {
-    return `(name:${query} OR oracle:${query} OR type:${query})`;
+    const words = query.trim().split(/\s+/);
+    
+    if (words.length > 1) {
+  // Multi-word query: Search for individual words with AND logic
+  console.log('🔍 Multi-word query detected, using individual word search:', query);
+  const words = query.trim().split(/\s+/);
+  const oracleTerms = words.map(word => `o:${word}`).join(' ');
+  return oracleTerms;
+} else {
+      // Single word: search across multiple fields
+      const result = `(name:${query} OR o:${query} OR type:${query})`;
+      console.log('🔍 Single word query, using field search:', result);
+      return result;
+    }
   }
   
-  // Only do advanced parsing for queries with operators
+  // Advanced parsing for queries with explicit operators
   const parts: string[] = [];
   let workingQuery = query;
   
-  // Handle quoted phrases
+  // Handle quoted phrases (user explicitly wants exact match)
   const quotedPhrases = query.match(/"[^"]+"/g) || [];
   quotedPhrases.forEach(phrase => {
-    parts.push(phrase); // Keep quoted phrases as-is for Scryfall
+    parts.push(phrase);
     workingQuery = workingQuery.replace(phrase, '');
   });
   
   // Handle exclusions
-  const exclusions = workingQuery.match(/-\w+/g) || [];
+  const exclusions = workingQuery.match(/-"[^"]+"|--?[\w\s]+/g) || [];
   exclusions.forEach(exclusion => {
-    parts.push(exclusion); // Keep exclusions as-is
+    parts.push(exclusion);
     workingQuery = workingQuery.replace(exclusion, '');
   });
   
-  // Handle field-specific searches
-  const fieldSearches = workingQuery.match(/(name|text|type):[\w\s]+/g) || [];
+  // Handle field-specific searches - QUOTE multi-word values
+  const fieldSearches = workingQuery.match(/(name|text|type|oracle):"[^"]+"|(?:name|text|type|oracle):[\w\s]+(?=\s|$)/g) || [];
   fieldSearches.forEach(fieldSearch => {
-    const [field, value] = fieldSearch.split(':');
+    const colonIndex = fieldSearch.indexOf(':');
+    const field = fieldSearch.substring(0, colonIndex);
+    const value = fieldSearch.substring(colonIndex + 1);
+    
+    // If multi-word field value, add quotes
+    const processedValue = value.includes(' ') && !value.startsWith('"') ? `"${value}"` : value;
+    
     if (field === 'text') {
-      parts.push(`oracle:${value}`); // Convert text: to oracle: for Scryfall
+      parts.push(`o:${processedValue}`);
     } else {
-      parts.push(fieldSearch); // Keep name: and type: as-is
+      parts.push(`${field}:${processedValue}`);
     }
     workingQuery = workingQuery.replace(fieldSearch, '');
   });
   
-  // Handle remaining terms - for advanced queries, do full-text search
+  // Handle remaining terms - use simple syntax for multi-word
   const remainingTerms = workingQuery.trim().split(/\s+/).filter(term => term.length > 0);
   if (remainingTerms.length > 0) {
     const fullTextSearch = remainingTerms.join(' ');
-    // Only use complex OR logic if we already have other operators
+    
     if (parts.length > 0) {
-      parts.push(`(name:${fullTextSearch} OR oracle:${fullTextSearch} OR type:${fullTextSearch})`);
+      // If we have other operators, add as simple search
+      parts.push(fullTextSearch);
     } else {
-      // If no operators detected, just add the simple search
+      // Simple search without field restrictions
       parts.push(fullTextSearch);
     }
   }
   
-  return parts.join(' ').trim() || query;
+  const result = parts.join(' ').trim() || query;
+  console.log('🔍 Final enhanced query:', result);
+  return result;
 }
-
 /**
  * Get autocomplete suggestions for search terms
  */
