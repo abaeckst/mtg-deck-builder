@@ -1,4 +1,4 @@
-// src/types/card.ts
+// src/types/card.ts - Added pagination interfaces for progressive loading
 // TypeScript interfaces for Magic: The Gathering card data from Scryfall API
 
 /**
@@ -57,6 +57,30 @@ export interface ScryfallCard {
   keywords: string[];
   layout: string;
   card_faces?: CardFace[]; // For double-faced cards
+}
+
+/**
+ * Pagination state interface for progressive loading
+ */
+export interface PaginatedSearchState {
+  initialResults: ScryfallCard[];
+  totalCards: number;
+  loadedCards: number;
+  hasMore: boolean;
+  isLoadingMore: boolean;
+  currentPage: number;
+  lastQuery: string;
+  lastFilters: any;
+  lastSort: { order: string; dir: 'asc' | 'desc' };
+}
+
+/**
+ * Progressive loading configuration
+ */
+export interface ProgressiveLoadingConfig {
+  initialPageSize: number;    // 75 cards initially
+  loadMorePageSize: number;   // 175 cards per batch
+  maxTotalCards?: number;     // Optional limit on total cards to load
 }
 
 /**

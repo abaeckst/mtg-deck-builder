@@ -1,7 +1,18 @@
-// src/hooks/useCards.ts - Complete working version with exports
+// src/hooks/useCards.ts - Enhanced with progressive loading (75 initial + 175 per batch)
 import { useState, useEffect, useCallback } from 'react';
-import { ScryfallCard } from '../types/card';
-import { searchCards, getRandomCard, searchCardsWithFilters, SearchFilters, enhancedSearchCards, getSearchSuggestions } from '../services/scryfallApi';
+import { ScryfallCard, PaginatedSearchState } from '../types/card';
+import { 
+  searchCards, 
+  getRandomCard, 
+  searchCardsWithFilters, 
+  SearchFilters, 
+  enhancedSearchCards, 
+  getSearchSuggestions, 
+  searchCardsWithSort,
+  searchCardsWithPagination,
+  loadMoreResults
+} from '../services/scryfallApi';
+import { useSorting, AreaType, SortCriteria, SortDirection } from './useSorting';
 
 export interface UseCardsState {
   cards: ScryfallCard[];
@@ -11,10 +22,28 @@ export interface UseCardsState {
   selectedCards: Set<string>;
   searchQuery: string;
   totalCards: number;
+  
   // Enhanced search state
   searchSuggestions: string[];
   showSuggestions: boolean;
   recentSearches: string[];
+
+  // Progressive loading pagination state
+  pagination: {
+    totalCards: number;
+    loadedCards: number;
+    hasMore: boolean;
+    isLoadingMore: boolean;
+    currentPage: number;
+  };
+
+  // Sort integration state
+  lastSearchMetadata: {
+    query: string;
+    filters: any;
+    totalCards: number;
+    loadedCards: number;
+  } | null;
 
   // Enhanced filtering state
   activeFilters: {
@@ -42,22 +71,36 @@ export interface UseCardsActions {
   isCardSelected: (cardId: string) => boolean;
   getSelectedCardsData: () => ScryfallCard[];
   clearCards: () => void;
+  
   // Enhanced filter actions
   updateFilter: (filterType: string, value: any) => void;
   clearAllFilters: () => void;
   toggleFiltersCollapsed: () => void;
   hasActiveFilters: () => boolean;
+  
   // Enhanced search actions
   enhancedSearch: (query: string, filtersOverride?: any) => Promise<void>;
   getSearchSuggestions: (query: string) => Promise<void>;
   clearSearchSuggestions: () => void;
   addToSearchHistory: (query: string) => void;
-
+  
+  // Sort integration actions
+  handleCollectionSortChange: (criteria: SortCriteria, direction: SortDirection) => void;
+  
+  // Progressive loading actions
+  loadMoreResultsAction: () => Promise<void>;
+  resetPagination: () => void;
 }
 
 const POPULAR_CARDS_QUERY = 'legal:standard (type:creature OR type:instant OR type:sorcery OR type:planeswalker OR type:enchantment OR type:artifact)';
 
 export const useCards = (): UseCardsState & UseCardsActions => {
+  // Initialize sorting integration
+  const { getScryfallSortParams, subscribe, unsubscribe } = useSorting();
+  
+  // Internal pagination state for progressive loading
+  const [paginationState, setPaginationState] = useState<PaginatedSearchState | null>(null);
+  
   const [state, setState] = useState<UseCardsState>({
     cards: [],
     loading: false,
@@ -66,10 +109,24 @@ export const useCards = (): UseCardsState & UseCardsActions => {
     selectedCards: new Set(),
     searchQuery: '',
     totalCards: 0,
+    
     // Enhanced search state
     searchSuggestions: [],
     showSuggestions: false,
     recentSearches: [],
+    
+    // Progressive loading pagination state
+    pagination: {
+      totalCards: 0,
+      loadedCards: 0,
+      hasMore: false,
+      isLoadingMore: false,
+      currentPage: 1,
+    },
+    
+    // Sort integration state
+    lastSearchMetadata: null,
+    
     // Enhanced filtering state
     activeFilters: {
       format: 'custom-standard',
@@ -83,7 +140,6 @@ export const useCards = (): UseCardsState & UseCardsActions => {
       toughness: { min: null, max: null },
     },
     isFiltersCollapsed: false,
-
   });
 
   // Clear error when starting new operations
@@ -96,42 +152,123 @@ export const useCards = (): UseCardsState & UseCardsActions => {
     setState(prev => ({ ...prev, loading }));
   }, []);
 
-  // Search for cards with query and optional format filter - RACE CONDITION SAFE
-  const searchForCards = useCallback(async (query: string, format?: string) => {
-    // Handle empty query cases
-    if (!query.trim()) {
-      // If there's a format selected, search for all cards in that format
-      if (format && format !== '') {
-        // Don't return early - continue with format-only search
-        query = '*'; // Use wildcard to get all cards
-      } else {
-        // No query and no format - clear results
-        setState(prev => ({ 
-          ...prev, 
-          cards: [], 
-          searchQuery: '', 
-          totalCards: 0,
-          selectedCards: new Set() // Clear selection when clearing search
-        }));
-        return;
+  // Reset pagination state
+  const resetPagination = useCallback(() => {
+    setPaginationState(null);
+    setState(prev => ({
+      ...prev,
+      pagination: {
+        totalCards: 0,
+        loadedCards: 0,
+        hasMore: false,
+        isLoadingMore: false,
+        currentPage: 1,
       }
+    }));
+  }, []);
+
+  // Load more results action
+  const loadMoreResultsAction = useCallback(async () => {
+    if (!paginationState || !paginationState.hasMore || paginationState.isLoadingMore) {
+      console.log('🚫 Cannot load more:', { 
+        hasPaginationState: !!paginationState,
+        hasMore: paginationState?.hasMore,
+        isLoadingMore: paginationState?.isLoadingMore
+      });
+      return;
     }
 
-    // Create unique search ID to prevent race conditions
+    console.log('🔄 Loading more results...');
+    
+    // Update loading state
+    setState(prev => ({
+      ...prev,
+      pagination: { ...prev.pagination, isLoadingMore: true }
+    }));
+    
+    // Update pagination state
+    setPaginationState(prev => prev ? { ...prev, isLoadingMore: true } : null);
+
+    try {
+      const newCards = await loadMoreResults(
+        paginationState,
+        (loaded, total) => {
+          // Progress callback
+          setState(prev => ({
+            ...prev,
+            pagination: { 
+              ...prev.pagination, 
+              loadedCards: loaded
+            }
+          }));
+        }
+      );
+
+      // Update cards and pagination state
+      const updatedCards = [...state.cards, ...newCards];
+      const newLoadedCount = updatedCards.length;
+      const stillHasMore = newLoadedCount < paginationState.totalCards;
+      
+      setState(prev => ({
+        ...prev,
+        cards: updatedCards,
+        totalCards: paginationState.totalCards,
+        hasMore: stillHasMore,
+        pagination: {
+          ...prev.pagination,
+          loadedCards: newLoadedCount,
+          hasMore: stillHasMore,
+          isLoadingMore: false,
+          currentPage: paginationState.currentPage + 1,
+        }
+      }));
+
+      // Update internal pagination state
+      setPaginationState(prev => prev ? {
+        ...prev,
+        loadedCards: newLoadedCount,
+        hasMore: stillHasMore,
+        isLoadingMore: false,
+        currentPage: prev.currentPage + 1,
+      } : null);
+
+      console.log('✅ Load more results successful:', {
+        newCardsLoaded: newCards.length,
+        totalLoadedNow: newLoadedCount,
+        stillHasMore
+      });
+
+    } catch (error) {
+      console.error('❌ Failed to load more results:', error);
+      
+      setState(prev => ({
+        ...prev,
+        pagination: { ...prev.pagination, isLoadingMore: false },
+        error: error instanceof Error ? error.message : 'Failed to load more results'
+      }));
+      
+      setPaginationState(prev => prev ? { ...prev, isLoadingMore: false } : null);
+    }
+  }, [paginationState, state.cards]);
+
+  // Enhanced search with pagination support
+  const searchWithPagination = useCallback(async (query: string, filters: SearchFilters = {}) => {
     const searchId = Date.now() + Math.random();
     (window as any).currentSearchId = searchId;
 
-    console.log('🔍 SEARCH STARTED:', { 
+    console.log('🔍 PAGINATED SEARCH STARTED:', { 
       searchId: searchId.toFixed(3), 
       query, 
-      format: format || 'none' 
+      filters,
+      initialPageSize: 75
     });
 
     try {
       clearError();
       setLoading(true);
+      resetPagination();
 
-      // Simple rate limiting - wait 150ms between searches
+      // Rate limiting
       const now = Date.now();
       const lastSearch = (window as any).lastSearchTime || 0;
       const timeSinceLastSearch = now - lastSearch;
@@ -140,70 +277,75 @@ export const useCards = (): UseCardsState & UseCardsActions => {
         await new Promise(resolve => setTimeout(resolve, 150 - timeSinceLastSearch));
       }
       
-      // Check if this search was cancelled while waiting
       if ((window as any).currentSearchId !== searchId) {
-        console.log('🚫 SEARCH CANCELLED:', { 
-          searchId: searchId.toFixed(3), 
-          query,
-          reason: 'superseded by newer search'
-        });
+        console.log('🚫 PAGINATED SEARCH CANCELLED:', searchId.toFixed(3));
         return;
       }
       
       (window as any).lastSearchTime = Date.now();
 
-      // Execute API call
-      const response = format && format !== '' 
-        ? await searchCardsWithFilters(query, { 
-            format: format === 'custom-standard' ? 'standard' : format 
-          })
-        : await searchCards(query);
+      // Get Scryfall sort parameters
+      const sortParams = getScryfallSortParams('collection');
+      
+      // Execute paginated search
+      const paginationResult = await searchCardsWithPagination(
+        query, 
+        filters, 
+        sortParams.order, 
+        sortParams.dir
+      );
 
-      // Check if this search was cancelled while API call was in progress
       if ((window as any).currentSearchId !== searchId) {
-        console.log('🚫 SEARCH CANCELLED:', { 
-          searchId: searchId.toFixed(3), 
-          query,
-          reason: 'superseded during API call'
-        });
+        console.log('🚫 PAGINATED SEARCH CANCELLED DURING API:', searchId.toFixed(3));
         return;
       }
 
-      console.log('✅ SEARCH SUCCESS:', {
+      console.log('✅ PAGINATED SEARCH SUCCESS:', {
         searchId: searchId.toFixed(3),
-        query: query,
-        format: format || 'none',
-        resultCount: response.data.length,
-        firstCard: response.data[0]?.name || 'NO_RESULTS',
-        isFormatOnly: query === '*'
+        initialResultCount: paginationResult.initialResults.length,
+        totalAvailable: paginationResult.totalCards,
+        hasMore: paginationResult.hasMore
       });
 
-      // Only update state if this is still the current search
+      // Update state with initial results
       setState(prev => ({
         ...prev,
-        cards: response.data,
-        searchQuery: query === '*' ? `All ${format || 'Cards'}` : query,
-        totalCards: response.total_cards,
-        hasMore: response.has_more,
-        selectedCards: new Set(), // Clear selection on new search
+        cards: paginationResult.initialResults,
+        searchQuery: query === '*' ? 'Filtered Results' : query,
+        totalCards: paginationResult.totalCards,
+        hasMore: paginationResult.hasMore,
+        selectedCards: new Set(),
+        pagination: {
+          totalCards: paginationResult.totalCards,
+          loadedCards: paginationResult.loadedCards,
+          hasMore: paginationResult.hasMore,
+          isLoadingMore: false,
+          currentPage: 1,
+        },
+        lastSearchMetadata: {
+          query,
+          filters,
+          totalCards: paginationResult.totalCards,
+          loadedCards: paginationResult.loadedCards,
+        },
       }));
 
+      // Store pagination state for load more functionality
+      setPaginationState(paginationResult);
+
     } catch (error) {
-      // Only show error if this search wasn't cancelled
       if ((window as any).currentSearchId === searchId) {
         let errorMessage = error instanceof Error ? error.message : 'Failed to search cards';
         let isNoResults = false;
         
-        // Handle 404 as "no results found" rather than error
         if (errorMessage.includes('404') || errorMessage.includes('No cards found')) {
           errorMessage = 'No cards found matching your search. Try different keywords or filters.';
           isNoResults = true;
-          console.log('📭 No results found for search:', query);
+          console.log('📭 No results found for paginated search:', query);
         } else {
-          console.error('❌ SEARCH ERROR:', {
+          console.error('❌ PAGINATED SEARCH ERROR:', {
             searchId: searchId.toFixed(3),
             query: query,
-            format: format || 'none',
             error: errorMessage
           });
         }
@@ -215,30 +357,83 @@ export const useCards = (): UseCardsState & UseCardsActions => {
           totalCards: 0,
           hasMore: false,
           searchQuery: isNoResults ? 'No results found' : prev.searchQuery,
+          pagination: {
+            totalCards: 0,
+            loadedCards: 0,
+            hasMore: false,
+            isLoadingMore: false,
+            currentPage: 1,
+          },
         }));
+        
+        resetPagination();
       }
     } finally {
-      // Only clear loading if this is still the current search
       if ((window as any).currentSearchId === searchId) {
         setLoading(false);
       }
     }
-  }, [clearError, setLoading]);
+  }, [clearError, setLoading, resetPagination, getScryfallSortParams]);
+
+  // Search for cards with query and optional format filter - NOW WITH PAGINATION
+  const searchForCards = useCallback(async (query: string, format?: string) => {
+    // Handle empty query cases
+    if (!query.trim()) {
+      if (format && format !== '') {
+        query = '*';
+      } else {
+        setState(prev => ({ 
+          ...prev, 
+          cards: [], 
+          searchQuery: '', 
+          totalCards: 0,
+          selectedCards: new Set(),
+          pagination: {
+            totalCards: 0,
+            loadedCards: 0,
+            hasMore: false,
+            isLoadingMore: false,
+            currentPage: 1,
+          }
+        }));
+        resetPagination();
+        return;
+      }
+    }
+
+    const filters = format && format !== '' 
+      ? { format: format === 'custom-standard' ? 'standard' : format }
+      : {};
+
+    await searchWithPagination(query, filters);
+  }, [searchWithPagination, resetPagination]);
 
   // Load popular/example cards
   const loadPopularCards = useCallback(async () => {
     clearError();
     setLoading(true);
+    resetPagination();
 
     try {
       const response = await searchCards(POPULAR_CARDS_QUERY);
+      
+      // Limit to 75 cards for consistency
+      const limitedCards = response.data.slice(0, 75);
+      
       setState(prev => ({
         ...prev,
-        cards: response.data,
+        cards: limitedCards,
         searchQuery: 'Popular Cards',
-        totalCards: response.total_cards,
-        hasMore: response.has_more,
+        totalCards: limitedCards.length,
+        hasMore: false,
         selectedCards: new Set(),
+        pagination: {
+          totalCards: limitedCards.length,
+          loadedCards: limitedCards.length,
+          hasMore: false,
+          isLoadingMore: false,
+          currentPage: 1,
+        },
       }));
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to load popular cards';
@@ -248,16 +443,24 @@ export const useCards = (): UseCardsState & UseCardsActions => {
         cards: [],
         totalCards: 0,
         hasMore: false,
+        pagination: {
+          totalCards: 0,
+          loadedCards: 0,
+          hasMore: false,
+          isLoadingMore: false,
+          currentPage: 1,
+        },
       }));
     } finally {
       setLoading(false);
     }
-  }, [clearError, setLoading]);
+  }, [clearError, setLoading, resetPagination]);
 
   // Load a single random card
   const loadRandomCard = useCallback(async () => {
     clearError();
     setLoading(true);
+    resetPagination();
 
     try {
       const card = await getRandomCard();
@@ -268,6 +471,13 @@ export const useCards = (): UseCardsState & UseCardsActions => {
         totalCards: 1,
         hasMore: false,
         selectedCards: new Set(),
+        pagination: {
+          totalCards: 1,
+          loadedCards: 1,
+          hasMore: false,
+          isLoadingMore: false,
+          currentPage: 1,
+        },
       }));
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to load random card';
@@ -277,13 +487,20 @@ export const useCards = (): UseCardsState & UseCardsActions => {
         cards: [],
         totalCards: 0,
         hasMore: false,
+        pagination: {
+          totalCards: 0,
+          loadedCards: 0,
+          hasMore: false,
+          isLoadingMore: false,
+          currentPage: 1,
+        },
       }));
     } finally {
       setLoading(false);
     }
-  }, [clearError, setLoading]);
+  }, [clearError, setLoading, resetPagination]);
 
-  // Card selection functions - FIXED Set iteration
+  // Card selection functions
   const selectCard = useCallback((cardId: string) => {
     setState(prev => {
       const newSelected = new Set(prev.selectedCards);
@@ -324,6 +541,7 @@ export const useCards = (): UseCardsState & UseCardsActions => {
 
   // Clear all cards and reset state
   const clearCards = useCallback(() => {
+    resetPagination();
     setState({
       cards: [],
       loading: false,
@@ -332,13 +550,19 @@ export const useCards = (): UseCardsState & UseCardsActions => {
       selectedCards: new Set(),
       searchQuery: '',
       totalCards: 0,
-      // Enhanced search state
       searchSuggestions: [],
       showSuggestions: false,
       recentSearches: [],
-      // Enhanced filtering state
+      pagination: {
+        totalCards: 0,
+        loadedCards: 0,
+        hasMore: false,
+        isLoadingMore: false,
+        currentPage: 1,
+      },
+      lastSearchMetadata: null,
       activeFilters: {
-        format: 'custom-standard',
+        format: '',
         colors: [],
         colorIdentity: 'exact',
         types: [],
@@ -350,14 +574,28 @@ export const useCards = (): UseCardsState & UseCardsActions => {
       },
       isFiltersCollapsed: false,
     });
-  }, []);
+  }, [resetPagination]);
 
   // Load popular cards on mount
   useEffect(() => {
     loadPopularCards();
   }, [loadPopularCards]);
 
+  // Subscribe to collection sort changes
+  useEffect(() => {
+    const subscriptionId = subscribe((area: AreaType, sortState) => {
+      if (area === 'collection') {
+        console.log('🔄 Collection sort changed:', sortState);
+        if (state.lastSearchMetadata) {
+          handleCollectionSortChange(sortState.criteria, sortState.direction);
+        }
+      }
+    });
 
+    return () => {
+      unsubscribe(subscriptionId);
+    };
+  }, [subscribe, unsubscribe, state.lastSearchMetadata]);
 
   // Enhanced filter management functions
   const updateFilter = useCallback((filterType: string, value: any) => {
@@ -380,7 +618,7 @@ export const useCards = (): UseCardsState & UseCardsActions => {
     setState(prev => ({
       ...prev,
       activeFilters: {
-        format: 'custom-standard',
+        format: '',
         colors: [],
         colorIdentity: 'exact',
         types: [],
@@ -392,7 +630,6 @@ export const useCards = (): UseCardsState & UseCardsActions => {
       },
     }));
     
-    // Reset search results to popular cards after clearing filters
     setTimeout(() => {
       console.log('🧹 Loading popular cards after filter clear');
       loadPopularCards();
@@ -423,67 +660,46 @@ export const useCards = (): UseCardsState & UseCardsActions => {
     );
   }, [state.activeFilters]);
 
-  // Enhanced search function that uses all active filters - FIXED v3 (State Closure)
+  // Enhanced search function that uses all active filters with pagination
   const searchWithAllFilters = useCallback(async (query: string, filtersOverride?: any) => {
-    // Use provided filters or current state - this fixes the closure issue
     const filters = filtersOverride || state.activeFilters;
     
     console.log('🚀 searchWithAllFilters called:', { query, filters, usingOverride: !!filtersOverride });
     
-    // Build comprehensive filter object - FIXED to properly check filter values
+    // Build comprehensive filter object
     const searchFilters: any = {};
-    
-    console.log('🔍 Raw filters received:', filters);
-    console.log('🔍 Checking format:', filters.format, 'isEmpty?', !filters.format || filters.format === '');
     
     if (filters.format && filters.format !== '') {
       searchFilters.format = filters.format;
-      console.log('✅ Adding format filter:', filters.format);
-    } else {
-      console.log('❌ Skipping format filter - empty or undefined');
     }
-    console.log('🔍 Checking colors:', filters.colors, 'length:', filters.colors ? filters.colors.length : 'undefined');
     if (filters.colors && filters.colors.length > 0) {
       searchFilters.colors = filters.colors;
       searchFilters.colorIdentity = filters.colorIdentity;
-      console.log('✅ Adding color filter:', filters.colors, filters.colorIdentity);
-    } else {
-      console.log('❌ Skipping color filter - empty or undefined');
     }
     if (filters.types && filters.types.length > 0) {
       searchFilters.types = filters.types;
-      console.log('✅ Adding type filter:', filters.types);
     }
     if (filters.rarity && filters.rarity.length > 0) {
       searchFilters.rarity = filters.rarity;
-      console.log('✅ Adding rarity filter:', filters.rarity);
     }
     if (filters.sets && filters.sets.length > 0) {
       searchFilters.sets = filters.sets;
-      console.log('✅ Adding sets filter:', filters.sets);
     }
     if (filters.cmc && (filters.cmc.min !== null || filters.cmc.max !== null)) {
       searchFilters.cmc = {};
       if (filters.cmc.min !== null) searchFilters.cmc.min = filters.cmc.min;
       if (filters.cmc.max !== null) searchFilters.cmc.max = filters.cmc.max;
-      console.log('✅ Adding CMC filter:', searchFilters.cmc);
     }
     if (filters.power && (filters.power.min !== null || filters.power.max !== null)) {
       searchFilters.power = {};
       if (filters.power.min !== null) searchFilters.power.min = filters.power.min;
       if (filters.power.max !== null) searchFilters.power.max = filters.power.max;
-      console.log('✅ Adding power filter:', searchFilters.power);
     }
     if (filters.toughness && (filters.toughness.min !== null || filters.toughness.max !== null)) {
       searchFilters.toughness = {};
       if (filters.toughness.min !== null) searchFilters.toughness.min = filters.toughness.min;
       if (filters.toughness.max !== null) searchFilters.toughness.max = filters.toughness.max;
-      console.log('✅ Adding toughness filter:', searchFilters.toughness);
     }
-
-    // Use the same race-condition-safe logic as searchForCards
-    const searchId = Date.now() + Math.random();
-    (window as any).currentSearchId = searchId;
 
     // Determine query strategy
     const hasFilters = Object.keys(searchFilters).length > 0;
@@ -493,99 +709,21 @@ export const useCards = (): UseCardsState & UseCardsActions => {
     if (hasQuery) {
       actualQuery = query.trim();
     } else if (hasFilters) {
-      // Use wildcard when we have filters but no search text
       actualQuery = '*';
     } else {
-      // No query and no filters - this should not happen, but fallback to popular cards
       console.log('❌ No query and no filters - falling back to popular cards');
       loadPopularCards();
       return;
     }
     
-    console.log('🔍 ENHANCED SEARCH:', { 
-      searchId: searchId.toFixed(3), 
-      originalQuery: query,
-      actualQuery: actualQuery,
-      filters: searchFilters,
-      filterCount: Object.keys(searchFilters).length,
-      hasQuery,
-      hasFilters
-    });
+    await searchWithPagination(actualQuery, searchFilters);
+  }, [state.activeFilters, searchWithPagination, loadPopularCards]);
 
-    try {
-      clearError();
-      setLoading(true);
-
-      // Rate limiting
-      const now = Date.now();
-      const lastSearch = (window as any).lastSearchTime || 0;
-      const timeSinceLastSearch = now - lastSearch;
-      
-      if (timeSinceLastSearch < 150) {
-        await new Promise(resolve => setTimeout(resolve, 150 - timeSinceLastSearch));
-      }
-      
-      if ((window as any).currentSearchId !== searchId) {
-        console.log('🚫 ENHANCED SEARCH CANCELLED:', searchId.toFixed(3));
-        return;
-      }
-      
-      (window as any).lastSearchTime = Date.now();
-
-      const response = await searchCardsWithFilters(actualQuery, searchFilters);
-
-      if ((window as any).currentSearchId !== searchId) {
-        console.log('🚫 ENHANCED SEARCH CANCELLED DURING API:', searchId.toFixed(3));
-        return;
-      }
-
-      console.log('✅ ENHANCED SEARCH SUCCESS:', {
-        searchId: searchId.toFixed(3),
-        resultCount: response.data.length
-      });
-
-      setState(prev => ({
-        ...prev,
-        cards: response.data,
-        searchQuery: query || 'Filtered Results',
-        totalCards: response.total_cards,
-        hasMore: response.has_more,
-        selectedCards: new Set(),
-      }));
-
-    } catch (error) {
-      if ((window as any).currentSearchId === searchId) {
-        let errorMessage = error instanceof Error ? error.message : 'Failed to search with filters';
-        let isNoResults = false;
-        
-        // Handle 404 as "no results found" rather than error
-        if (errorMessage.includes('404') || errorMessage.includes('No cards found')) {
-          errorMessage = 'No cards found matching your search criteria. Try adjusting your filters.';
-          isNoResults = true;
-          console.log('📭 No results found for current filters');
-        } else {
-          console.error('❌ Search error:', errorMessage);
-        }
-        
-        setState(prev => ({
-          ...prev,
-          error: isNoResults ? null : errorMessage, // Don't show error state for no results
-          cards: [],
-          totalCards: 0,
-          hasMore: false,
-          searchQuery: isNoResults ? 'No results found' : prev.searchQuery,
-        }));
-      }
-    } finally {
-      if ((window as any).currentSearchId === searchId) {
-        setLoading(false);
-      }
-    }
-  }, [state.activeFilters, clearError, setLoading]);
-
-  // Enhanced search function with full-text capabilities
+  // Enhanced search function with full-text capabilities and pagination
   const enhancedSearch = useCallback(async (query: string, filtersOverride?: any) => {
     const filters = filtersOverride || state.activeFilters;
+    
+    console.log('🔍 enhancedSearch called with:', { query, filters, hasFilters: Object.keys(filters).length });
     
     // Handle empty query cases
     if (!query.trim()) {
@@ -602,88 +740,9 @@ export const useCards = (): UseCardsState & UseCardsActions => {
       }
     }
 
-    const searchId = Date.now() + Math.random();
-    (window as any).currentSearchId = searchId;
-
-    console.log('🔍 ENHANCED SEARCH:', { 
-      searchId: searchId.toFixed(3), 
-      query, 
-      filters,
-      hasFilters: Object.keys(filters).length > 0
-    });
-
-    try {
-      clearError();
-      setLoading(true);
-
-      const now = Date.now();
-      const lastSearch = (window as any).lastSearchTime || 0;
-      const timeSinceLastSearch = now - lastSearch;
-      
-      if (timeSinceLastSearch < 150) {
-        await new Promise(resolve => setTimeout(resolve, 150 - timeSinceLastSearch));
-      }
-      
-      if ((window as any).currentSearchId !== searchId) {
-        console.log('🚫 ENHANCED SEARCH CANCELLED:', searchId.toFixed(3));
-        return;
-      }
-      
-      (window as any).lastSearchTime = Date.now();
-
-      const response = await enhancedSearchCards(query, filters);
-
-      if ((window as any).currentSearchId !== searchId) {
-        console.log('🚫 ENHANCED SEARCH CANCELLED DURING API:', searchId.toFixed(3));
-        return;
-      }
-
-      console.log('✅ ENHANCED SEARCH SUCCESS:', {
-        searchId: searchId.toFixed(3),
-        resultCount: response.data.length
-      });
-
-      setState(prev => ({
-        ...prev,
-        cards: response.data,
-        searchQuery: query === '*' ? 'Filtered Results' : query,
-        totalCards: response.total_cards,
-        hasMore: response.has_more,
-        selectedCards: new Set(),
-        showSuggestions: false,
-      }));
-
-      addToSearchHistory(query);
-
-    } catch (error) {
-      if ((window as any).currentSearchId === searchId) {
-        let errorMessage = error instanceof Error ? error.message : 'Failed to search with enhanced search';
-        let isNoResults = false;
-        
-        if (errorMessage.includes('404') || errorMessage.includes('No cards found')) {
-          errorMessage = 'No cards found matching your search criteria. Try different keywords or operators.';
-          isNoResults = true;
-          console.log('📭 No results found for enhanced search');
-        } else {
-          console.error('❌ Enhanced search error:', errorMessage);
-        }
-        
-        setState(prev => ({
-          ...prev,
-          error: isNoResults ? null : errorMessage,
-          cards: [],
-          totalCards: 0,
-          hasMore: false,
-          searchQuery: isNoResults ? 'No results found' : prev.searchQuery,
-          showSuggestions: false,
-        }));
-      }
-    } finally {
-      if ((window as any).currentSearchId === searchId) {
-        setLoading(false);
-      }
-    }
-  }, [state.activeFilters, clearError, setLoading]);
+    await searchWithPagination(query, filters);
+    addToSearchHistory(query);
+  }, [state.activeFilters, searchWithPagination, loadPopularCards]);
 
   const getSearchSuggestionsFunc = useCallback(async (query: string) => {
     if (!query.trim() || query.length < 2) {
@@ -716,7 +775,40 @@ export const useCards = (): UseCardsState & UseCardsActions => {
     });
   }, []);
 
+  // Handle collection sort changes with smart re-search logic - UPDATED FOR 75-card threshold
+  const handleCollectionSortChange = useCallback(async (criteria: SortCriteria, direction: SortDirection) => {
+    const metadata = state.lastSearchMetadata;
+    if (!metadata) {
+      console.log('🔄 No search metadata available for sort change');
+      return;
+    }
 
+    // Updated threshold: Use server-side sort if we have more than 75 cards loaded
+    const shouldUseServerSort = metadata.totalCards > 75 && metadata.loadedCards < metadata.totalCards;
+    console.log('🔄 Sort change analysis:', {
+      criteria,
+      direction,
+      totalCards: metadata.totalCards,
+      loadedCards: metadata.loadedCards,
+      threshold: 75,
+      shouldUseServerSort
+    });
+
+    if (shouldUseServerSort) {
+      console.log('🌐 Using server-side sorting - re-searching with new sort parameters');
+      
+      // Get Scryfall sort parameters
+      const sortParams = getScryfallSortParams('collection');
+      console.log('🔧 Scryfall sort params:', sortParams);
+      
+      // Re-search with same query and filters but new sort
+      await searchWithPagination(metadata.query, metadata.filters);
+    } else {
+      console.log('🏠 Using client-side sorting - dataset is small enough or all results loaded');
+      // Client-side sorting will be handled by the UI component
+      // No action needed here as the sortCards function in MTGOLayout will handle it
+    }
+  }, [state.lastSearchMetadata, getScryfallSortParams, searchWithPagination]);
 
   return {
     ...state,
@@ -738,6 +830,8 @@ export const useCards = (): UseCardsState & UseCardsActions => {
     getSearchSuggestions: getSearchSuggestionsFunc,
     clearSearchSuggestions,
     addToSearchHistory,
-
+    handleCollectionSortChange,
+    loadMoreResultsAction,
+    resetPagination,
   };
 };

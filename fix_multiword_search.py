@@ -1,103 +1,93 @@
 #!/usr/bin/env python3
-"""
-Fix Multi-Word Search Logic in scryfallApi.ts
-Changes from exact phrase search to individual word AND search
-"""
 
 import os
+import sys
 
-def fix_multiword_search():
-    file_path = "src/services/scryfallApi.ts"
+def fix_multi_word_search():
+    """Fix buildEnhancedSearchQuery function to properly handle multi-word searches"""
     
-    if not os.path.exists(file_path):
-        print(f"❌ File not found: {file_path}")
+    filename = "src/services/scryfallApi.ts"
+    
+    if not os.path.exists(filename):
+        print(f"Error: {filename} not found")
         return False
     
-    # Read the current file
-    with open(file_path, 'r', encoding='utf-8') as f:
+    with open(filename, 'r', encoding='utf-8') as f:
         content = f.read()
     
-    print("🔧 Fixing multi-word search logic...")
+    # Define the old multi-word search logic to replace
+    old_multiword_logic = '''  // For simple queries without operators, enable full-text search
+  if (!query.includes('"') && !query.includes('-') && !query.includes(':')) {
+    const words = query.trim().split(/\s+/);
     
-    # Fix: Change from exact phrase to individual word search
-    old_logic = '''      // Multi-word query: Use oracle text search with proper Scryfall syntax
-      console.log('🔍 Multi-word query detected, using oracle text syntax:', query);
-      return `o:"${query}";'''
+    if (words.length > 1) {
+  // Multi-word query: Search for individual words with AND logic
+  console.log('🔍 Multi-word query detected, using individual word search:', query);
+  const words = query.trim().split(/\s+/);
+  const oracleTerms = words.map(word => `o:${word}`).join(' ');
+  return oracleTerms;
+} else {
+      // Single word: search across multiple fields
+      const result = `(name:${query} OR o:${query} OR type:${query})`;
+      console.log('🔍 Single word query, using field search:', result);
+      return result;
+    }
+  }'''
+
+    # Define the new improved multi-word search logic
+    new_multiword_logic = '''  // For simple queries without operators, enable full-text search
+  if (!query.includes('"') && !query.includes('-') && !query.includes(':')) {
+    const words = query.trim().split(/\s+/);
     
-    new_logic = '''      // Multi-word query: Search for individual words with AND logic
-      console.log('🔍 Multi-word query detected, using individual word search:', query);
-      const words = query.trim().split(/\\s+/);
-      const oracleTerms = words.map(word => `o:${word}`).join(' ');
-      return oracleTerms;'''
-    
-    if old_logic in content:
-        content = content.replace(old_logic, new_logic)
-        print("✅ Fixed multi-word search logic: exact phrase → individual words")
+    if (words.length > 1) {
+      // Multi-word query: Each word should match name, oracle text, OR type
+      // Format: (name:word1 OR o:word1 OR type:word1) (name:word2 OR o:word2 OR type:word2)
+      console.log('🔍 Multi-word query detected, using comprehensive field search:', query);
+      const wordQueries = words.map(word => `(name:${word} OR o:${word} OR type:${word})`);
+      const result = wordQueries.join(' ');
+      console.log('🔍 Multi-word result:', result);
+      return result;
+    } else {
+      // Single word: search across multiple fields
+      const result = `(name:${query} OR o:${query} OR type:${query})`;
+      console.log('🔍 Single word query, using field search:', result);
+      return result;
+    }
+  }'''
+
+    # Make the replacement
+    if old_multiword_logic in content:
+        content = content.replace(old_multiword_logic, new_multiword_logic)
+        print("✅ Fixed multi-word search logic in buildEnhancedSearchQuery function")
         
-        # Write the updated content back
-        with open(file_path, 'w', encoding='utf-8') as f:
+        # Write the updated content back to the file
+        with open(filename, 'w', encoding='utf-8') as f:
             f.write(content)
         
-        print(f"✅ Successfully updated {file_path}")
+        print("✅ Successfully updated scryfallApi.ts")
+        print("")
+        print("🎯 MULTI-WORD SEARCH FIX APPLIED:")
+        print("   Before: 'lightning bolt' → o:lightning o:bolt (restrictive AND)")
+        print("   After:  'lightning bolt' → (name:lightning OR o:lightning OR type:lightning) (name:bolt OR o:bolt OR type:bolt)")
+        print("")
+        print("✅ This fix will:")
+        print("   • Find 'Lightning Bolt' when searching 'lightning bolt'")
+        print("   • Find 'flying creature' matches creatures with flying ability")
+        print("   • Preserve exact phrase search with quotes: \"lightning bolt\"")
+        print("   • Keep single word searches working across name/text/type")
+        print("")
+        print("🚀 Next steps:")
+        print("   1. Test in browser: npm start")
+        print("   2. Search for 'lightning bolt' (should find Lightning Bolt)")
+        print("   3. Search for 'flying creature' (should find flying creatures)")
+        print("   4. Search for '\"lightning bolt\"' (should find exact phrase)")
+        print("")
         return True
     else:
-        print("❌ Could not find the multi-word search logic to replace")
-        print("📍 Looking for alternative patterns...")
-        
-        # Check if the function exists
-        if 'Multi-word query detected' in content:
-            print("✅ Found multi-word detection, but pattern doesn't match exactly")
-            print("🔧 Manual fix needed:")
-            print("1. Open src/services/scryfallApi.ts")
-            print("2. Find the multi-word query section")
-            print("3. Replace the logic to split words and use individual o: terms")
-        else:
-            print("❌ Multi-word query detection not found")
-        
+        print("❌ Could not find the expected multi-word search logic to replace")
+        print("📄 The function may have already been updated or the structure changed")
         return False
 
-def main():
-    print("🔧 Fixing multi-word search logic for better Scryfall compatibility")
-    print("📍 Current directory:", os.getcwd())
-    print()
-    
-    success = fix_multiword_search()
-    
-    print("\n" + "="*60)
-    
-    if success:
-        print("🎉 Multi-word search fix complete!")
-        print("\nHow the search now works:")
-        print("📝 'deal damage' → 'o:deal o:damage'")
-        print("📝 'enters battlefield' → 'o:enters o:battlefield'")
-        print("📝 'target creature' → 'o:target o:creature'")
-        print("\nThis will find cards with BOTH words anywhere in the oracle text,")
-        print("so 'deal 3 damage', 'deal damage equal to', etc. will all match!")
-        
-        print("\nNext steps:")
-        print("1. Run 'npm start' to test")
-        print("2. Search 'deal damage' - should find Lightning Bolt, Shock, etc.")
-        print("3. Search 'enters battlefield' - should find ETB cards")
-        print("4. Verify single words like 'lightning' still work")
-        
-        print("\nExpected results:")
-        print("✅ Lightning Bolt (deal 3 damage)")
-        print("✅ Shock (deal 2 damage)")  
-        print("✅ Cards with 'deal X damage to target'")
-        print("✅ Much better search results!")
-        
-    else:
-        print("❌ Could not apply automatic fix")
-        print("\nManual fix instructions:")
-        print("1. Open src/services/scryfallApi.ts")
-        print("2. Find the buildEnhancedSearchQuery function")
-        print("3. In the multi-word section, change:")
-        print('   FROM: return `o:"${query}";')
-        print("   TO: Split query into words and use individual o: terms")
-        print("\nExample manual change:")
-        print("const words = query.trim().split(/\\s+/);")
-        print("const oracleTerms = words.map(word => `o:${word}`).join(' ');")
-        print("return oracleTerms;")
-
 if __name__ == "__main__":
-    main()
+    success = fix_multi_word_search()
+    sys.exit(0 if success else 1)
