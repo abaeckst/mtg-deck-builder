@@ -6,7 +6,9 @@ import { useDragAndDrop, DraggedCard, DropZone as DropZoneType } from '../hooks/
 import { useContextMenu, DeckManagementCallbacks } from '../hooks/useContextMenu';
 import { DeviceCapabilities } from '../utils/deviceDetection';
 import './MTGOLayout.css';
+import './ResizeHandles.css';
 import './ContextMenu.css';
+import './FilterPanel.css';
 
 // Card types import
 import { ScryfallCard, DeckCard, DeckCardInstance, scryfallToDeckCard, scryfallToDeckInstance, 
@@ -15,7 +17,7 @@ import { ScryfallCard, DeckCard, DeckCardInstance, scryfallToDeckCard, scryfallT
 
 // Import components
 import { useCards } from '../hooks/useCards';
-import { useSorting } from '../hooks/useSorting';
+import { useSorting, SortCriteria, SortDirection } from '../hooks/useSorting';
 import { useCardSizing } from '../hooks/useCardSizing';
 import DraggableCard from './DraggableCard';
 import DropZoneComponent from './DropZone';
@@ -25,6 +27,8 @@ import SearchAutocomplete from './SearchAutocomplete';
 import PileView from './PileView';
 import ListView from './ListView';
 import AdaptiveHeader from './AdaptiveHeader';
+// Phase 4B: Enhanced filter components
+import FilterPanel from './FilterPanel';
 // Export modal imports
 import { TextExportModal } from './TextExportModal';
 import { ScreenshotModal } from './ScreenshotModal';
@@ -34,8 +38,7 @@ interface MTGOLayoutProps {
   // Props for any data that needs to be passed down
 }
 
-// Pile view sort state
-type SortCriteria = 'name' | 'mana' | 'color' | 'rarity' | 'type';
+// Pile view sort state - using SortCriteria from useSorting hook
 
 // MJ's Championship Helper: Pure instance creation
 const createDeckInstance = (card: ScryfallCard | DeckCard | DeckCardInstance, zone: 'deck' | 'sideboard'): DeckCardInstance => {
@@ -71,12 +74,6 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
     enhancedSearch,
     loadPopularCards, 
     loadRandomCard,
-    activeFilters,
-    isFiltersCollapsed,
-    updateFilter,
-    clearAllFilters,
-    toggleFiltersCollapsed,
-    hasActiveFilters,
     searchSuggestions,
     showSuggestions,
     getSearchSuggestions,
@@ -85,7 +82,20 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
     // Progressive loading actions
     pagination,
     loadMoreResultsAction,
-    resetPagination,} = useCards();
+    resetPagination,
+    // Dual sort system integration
+    handleCollectionSortChange,
+    // Filter integration (pass-through from useFilters)
+    activeFilters,
+    isFiltersCollapsed,
+    updateFilter,
+    clearAllFilters,
+    toggleFiltersCollapsed,
+    hasActiveFilters,
+    updateSectionState,
+    getSectionState,
+    autoExpandSection
+  } = useCards();
   
   // PHASE 3B-1: Card sizing system
   const { 
@@ -95,22 +105,11 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
     updateSideboardSize 
   } = useCardSizing();
   
-  // Debug logging for sizing issues
-  console.log('Current card sizes:', cardSizes);
-  console.log('Collection grid calc:', {
-    minmax: Math.max(90, Math.round(110 * cardSizes.collection)),
-    gap: Math.max(6, Math.min(12, Math.round(8 * cardSizes.collection)))
-  });
-  console.log('Deck grid calc:', {
-    minmax: Math.max(90, Math.round(110 * cardSizes.deck)),
-    gap: Math.max(6, Math.min(12, Math.round(8 * cardSizes.deck)))
-  });
-  
   // UPDATED: Initialize resize functionality with new percentage-based system
   const { handlers: resizeHandlers } = useResize({ 
     layout, 
     updatePanelDimensions,
-    updateDeckAreaHeightByPixels, // NEW: Required for percentage-based system
+    updateDeckAreaHeightByPixels,
     constraints 
   });
   
@@ -124,10 +123,21 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
   const [showTextExportModal, setShowTextExportModal] = useState(false);
   const [showScreenshotModal, setShowScreenshotModal] = useState(false);
   
-  // Enhanced sorting system - replaces local sort state
+  // Enhanced sorting system with dual sort integration
   const { updateSort, getSortState } = useSorting();
   
-  // Get current sort states from enhanced hook
+  // Integrate dual sort system with sort button handlers
+  const handleSortChange = useCallback(async (area: 'collection' | 'deck' | 'sideboard', criteria: SortCriteria, direction: SortDirection) => {
+    // Always update the sort state first (for UI consistency)
+    updateSort(area, criteria, direction);
+    
+    // For collection area, trigger dual sort system
+    if (area === 'collection') {
+      await handleCollectionSortChange(criteria, direction);
+    }
+  }, [updateSort, handleCollectionSortChange]);
+  
+  // Get current sort states from hook
   const collectionSort = getSortState('collection');
   const deckSort = getSortState('deck');
   const sideboardSort = getSortState('sideboard');
@@ -141,6 +151,7 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
   const collectionSortRef = useRef<HTMLDivElement>(null);
   const deckSortRef = useRef<HTMLDivElement>(null);
   const sideboardSortRef = useRef<HTMLDivElement>(null);
+
   // Click-outside effect for sort menus
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -160,14 +171,14 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
-  
+
   // Clear both deck and sideboard functionality
   const handleClearDeck = useCallback(() => {
     setMainDeck([]);
     setSideboard([]);
     clearSelection();
-    console.log('Deck and sideboard cleared - all cards moved back to collection');
   }, [clearSelection]);
+
   // Export modal handlers
   const handleTextExport = useCallback(() => {
     setShowTextExportModal(true);
@@ -186,21 +197,14 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
   }, []);
 
   // Helper to safely get card ID from any card type
-  // Helper to safely get card ID from any card type
   const getCardId = (card: ScryfallCard | DeckCard | DeckCardInstance): string => {
     if ('instanceId' in card) {
       return card.cardId; // DeckCardInstance - use cardId (original Scryfall ID)
     }
     return card.id; // ScryfallCard or DeckCard - use id
   };
-  
-  // Helper to get original card ID for quantity tracking
-  const getOriginalCardId = (card: ScryfallCard | DeckCard | DeckCardInstance): string => {
-    if ('cardId' in card) return card.cardId;
-    return card.id;
-  };
 
-// Helper function to get total copies across deck and sideboard
+  // Helper function to get total copies across deck and sideboard
   const getTotalCopies = useCallback((cardId: string): number => {
     return getTotalCardQuantity(mainDeck, sideboard, cardId);
   }, [mainDeck, sideboard]);
@@ -218,7 +222,6 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
   const handleClearSideboard = useCallback(() => {
     setSideboard([]);
     clearSelection();
-    console.log('Sideboard cleared - all cards moved back to collection');
   }, [clearSelection]);
 
   // Context menu callback implementations
@@ -232,7 +235,6 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
         const canAdd = Math.max(0, maxAllowed - totalCopies);
         const actualQuantity = Math.min(quantity, canAdd);
         
-        // MJ's way: Create the exact number of instances needed
         const newInstances: DeckCardInstance[] = [];
         for (let i = 0; i < actualQuantity; i++) {
           newInstances.push(createDeckInstance(card, 'deck'));
@@ -260,7 +262,6 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
         const canAdd = Math.max(0, maxAllowed - totalCopies);
         const actualQuantity = Math.min(quantity, canAdd);
         
-        // MJ's way: Create the exact number of instances needed
         const newInstances: DeckCardInstance[] = [];
         for (let i = 0; i < actualQuantity; i++) {
           newInstances.push(createDeckInstance(card, 'sideboard'));
@@ -282,13 +283,10 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
     moveDeckToSideboard: useCallback((cards: (ScryfallCard | DeckCard | DeckCardInstance)[], quantity = 1) => {
       cards.forEach(card => {
         const cardId = getCardId(card);
-        // MJ's approach: Find actual instances and move them
         const instancesToMove = mainDeck.filter(instance => instance.cardId === cardId).slice(0, quantity);
         
         if (instancesToMove.length > 0) {
-          // Remove from deck
           setMainDeck(prev => prev.filter(instance => !instancesToMove.includes(instance)));
-          // Add to sideboard with updated zone
           const sideboardInstances = instancesToMove.map(instance => ({ ...instance, zone: 'sideboard' as const }));
           setSideboard(prev => [...prev, ...sideboardInstances]);
         }
@@ -298,13 +296,10 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
     moveSideboardToDeck: useCallback((cards: (ScryfallCard | DeckCard | DeckCardInstance)[], quantity = 1) => {
       cards.forEach(card => {
         const cardId = getCardId(card);
-        // MJ's approach: Find actual instances and move them
         const instancesToMove = sideboard.filter(instance => instance.cardId === cardId).slice(0, quantity);
         
         if (instancesToMove.length > 0) {
-          // Remove from sideboard
           setSideboard(prev => prev.filter(instance => !instancesToMove.includes(instance)));
-          // Add to deck with updated zone  
           const deckInstances = instancesToMove.map(instance => ({ ...instance, zone: 'deck' as const }));
           setMainDeck(prev => [...prev, ...deckInstances]);
         }
@@ -326,8 +321,6 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
   // PHASE 3A: Enhanced drag and drop callbacks
   const dragCallbacks = {
     onCardMove: useCallback((cards: DraggedCard[], from: DropZoneType, to: DropZoneType) => {
-      console.log(`🏀 MJ's drag handler: Moving ${cards.length} cards from ${from} to ${to}`);
-      
       cards.forEach(card => {
         const cardId = getCardId(card);
         
@@ -350,27 +343,23 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
             setSideboard(prev => [...prev, newInstance]);
           }
         } else if (from === 'deck' && to === 'sideboard') {
-          // Move one instance from deck to sideboard
           const instanceToMove = mainDeck.find(instance => instance.cardId === cardId);
           if (instanceToMove) {
             setMainDeck(prev => prev.filter(instance => instance !== instanceToMove));
             setSideboard(prev => [...prev, { ...instanceToMove, zone: 'sideboard' }]);
           }
         } else if (from === 'sideboard' && to === 'deck') {
-          // Move one instance from sideboard to deck
           const instanceToMove = sideboard.find(instance => instance.cardId === cardId);
           if (instanceToMove) {
             setSideboard(prev => prev.filter(instance => instance !== instanceToMove));
             setMainDeck(prev => [...prev, { ...instanceToMove, zone: 'deck' }]);
           }
         } else if (from === 'deck' && to === 'collection') {
-          // Remove one instance from deck
           const instanceToRemove = mainDeck.find(instance => instance.cardId === cardId);
           if (instanceToRemove) {
             setMainDeck(prev => prev.filter(instance => instance !== instanceToRemove));
           }
         } else if (from === 'sideboard' && to === 'collection') {
-          // Remove one instance from sideboard
           const instanceToRemove = sideboard.find(instance => instance.cardId === cardId);
           if (instanceToRemove) {
             setSideboard(prev => prev.filter(instance => instance !== instanceToRemove));
@@ -382,25 +371,23 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
     }, [mainDeck, sideboard, getTotalCopies, clearSelection]),
 
     onDragStart: useCallback((cards: DraggedCard[], from: DropZoneType) => {
-      console.log(`Started dragging ${cards.length} cards from ${from}`);
+      // Drag start callback
     }, []),
 
     onDragEnd: useCallback((cards: DraggedCard[], success: boolean) => {
-      console.log(`Drag ended: ${success ? 'success' : 'failed'}`);
+      // Drag end callback
     }, [])
   };
 
-  // PHASE 3A: Initialize enhanced drag and drop with double-click handler
+  // Initialize enhanced drag and drop with double-click handler
   const { dragState, startDrag, setDropZone, canDropInZone, handleDoubleClick } = useDragAndDrop(dragCallbacks);
   
   // Check if device supports MTGO interface
   const canUseMTGO = DeviceCapabilities.canUseAdvancedInterface();
   
-  // Enhanced search handling with comprehensive filters - FIXED
+  // Enhanced search handling with comprehensive filters
   const handleSearch = useCallback((text: string) => {
     setSearchText(text);
-    console.log('🔍 Enhanced search triggered:', { text, hasFilters: hasActiveFilters() });
-    // Use enhanced search for better results
     if (text.trim()) {
       enhancedSearch(text);
     } else if (hasActiveFilters()) {
@@ -410,14 +397,11 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
     }
   }, [enhancedSearch, loadPopularCards, hasActiveFilters]);
   
-  // Handle any filter change with validation - FIXED v3 (Integrated Validation)
+  // Handle any filter change
   const handleFilterChange = useCallback((filterType: string, value: any) => {
-    console.log('🔧 Filter changing with validation:', filterType, '=', value);
-    
     // Input validation for range fields
     if (filterType === 'cmc' && value && typeof value === 'object') {
       if (value.min !== null && value.max !== null && value.min > value.max) {
-        console.log('⚠️ Validation error: CMC min cannot exceed max');
         alert('Invalid CMC range: Minimum cannot be greater than maximum');
         return;
       }
@@ -425,7 +409,6 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
     
     if (filterType === 'power' && value && typeof value === 'object') {
       if (value.min !== null && value.max !== null && value.min > value.max) {
-        console.log('⚠️ Validation error: Power min cannot exceed max');
         alert('Invalid Power range: Minimum cannot be greater than maximum');
         return;
       }
@@ -433,26 +416,22 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
     
     if (filterType === 'toughness' && value && typeof value === 'object') {
       if (value.min !== null && value.max !== null && value.min > value.max) {
-        console.log('⚠️ Validation error: Toughness min cannot exceed max');
         alert('Invalid Toughness range: Minimum cannot be greater than maximum');
         return;
       }
     }
     
-    // Build the new filter state manually to avoid closure issues
+    // Build the new filter state manually
     const newFilters = {
       ...activeFilters,
       [filterType]: value,
     };
     
-    console.log('🔧 New filters will be:', newFilters);
-    
     // Update the filter state
     updateFilter(filterType, value);
     
-    // Trigger search immediately with the new filters (don't wait for state update)
+    // Trigger search with the new filters
     setTimeout(() => {
-      console.log('🔧 Triggering enhanced search with new filters');
       enhancedSearch(searchText, newFilters);
     }, 50);
   }, [updateFilter, enhancedSearch, searchText, activeFilters]);
@@ -470,12 +449,10 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
     if (contextMenuState.visible) {
       hideContextMenu();
     }
-    // Use instance-based selection for deck/sideboard cards
-    console.log(`Instance click: ${instanceId} for card ${instance.name}`);
     selectCard(instanceId, instance as any, event.ctrlKey);
   }, [contextMenuState.visible, hideContextMenu, selectCard]);
 
-    const handleRightClick = useCallback((card: any, zone: DropZoneType, event: React.MouseEvent) => {
+  const handleRightClick = useCallback((card: any, zone: DropZoneType, event: React.MouseEvent) => {
     const selectedCardObjects = getSelectedCardObjects();
     showContextMenu(event, card, zone, selectedCardObjects);
   }, [showContextMenu, getSelectedCardObjects]);
@@ -507,7 +484,7 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
     setDropZone(null, false);
   }, [setDropZone]);
 
-  // Card sorting helper function for all areas
+  // Simple client-side card sorting helper function
   const sortCards = useCallback((cards: (ScryfallCard | DeckCard | DeckCardInstance)[], criteria: SortCriteria, direction: 'asc' | 'desc'): (ScryfallCard | DeckCard | DeckCardInstance)[] => {
     const sorted = [...cards].sort((a, b) => {
       let comparison = 0;
@@ -545,9 +522,9 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
     return sorted;
   }, []);
 
-  // Get sorted cards for each area
+  // Get sorted cards for each area - SIMPLIFIED CLIENT-SIDE ONLY
   const sortedCollectionCards = useMemo(() => {
-    return sortCards(cards, collectionSort.criteria, collectionSort.direction);
+    return sortCards([...cards], collectionSort.criteria, collectionSort.direction);
   }, [cards, collectionSort.criteria, collectionSort.direction, sortCards]);
 
   const sortedMainDeck = useMemo((): DeckCardInstance[] => {
@@ -558,7 +535,7 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
     return layout.viewModes.sideboard === 'pile' ? sideboard : sortCards(sideboard as any, sideboardSort.criteria, sideboardSort.direction) as DeckCardInstance[];
   }, [sideboard, sideboardSort.criteria, sideboardSort.direction, layout.viewModes.sideboard, sortCards]);
 
-    // Mobile fallback
+  // Mobile fallback
   if (!canUseMTGO) {
     return (
       <div className="mtgo-mobile-warning">
@@ -574,265 +551,36 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
       {/* Drag Preview */}
       <DragPreview dragState={dragState} />
       
-      {/* Enhanced Filter Panel - Left Side */}
-      <div 
-        className={`mtgo-filter-panel ${isFiltersCollapsed ? 'collapsed' : ''}`}
-        style={{ width: isFiltersCollapsed ? '40px' : layout.panels.filterPanelWidth }}
-      >
-        <div className="panel-header">
-          <h3>{isFiltersCollapsed ? '' : 'Filters'}</h3>
-          <div className="filter-controls">
-            {!isFiltersCollapsed && hasActiveFilters() && (
-              <button onClick={clearAllFilters} className="clear-filters-btn" title="Clear all filters">
-                Clear
-              </button>
-            )}
-            <button 
-              onClick={toggleFiltersCollapsed} 
-              className="collapse-toggle-btn"
-              title={isFiltersCollapsed ? 'Expand filters' : 'Collapse filters'}
-            >
-              {isFiltersCollapsed ? '→' : '←'}
-            </button>
-          </div>
-        </div>
-        
-        {!isFiltersCollapsed && (
-          <div className="filter-content">
-            {/* Search Group */}
-            <div className="filter-group">
-              <label>Search</label>
-              <SearchAutocomplete
-                value={searchText}
-                onChange={setSearchText}
-                onSearch={handleSearch}
-                suggestions={searchSuggestions}
-                showSuggestions={showSuggestions}
-                onSuggestionSelect={(suggestion) => {
-                  setSearchText(suggestion);
-                  handleSearch(suggestion);
-                }}
-                onSuggestionsRequested={getSearchSuggestions}
-                onSuggestionsClear={clearSearchSuggestions}
-                placeholder="Search cards... (try: flying, &quot;exact phrase&quot;, -exclude, name:lightning)"
-                className="search-input"
-              />
-            </div>
-            
-            {/* Format Group */}
-            <div className="filter-group">
-              <label>Format</label>
-              <select 
-                value={activeFilters.format} 
-                onChange={(e) => handleFilterChange('format', e.target.value)}
-                className="format-select"
-              >
-                <option value="">All Formats</option>
-                <option value="standard">Standard</option>
-                <option value="custom-standard">Custom Standard (Standard + Unreleased)</option>
-                <option value="pioneer">Pioneer</option>
-                <option value="modern">Modern</option>
-                <option value="legacy">Legacy</option>
-                <option value="vintage">Vintage</option>
-                <option value="commander">Commander</option>
-                <option value="pauper">Pauper</option>
-              </select>
-            </div>
-            
-            {/* Color Identity Group */}
-            <div className="filter-group">
-              <label>Color Identity</label>
-              <div className="color-identity-controls">
-                <div className="color-filter-grid">
-                  {['W', 'U', 'B', 'R', 'G', 'C'].map((color: string) => (
-                    <button
-                      key={color}
-                      className={`color-button color-${color.toLowerCase()} ${
-                        activeFilters.colors.includes(color) ? 'selected' : ''
-                      }`}
-                      onClick={() => {
-                        const newColors = activeFilters.colors.includes(color)
-                          ? activeFilters.colors.filter((c: string) => c !== color)
-                          : [...activeFilters.colors, color];
-                        handleFilterChange('colors', newColors);
-                      }}
-                    >
-                      {color}
-                    </button>
-                  ))}
-                </div>
-                <select
-                  value={activeFilters.colorIdentity}
-                  onChange={(e) => handleFilterChange('colorIdentity', e.target.value)}
-                  className="color-mode-select"
-                >
-                  <option value="exact">Exactly these colors</option>
-                  <option value="include">Include these colors</option>
-                  <option value="subset">At most these colors</option>
-                </select>
-              </div>
-            </div>
-            
-            {/* Mana Cost Group */}
-            <div className="filter-group">
-              <label>Mana Cost (CMC)</label>
-              <div className="range-filter">
-                <input
-                  type="number"
-                  placeholder="Min"
-                  min="0"
-                  max="20"
-                  value={activeFilters.cmc.min || ''}
-                  onChange={(e) => handleFilterChange('cmc', {
-                    ...activeFilters.cmc,
-                    min: e.target.value ? parseInt(e.target.value) : null
-                  })}
-                  className="range-input"
-                />
-                <span>to</span>
-                <input
-                  type="number"
-                  placeholder="Max"
-                  min="0"
-                  max="20"
-                  value={activeFilters.cmc.max || ''}
-                  onChange={(e) => handleFilterChange('cmc', {
-                    ...activeFilters.cmc,
-                    max: e.target.value ? parseInt(e.target.value) : null
-                  })}
-                  className="range-input"
-                />
-              </div>
-            </div>
-            
-            {/* Card Types Group */}
-            <div className="filter-group">
-              <label>Card Types</label>
-              <div className="multi-select-grid">
-                {['Creature', 'Instant', 'Sorcery', 'Artifact', 'Enchantment', 'Planeswalker', 'Land'].map((type: string) => (
-                  <button
-                    key={type}
-                    className={`type-button ${activeFilters.types.includes(type.toLowerCase()) ? 'selected' : ''}`}
-                    onClick={() => {
-                      const newTypes = activeFilters.types.includes(type.toLowerCase())
-                        ? activeFilters.types.filter((t: string) => t !== type.toLowerCase())
-                        : [...activeFilters.types, type.toLowerCase()];
-                      handleFilterChange('types', newTypes);
-                    }}
-                  >
-                    {type}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Rarity Group */}
-            <div className="filter-group">
-              <label>Rarity</label>
-              <div className="rarity-filter-grid">
-                {[
-                  { key: 'common', label: 'Common', symbol: 'C' },
-                  { key: 'uncommon', label: 'Uncommon', symbol: 'U' },
-                  { key: 'rare', label: 'Rare', symbol: 'R' },
-                  { key: 'mythic', label: 'Mythic', symbol: 'M' }
-                ].map((rarity) => (
-                  <button
-                    key={rarity.key}
-                    className={`rarity-button rarity-${rarity.key} ${
-                      activeFilters.rarity.includes(rarity.key) ? 'selected' : ''
-                    }`}
-                    onClick={() => {
-                      const newRarity = activeFilters.rarity.includes(rarity.key)
-                        ? activeFilters.rarity.filter((r: string) => r !== rarity.key)
-                        : [...activeFilters.rarity, rarity.key];
-                      handleFilterChange('rarity', newRarity);
-                    }}
-                    title={rarity.label}
-                  >
-                    {rarity.symbol}
-                  </button>
-                ))}
-              </div>
-            </div>
-            
-            {/* Creature Stats Group */}
-            <div className="filter-group">
-              <label>Creature Stats</label>
-              <div className="stats-filter">
-                <div className="stat-row">
-                  <span>Power:</span>
-                  <input
-                    type="number"
-                    placeholder="Min"
-                    min="0"
-                    max="20"
-                    value={activeFilters.power.min || ''}
-                    onChange={(e) => handleFilterChange('power', {
-                      ...activeFilters.power,
-                      min: e.target.value ? parseInt(e.target.value) : null
-                    })}
-                    className="stat-input"
-                  />
-                  <span>to</span>
-                  <input
-                    type="number"
-                    placeholder="Max"
-                    min="0"
-                    max="20"
-                    value={activeFilters.power.max || ''}
-                    onChange={(e) => handleFilterChange('power', {
-                      ...activeFilters.power,
-                      max: e.target.value ? parseInt(e.target.value) : null
-                    })}
-                    className="stat-input"
-                  />
-                </div>
-                <div className="stat-row">
-                  <span>Toughness:</span>
-                  <input
-                    type="number"
-                    placeholder="Min"
-                    min="0"
-                    max="20"
-                    value={activeFilters.toughness.min || ''}
-                    onChange={(e) => handleFilterChange('toughness', {
-                      ...activeFilters.toughness,
-                      min: e.target.value ? parseInt(e.target.value) : null
-                    })}
-                    className="stat-input"
-                  />
-                  <span>to</span>
-                  <input
-                    type="number"
-                    placeholder="Max"
-                    min="0"
-                    max="20"
-                    value={activeFilters.toughness.max || ''}
-                    onChange={(e) => handleFilterChange('toughness', {
-                      ...activeFilters.toughness,
-                      max: e.target.value ? parseInt(e.target.value) : null
-                    })}
-                    className="stat-input"
-                  />
-                </div>
-              </div>
-            </div>
-            
-            {/* Quick Actions Group */}
-            <div className="filter-group">
-              <label>Quick Actions</label>
-              <div className="quick-actions">
-                <button onClick={loadPopularCards}>Popular Cards</button>
-                <button onClick={loadRandomCard}>Random Card</button>
-                <button onClick={clearSelection}>Clear Selection</button>
-              </div>
-            </div>
-          </div>
-        )}
-        
-        
-    
-{/* Enhanced Resize Handle */}
+      {/* Phase 4B: Enhanced Filter Panel */}
+      <FilterPanel
+        searchText={searchText}
+        onSearchTextChange={setSearchText}
+        onSearch={handleSearch}
+        searchSuggestions={searchSuggestions}
+        showSuggestions={showSuggestions}
+        onSuggestionSelect={(suggestion) => {
+          setSearchText(suggestion);
+          handleSearch(suggestion);
+        }}
+        onSuggestionsRequested={getSearchSuggestions}
+        onSuggestionsClear={clearSearchSuggestions}
+        activeFilters={activeFilters}
+        isFiltersCollapsed={isFiltersCollapsed}
+        hasActiveFilters={hasActiveFilters()}
+        onFilterChange={handleFilterChange}
+        onClearAllFilters={clearAllFilters}
+        onToggleFiltersCollapsed={toggleFiltersCollapsed}
+        getSectionState={getSectionState}
+        updateSectionState={updateSectionState}
+        autoExpandSection={autoExpandSection}
+        onLoadPopularCards={loadPopularCards}
+        onLoadRandomCard={loadRandomCard}
+        onClearSelection={clearSelection}
+        width={isFiltersCollapsed ? 40 : layout.panels.filterPanelWidth}
+      />
+      
+      {/* Enhanced Resize Handle */}
+      {!isFiltersCollapsed && (
         <div 
           className="resize-handle resize-handle-right"
           onMouseDown={resizeHandlers.onFilterPanelResize}
@@ -840,15 +588,19 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
           style={{
             position: 'absolute',
             top: 0,
-            right: -15,
-            width: 30,
+            right: -3,
+            width: 6,
             height: '100%',
             cursor: 'ew-resize',
-            background: 'transparent',
-            zIndex: 1001
+            background: 'linear-gradient(90deg, transparent 0%, #555555 50%, transparent 100%)',
+            zIndex: 1001,
+            opacity: 0.7,
+            transition: 'opacity 0.2s ease'
           }}
+          onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+          onMouseLeave={(e) => e.currentTarget.style.opacity = '0.7'}
         />
-      </div>
+      )}
       
       {/* Main Content Area */}
       <div className="mtgo-main-content">
@@ -863,17 +615,6 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
         >
           <div className="panel-header">
             <h3>Collection ({cards.length.toLocaleString()} {pagination.totalCards > pagination.loadedCards && (<span className="pagination-info">of {pagination.totalCards.toLocaleString()}</span>)} cards)</h3>
-            {/* Safe pagination debug - check browser console */}
-            {(() => {
-              console.log('🔍 Pagination Debug:', {
-                hasMore: pagination.hasMore,
-                totalCards: pagination.totalCards,
-                loadedCards: pagination.loadedCards,
-                isLoadingMore: pagination.isLoadingMore,
-                cardsDisplayed: cards.length
-              });
-              return null;
-            })()}
 
             <div className="view-controls">
               <span>Size: </span>
@@ -901,9 +642,10 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
                       className={collectionSort.criteria === 'name' ? 'active' : ''}
                       onClick={() => { 
                         if (collectionSort.criteria === 'name') {
-                          updateSort('collection', 'name', collectionSort.direction === 'asc' ? 'desc' : 'asc');
+                          const newDirection = collectionSort.direction === 'asc' ? 'desc' : 'asc';
+                          handleSortChange('collection', 'name', newDirection);
                         } else {
-                          updateSort('collection', 'name', 'asc');
+                          handleSortChange('collection', 'name', 'asc');
                         }
                         setShowCollectionSortMenu(false); 
                       }}
@@ -914,9 +656,9 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
                       className={collectionSort.criteria === 'mana' ? 'active' : ''}
                       onClick={() => { 
                         if (collectionSort.criteria === 'mana') {
-                          updateSort('collection', 'mana', collectionSort.direction === 'asc' ? 'desc' : 'asc');
+                          handleSortChange('collection', 'mana', collectionSort.direction === 'asc' ? 'desc' : 'asc');
                         } else {
-                          updateSort('collection', 'mana', 'asc');
+                          handleSortChange('collection', 'mana', 'asc');
                         }
                         setShowCollectionSortMenu(false); 
                       }}
@@ -927,9 +669,9 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
                       className={collectionSort.criteria === 'color' ? 'active' : ''}
                       onClick={() => { 
                         if (collectionSort.criteria === 'color') {
-                          updateSort('collection', 'color', collectionSort.direction === 'asc' ? 'desc' : 'asc');
+                          handleSortChange('collection', 'color', collectionSort.direction === 'asc' ? 'desc' : 'asc');
                         } else {
-                          updateSort('collection', 'color', 'asc');
+                          handleSortChange('collection', 'color', 'asc');
                         }
                         setShowCollectionSortMenu(false); 
                       }}
@@ -940,16 +682,15 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
                       className={collectionSort.criteria === 'rarity' ? 'active' : ''}
                       onClick={() => { 
                         if (collectionSort.criteria === 'rarity') {
-                          updateSort('collection', 'rarity', collectionSort.direction === 'asc' ? 'desc' : 'asc');
+                          handleSortChange('collection', 'rarity', collectionSort.direction === 'asc' ? 'desc' : 'asc');
                         } else {
-                          updateSort('collection', 'rarity', 'asc');
+                          handleSortChange('collection', 'rarity', 'asc');
                         }
                         setShowCollectionSortMenu(false); 
                       }}
                     >
                       Rarity {collectionSort.criteria === 'rarity' ? (collectionSort.direction === 'asc' ? '↑' : '↓') : ''}
                     </button>
-                    {/* Card Type sorting removed - not supported by Scryfall API for server-side sorting */}
                   </div>
                 )}
               </div>
@@ -991,23 +732,55 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
           
           {!loading && !error && cards.length > 0 && (
             layout.viewModes.collection === 'list' ? (
-              <ListView
-                cards={sortedCollectionCards}
-                area="collection"
-                scaleFactor={cardSizes.collection}
-                sortCriteria={collectionSort.criteria}
-                sortDirection={collectionSort.direction}
-                onSortChange={(criteria, direction) => {
-                  updateSort('collection', criteria, direction);
-                }}
-                onClick={handleCardClick}
-                onDoubleClick={handleAddToDeck}
-                onRightClick={handleRightClick}
-                onDragStart={handleDragStart}
-                isSelected={isSelected}
-                selectedCards={getSelectedCardObjects()}
-                isDragActive={dragState.isDragging}
-              />
+              <>
+                <ListView
+                  cards={sortedCollectionCards}
+                  area="collection"
+                  scaleFactor={cardSizes.collection}
+                  sortCriteria={collectionSort.criteria}
+                  sortDirection={collectionSort.direction}
+                  onSortChange={(criteria, direction) => {
+                    handleSortChange('collection', criteria, direction);
+                  }}
+                  onClick={handleCardClick}
+                  onDoubleClick={handleAddToDeck}
+                  onRightClick={handleRightClick}
+                  onDragStart={handleDragStart}
+                  isSelected={isSelected}
+                  selectedCards={getSelectedCardObjects()}
+                  isDragActive={dragState.isDragging}
+                />
+                
+                {/* Load More Results integrated into List View */}
+                {!loading && !error && pagination.hasMore && (
+                  <div className="load-more-section-integrated">
+                    {pagination.isLoadingMore ? (
+                      <div className="loading-progress">
+                        <div className="progress-bar">
+                          <div 
+                            className="progress-fill" 
+                            style={{
+                              width: `${(pagination.loadedCards / pagination.totalCards) * 100}%`
+                            }}
+                          />
+                        </div>
+                        <span className="progress-text">
+                          Loading... ({pagination.loadedCards.toLocaleString()}/{pagination.totalCards.toLocaleString()} cards)
+                        </span>
+                      </div>
+                    ) : (
+                      <button 
+                        className="load-more-results-btn"
+                        onClick={loadMoreResultsAction}
+                        disabled={loading}
+                        title={`Load 175 more cards (${pagination.totalCards - pagination.loadedCards} remaining)`}
+                      >
+                        Load More Results ({(pagination.totalCards - pagination.loadedCards).toLocaleString()} more cards)
+                      </button>
+                    )}
+                  </div>
+                )}
+              </>
             ) : (
               <div 
                 className="collection-grid"
@@ -1041,41 +814,47 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
                     selectedCards={getSelectedCardObjects()}
                   />
                 ))}
+                
+                {/* Load More Results integrated into Card Grid */}
+                {!loading && !error && pagination.hasMore && (
+                  <div className="load-more-section-integrated" style={{
+                    gridColumn: '1 / -1',
+                    display: 'flex',
+                    justifyContent: 'center',
+                    padding: '20px',
+                    marginTop: '10px'
+                  }}>
+                    {pagination.isLoadingMore ? (
+                      <div className="loading-progress">
+                        <div className="progress-bar">
+                          <div 
+                            className="progress-fill" 
+                            style={{
+                              width: `${(pagination.loadedCards / pagination.totalCards) * 100}%`
+                            }}
+                          />
+                        </div>
+                        <span className="progress-text">
+                          Loading... ({pagination.loadedCards.toLocaleString()}/{pagination.totalCards.toLocaleString()} cards)
+                        </span>
+                      </div>
+                    ) : (
+                      <button 
+                        className="load-more-results-btn"
+                        onClick={loadMoreResultsAction}
+                        disabled={loading}
+                        title={`Load 175 more cards (${pagination.totalCards - pagination.loadedCards} remaining)`}
+                      >
+                        Load More Results ({(pagination.totalCards - pagination.loadedCards).toLocaleString()} more cards)
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             )
           )}
           
-          {/* Load More Results Section */}
-          {!loading && !error && pagination.hasMore && (
-            <div className="load-more-section">
-              {pagination.isLoadingMore ? (
-                <div className="loading-progress">
-                  <div className="progress-bar">
-                    <div 
-                      className="progress-fill" 
-                      style={{
-                        width: `${(pagination.loadedCards / pagination.totalCards) * 100}%`
-                      }}
-                    />
-                  </div>
-                  <span className="progress-text">
-                    Loading... ({pagination.loadedCards.toLocaleString()}/{pagination.totalCards.toLocaleString()} cards)
-                  </span>
-                </div>
-              ) : (
-                <button 
-                  className="load-more-results-btn"
-                  onClick={loadMoreResultsAction}
-                  disabled={loading}
-                  title={`Load 175 more cards (${pagination.totalCards - pagination.loadedCards} remaining)`}
-                >
-                  Load More Results ({(pagination.totalCards - pagination.loadedCards).toLocaleString()} more cards)
-                </button>
-              )}
-            </div>
-          )}
-          
-          {/* PHASE 3A: Enhanced Resize Handle with larger hit zone */}
+          {/* Resize Handle */}
           <div 
             className="resize-handle resize-handle-bottom"
             onMouseDown={resizeHandlers.onDeckAreaResize}
@@ -1083,36 +862,44 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
             style={{
               position: 'absolute',
               left: 0,
-              bottom: -15,
+              bottom: -3,
               width: '100%',
-              height: 30,
+              height: 6,
               cursor: 'ns-resize',
-              background: 'transparent',
-              zIndex: 1001
+              background: 'linear-gradient(0deg, transparent 0%, #555555 50%, transparent 100%)',
+              zIndex: 1001,
+              opacity: 0.7,
+              transition: 'opacity 0.2s ease'
             }}
+            onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+            onMouseLeave={(e) => e.currentTarget.style.opacity = '0.7'}
           />
         </DropZoneComponent>
         
         {/* Bottom Area */}
         <div className="mtgo-bottom-area">
-          {/* PHASE 3A: NEW - Vertical Resize Handle at top of bottom area */}
+          {/* Vertical Resize Handle */}
           <div 
             className="resize-handle resize-handle-vertical"
             onMouseDown={resizeHandlers.onVerticalResize}
             title="Drag to resize between collection and deck areas"
             style={{
               position: 'absolute',
-              top: -15,
+              top: -3,
               left: 0,
               width: '100%',
-              height: 30,
+              height: 6,
               cursor: 'ns-resize',
-              background: 'transparent',
-              zIndex: 1001
+              background: 'linear-gradient(0deg, transparent 0%, #555555 50%, transparent 100%)',
+              zIndex: 1001,
+              opacity: 0.7,
+              transition: 'opacity 0.2s ease'
             }}
+            onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+            onMouseLeave={(e) => e.currentTarget.style.opacity = '0.7'}
           />
           
-          {/* Main Deck Area - Drop Zone */}
+          {/* Main Deck Area */}
           <DropZoneComponent
             zone="deck"
             onDragEnter={handleDragEnter}
@@ -1184,7 +971,6 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
                       >
                         Rarity {deckSort.criteria === 'rarity' && layout.viewModes.deck === 'card' ? (deckSort.direction === 'asc' ? '↑' : '↓') : ''}
                       </button>
-                      {/* Card Type sorting removed for deck - enhanced sorting doesn't support 'type' */}
                     </div>
                   )}
                 </div>
@@ -1206,13 +992,13 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
                   onClick={() => { clearSelection(); updateViewMode('deck', 'list'); }}
                 >
                   List
-                </button>                <button onClick={handleTextExport} title="Export deck as text for MTGO">
+                </button>
+                <button onClick={handleTextExport} title="Export deck as text for MTGO">
                   Export Text
                 </button>
                 <button onClick={handleScreenshot} title="Generate deck image">
                   Screenshot
                 </button>
-                
                 <button>Save Deck</button>
                 <button onClick={handleClearDeck} title="Clear all cards from deck and sideboard">
                   Clear All
@@ -1226,7 +1012,7 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
                   cards={mainDeck}
                   zone="deck"
                   scaleFactor={cardSizes.deck}
-                  forcedSortCriteria={deckSort.criteria === 'name' || deckSort.criteria === 'type' ? 'mana' : deckSort.criteria}
+                  forcedSortCriteria={deckSort.criteria === 'name' || deckSort.criteria === 'type' ? 'mana' : deckSort.criteria as any}
                   onClick={(card, event) => handleCardClick(card, event)}
                   onInstanceClick={handleInstanceClick}
                   onDoubleClick={handleAddToDeck}
@@ -1248,11 +1034,9 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
                   sortCriteria={deckSort.criteria}
                   sortDirection={deckSort.direction}
                   onSortChange={(criteria, direction) => {
-                    // Only use enhanced sorting for supported criteria
                     if (criteria === 'name' || criteria === 'mana' || criteria === 'color' || criteria === 'rarity') {
                       updateSort('deck', criteria, direction);
                     }
-                    // Note: 'type' sorting handled by local sortCards function
                   }}
                   onClick={(card, event) => handleCardClick(card, event)}
                   onDoubleClick={(card) => handleDoubleClick(card as any, 'deck', { preventDefault: () => {}, stopPropagation: () => {} } as React.MouseEvent)}
@@ -1263,15 +1047,12 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
                   isDragActive={dragState.isDragging}
                   onQuantityChange={(cardId, newQuantity) => {
                     if (newQuantity === 0) {
-                      // Remove all instances of this card
                       setMainDeck(prev => prev.filter(instance => instance.cardId !== cardId));
                     } else {
-                      // Add or remove instances to match desired quantity
                       const currentQuantity = getDeckQuantity(cardId);
                       const diff = newQuantity - currentQuantity;
                       
                       if (diff > 0) {
-                        // Add instances
                         const cardData = cards.find(c => c.id === cardId);
                         if (cardData) {
                           const newInstances: DeckCardInstance[] = [];
@@ -1281,7 +1062,6 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
                           setMainDeck(prev => [...prev, ...newInstances]);
                         }
                       } else if (diff < 0) {
-                        // Remove instances
                         setMainDeck(prev => removeInstancesForCard(prev, cardId, Math.abs(diff)));
                       }
                     }
@@ -1300,7 +1080,7 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
                   }}
                 >
                   {(() => {
-                    // Group instances by cardId for clean stacking (collection style)
+                    // Group instances by cardId for clean stacking
                     const groupedCards = new Map<string, DeckCardInstance[]>();
                     sortedMainDeck.forEach(instance => {
                       const cardId = instance.cardId;
@@ -1316,7 +1096,6 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
                       const isAnySelected = instances.some(instance => isSelected(instance.instanceId));
 
                       const handleStackClick = (card: any, event?: React.MouseEvent) => {
-                        // If multiple instances, select the first non-selected one, or all if all selected
                         if (instances.length > 1) {
                           const unselectedInstance = instances.find(inst => !isSelected(inst.instanceId));
                           const targetInstance = unselectedInstance || instances[0];
@@ -1327,12 +1106,10 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
                       };
 
                       const handleStackInstanceClick = (instanceId: string, instance: DeckCardInstance, event: React.MouseEvent) => {
-                        // For stacks, use the same logic but with proper signature
                         handleStackClick(instance, event);
                       };
 
                       const handleStackDragStart = (cards: any[], zone: any, event: React.MouseEvent) => {
-                        // When dragging a stack, drag all instances of the card
                         handleDragStart(instances as any[], zone, event);
                       };
 
@@ -1366,17 +1143,18 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
                     });
                   })()}
                   
-                  {mainDeck.length === 0 && (
-                    <div className="empty-deck-message">
-                      Double-click or drag cards from the collection to add them to your deck
+                  {sideboard.length === 0 && (
+                    <div className="empty-sideboard-message">
+                      Drag cards here for your sideboard
                     </div>
                   )}
                 </div>
               )}
             </div>
+            
           </DropZoneComponent>
           
-          {/* Sideboard Panel - Drop Zone */}
+          {/* Sideboard Area */}
           <DropZoneComponent
             zone="sideboard"
             onDragEnter={handleDragEnter}
@@ -1384,10 +1162,30 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
             canDrop={canDropInZone('sideboard', dragState.draggedCards)}
             isDragActive={dragState.isDragging}
             className="mtgo-sideboard-panel"
-            style={{ width: layout.panels.sideboardWidth }}
+            style={{ width: `${layout.panels.sideboardWidth}px` }}
           >
+            {/* Horizontal Resize Handle */}
+            <div 
+              className="resize-handle resize-handle-left"
+              onMouseDown={resizeHandlers.onSideboardResize}
+              title="Drag to resize sideboard"
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: -3,
+                width: 6,
+                height: '100%',
+                cursor: 'ew-resize',
+                background: 'linear-gradient(90deg, transparent 0%, #555555 50%, transparent 100%)',
+                zIndex: 1001,
+                opacity: 0.7,
+                transition: 'opacity 0.2s ease'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+              onMouseLeave={(e) => e.currentTarget.style.opacity = '0.7'}
+            />
             <div className="panel-header">
-              <h3>Sideboard ({sideboard.length})</h3>
+              <h3>Sideboard ({sideboard.length} cards)</h3>
               <div className="sideboard-controls">
                 <span>Size: </span>
                 <input
@@ -1449,19 +1247,6 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
                       >
                         Rarity {sideboardSort.criteria === 'rarity' && layout.viewModes.sideboard === 'card' ? (sideboardSort.direction === 'asc' ? '↑' : '↓') : ''}
                       </button>
-                      <button 
-                        className={sideboardSort.criteria === 'type' ? 'active' : ''}
-                        onClick={() => { 
-                          if (layout.viewModes.sideboard === 'card' && sideboardSort.criteria === 'type') {
-                            updateSort('sideboard', 'type', sideboardSort.direction === 'asc' ? 'desc' : 'asc');
-                          } else {
-                            updateSort('sideboard', 'type', 'asc');
-                          }
-                          setShowSideboardSortMenu(false); 
-                        }}
-                      >
-                        Card Type {sideboardSort.criteria === 'type' && layout.viewModes.sideboard === 'card' ? (sideboardSort.direction === 'asc' ? '↑' : '↓') : ''}
-                      </button>
                     </div>
                   )}
                 </div>
@@ -1496,7 +1281,7 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
                   cards={sideboard}
                   zone="sideboard"
                   scaleFactor={cardSizes.sideboard}
-                  forcedSortCriteria={sideboardSort.criteria === 'name' || sideboardSort.criteria === 'type' ? 'mana' : sideboardSort.criteria}
+                  forcedSortCriteria={sideboardSort.criteria === 'name' || sideboardSort.criteria === 'type' ? 'mana' : sideboardSort.criteria as any}
                   onClick={(card, event) => handleCardClick(card, event)}
                   onInstanceClick={handleInstanceClick}
                   onDoubleClick={handleAddToDeck}
@@ -1518,11 +1303,9 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
                   sortCriteria={sideboardSort.criteria}
                   sortDirection={sideboardSort.direction}
                   onSortChange={(criteria, direction) => {
-                    // Only use enhanced sorting for supported criteria
                     if (criteria === 'name' || criteria === 'mana' || criteria === 'color' || criteria === 'rarity') {
                       updateSort('sideboard', criteria, direction);
                     }
-                    // Note: 'type' sorting handled by local sortCards function
                   }}
                   onClick={(card, event) => handleCardClick(card, event)}
                   onDoubleClick={(card) => handleDoubleClick(card as any, 'sideboard', { preventDefault: () => {}, stopPropagation: () => {} } as React.MouseEvent)}
@@ -1533,15 +1316,12 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
                   isDragActive={dragState.isDragging}
                   onQuantityChange={(cardId, newQuantity) => {
                     if (newQuantity === 0) {
-                      // Remove all instances of this card
                       setSideboard(prev => prev.filter(instance => instance.cardId !== cardId));
                     } else {
-                      // Add or remove instances to match desired quantity
                       const currentQuantity = getSideboardQuantity(cardId);
                       const diff = newQuantity - currentQuantity;
                       
                       if (diff > 0) {
-                        // Add instances
                         const cardData = cards.find(c => c.id === cardId);
                         if (cardData) {
                           const newInstances: DeckCardInstance[] = [];
@@ -1551,7 +1331,6 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
                           setSideboard(prev => [...prev, ...newInstances]);
                         }
                       } else if (diff < 0) {
-                        // Remove instances
                         setSideboard(prev => removeInstancesForCard(prev, cardId, Math.abs(diff)));
                       }
                     }
@@ -1570,7 +1349,7 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
                   }}
                 >
                   {(() => {
-                    // Group instances by cardId for clean stacking (collection style)
+                    // Group instances by cardId for clean stacking
                     const groupedCards = new Map<string, DeckCardInstance[]>();
                     sortedSideboard.forEach(instance => {
                       const cardId = instance.cardId;
@@ -1586,7 +1365,6 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
                       const isAnySelected = instances.some(instance => isSelected(instance.instanceId));
 
                       const handleStackClick = (card: any, event?: React.MouseEvent) => {
-                        // If multiple instances, select the first non-selected one, or all if all selected
                         if (instances.length > 1) {
                           const unselectedInstance = instances.find(inst => !isSelected(inst.instanceId));
                           const targetInstance = unselectedInstance || instances[0];
@@ -1597,12 +1375,10 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
                       };
 
                       const handleStackInstanceClick = (instanceId: string, instance: DeckCardInstance, event: React.MouseEvent) => {
-                        // For stacks, use the same logic but with proper signature
                         handleStackClick(instance, event);
                       };
 
                       const handleStackDragStart = (cards: any[], zone: any, event: React.MouseEvent) => {
-                        // When dragging a stack, drag all instances of the card
                         handleDragStart(instances as any[], zone, event);
                       };
 
@@ -1644,26 +1420,10 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
                 </div>
               )}
             </div>
-            
-            {/* PHASE 3A: Enhanced Resize Handle with larger hit zone */}
-            <div 
-              className="resize-handle resize-handle-left"
-              onMouseDown={resizeHandlers.onSideboardResize}
-              title="Drag to resize sideboard"
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: -15,
-                width: 30,
-                height: '100%',
-                cursor: 'ew-resize',
-                background: 'transparent',
-                zIndex: 1001
-              }}
-            />
           </DropZoneComponent>
         </div>
       </div>
+
       {/* Export Modals */}
       <TextExportModal
         isOpen={showTextExportModal}
@@ -1681,7 +1441,6 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
         sideboard={sideboard}
         deckName="Untitled Deck"
       />
-
 
       {/* Context Menu */}
       <ContextMenu

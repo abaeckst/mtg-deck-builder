@@ -62,14 +62,24 @@ const emitSortChange = (event: SortChangeEvent) => {
 };
 
 export const useSorting = () => {
+  console.log('🔴 USESORTING HOOK CALLED - INITIALIZING');
+  
   const [sortState, setSortState] = useState<AreaSortState>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       const loadedState = saved ? { ...DEFAULT_SORT_STATE, ...JSON.parse(saved) } : DEFAULT_SORT_STATE;
       currentSortState = loadedState;
+      
+      console.log('🎯 SORTING HOOK INITIALIZED:', {
+        defaultState: DEFAULT_SORT_STATE,
+        loadedState: loadedState,
+        collectionSort: loadedState.collection
+      });
+      
       return loadedState;
     } catch {
       currentSortState = DEFAULT_SORT_STATE;
+      console.log('🎯 SORTING HOOK - Using default state due to error');
       return DEFAULT_SORT_STATE;
     }
   });
@@ -104,31 +114,78 @@ export const useSorting = () => {
     }
   }, []);
 
-  // Enhanced update sort with subscription notification
+  // Simplified and reliable updateSort function
   const updateSort = useCallback((area: AreaType, criteria: SortCriteria, direction?: SortDirection) => {
+    console.log('🎯 SORT UPDATE:', { area, criteria, direction });
+    
     const newSortState = {
       criteria,
       direction: direction ?? sortState[area].direction,
     };
 
+    // Update sort state
     setSortState(prev => ({
       ...prev,
       [area]: newSortState,
     }));
 
-    // Determine if this change requires server-side re-search
-    const requiresServerSearch = area === 'collection';
+    // Handle collection sorting with simplified logic
+    if (area === 'collection') {
+      const triggerSearch = (window as any).triggerSearch;
+      const metadata = (window as any).lastSearchMetadata;
+      
+      if (triggerSearch && metadata && metadata.totalCards > 75) {
+        console.log('🌐 TRIGGERING SERVER-SIDE SORT:', {
+          criteria: newSortState.criteria,
+          direction: newSortState.direction,
+          totalCards: metadata.totalCards
+        });
+        
+        // Set override parameters for the search
+        const scryfallOrder = SCRYFALL_SORT_MAPPING[newSortState.criteria];
+        (window as any).overrideSortParams = {
+          order: scryfallOrder,
+          dir: newSortState.direction,
+        };
+        
+        // Track sort timing
+        (window as any).lastSortChangeTime = Date.now();
+        
+        // Trigger new search with sort parameters
+        try {
+          triggerSearch(metadata.query, metadata.filters);
+          console.log('✅ Server-side sort search triggered');
+        } catch (error) {
+          console.error('❌ Failed to trigger sort search:', error);
+        }
+      } else {
+        console.log('🏠 Client-side sort will be applied by UI components');
+        (window as any).lastSortChangeTime = Date.now();
+      }
+    }
 
-    // Emit sort change event to subscribers
-    const event: SortChangeEvent = {
+    // Emit subscription event for any remaining subscribers
+    emitSortChange({
       area,
       sortState: newSortState,
-      requiresServerSearch,
-    };
-
-    console.log('📢 Sort change event:', event);
-    emitSortChange(event);
+      requiresServerSearch: area === 'collection',
+    });
   }, [sortState]);
+
+  // Add global test function after updateSort is defined
+  useEffect(() => {
+    const testUpdateSort = () => {
+      console.log('🧪 MANUAL TEST: Calling updateSort directly');
+      updateSort('collection', 'name', 'desc');
+    };
+    
+    (window as any).testUpdateSort = testUpdateSort;
+    console.log('🧪 Global test function available: window.testUpdateSort()');
+    
+    return () => {
+      delete (window as any).testUpdateSort;
+    };
+  }, [updateSort]);
 
   const toggleDirection = useCallback((area: AreaType) => {
     const currentState = sortState[area];
@@ -145,10 +202,13 @@ export const useSorting = () => {
     const state = sortState[area];
     const scryfallOrder = SCRYFALL_SORT_MAPPING[state.criteria];
     
-    return {
+    const params = {
       order: scryfallOrder,
       dir: state.direction,
     };
+    
+    console.log('🔧 Sort params for', area + ':', params);
+    return params;
   }, [sortState]);
 
   // Check if sorting criteria is supported by Scryfall API
@@ -160,6 +220,12 @@ export const useSorting = () => {
   const getGlobalSortState = useCallback((): AreaSortState => {
     return currentSortState;
   }, []);
+
+  console.log('🔴 USESORTING HOOK RETURNING FUNCTIONS:', {
+    hasUpdateSort: typeof updateSort,
+    hasGetSortState: typeof getSortState,
+    currentSortState: sortState
+  });
 
   return {
     // Original API

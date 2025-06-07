@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Clear MTG Deck Builder Layout</title>
+</head>
+<body>
+    <h1>Clear Layout Storage</h1>
+    <button onclick="clearStorage()">Clear Saved Layout</button>
+    <div id="result"></div>
+    
+    <script>
+        function clearStorage() {
+            localStorage.removeItem('mtg-deckbuilder-layout');
+            document.getElementById('result').innerHTML = '<p style="color: green;">Layout storage cleared! Refresh your MTG app.</p>';
+            console.log('Cleared mtg-deckbuilder-layout from localStorage');
+        }
+        
+        // Check current storage
+        const current = localStorage.getItem('mtg-deckbuilder-layout');
+        if (current) {
+            const parsed = JSON.parse(current);
+            console.log('Current layout storage:', parsed);
+            if (parsed.viewModes) {
+                console.log('Current view modes:', parsed.viewModes);
+            }
+        }
+    </script>
+</body>
+</html>

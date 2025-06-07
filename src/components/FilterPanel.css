@@ -1,0 +1,757 @@
+/* src/components/FilterPanel.css - Phase 4B: Professional MTGO-style filter styling */
+
+/* Keyrune Font for MTG Mana Symbols */
+@font-face {
+  
+  src: url('../assets/fonts/keyrune.woff2') format('woff2'),
+       url('../assets/fonts/keyrune.woff') format('woff'),
+       url('../assets/fonts/keyrune.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Collapsible Section Styling */
+.collapsible-section {
+  border-bottom: 1px solid #404040;
+  margin-bottom: 8px;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 8px;
+  background: #333333;
+  border: none;
+  border-bottom: 1px solid #404040;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  user-select: none;
+  min-height: 16px;
+}
+
+.section-header:hover {
+  background: #3a3a3a;
+}
+
+.section-header.has-active-filters {
+  background: #2d4a7b;
+  border-color: #3b82f6;
+}
+
+.section-header.has-active-filters:hover {
+  background: #345a8b;
+}
+
+.section-title {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #ffffff;
+}
+
+.section-indicators {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.active-indicator {
+  color: #3b82f6;
+  font-size: 16px;
+  font-weight: bold;
+  line-height: 1;
+}
+
+.collapse-indicator {
+  font-family: monospace;
+  font-size: 12px;
+  color: #cccccc;
+  font-weight: bold;
+}
+
+.section-content {
+  padding: 4px 8px;
+  background: #2a2a2a;
+  animation: expandSection 0.2s ease;
+}
+
+.section-content .filter-group {
+  margin-bottom: 0;
+  padding: 0;
+}
+
+.section-content .filter-group label {
+  font-size: 11px;
+  margin-bottom: 4px;
+  display: block;
+  color: #cccccc;
+}
+
+@keyframes expandSection {
+  from {
+    opacity: 0;
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+  to {
+    opacity: 1;
+    max-height: 180px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+}
+
+/* Gold Button Styling */
+.color-gold {
+  background: #FFD700 !important;
+  border: 1px solid #B8860B !important;
+  color: #000000 !important;
+  font-weight: 900 !important;
+  font-size: 9px !important;
+  text-shadow: none !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3) !important;
+  transition: all 0.2s ease;
+}
+
+.color-gold:hover:not(.disabled) {
+  background: linear-gradient(135deg, #FFED4A 0%, #FFB84D 100%);
+  box-shadow: 0 4px 8px rgba(255, 215, 0, 0.4);
+  transform: translateY(-1px);
+}
+
+.color-gold.selected {
+  background: #FFD700;
+  box-shadow: 0 0 16px rgba(59, 130, 246, 1.0), 0 0 8px rgba(59, 130, 246, 0.8), 0 0 4px rgba(255, 215, 0, 0.6), inset 0 2px 4px rgba(0, 0, 0, 0.2);
+  border-color: #3b82f6;
+  color: #000000;
+}
+
+.color-gold.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  background: #666666;
+  border-color: #888888 !important;
+  color: #cccccc;
+  box-shadow: none;
+}
+
+/* Subtype Input Styling */
+.subtype-input-container {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.subtype-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 8px;
+  min-height: 0;
+}
+
+.subtype-chip {
+  display: inline-flex;
+  align-items: center;
+  background: #3b82f6;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 500;
+  gap: 4px;
+  animation: chipAppear 0.2s ease;
+}
+
+@keyframes chipAppear {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.chip-remove {
+  background: none;
+  border: none;
+  color: white;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0;
+  margin: 0;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: background-color 0.2s ease;
+}
+
+.chip-remove:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.subtype-input-wrapper {
+  position: relative;
+}
+
+.subtype-input {
+  width: 100%;
+  padding: 8px 12px;
+  background: #1a1a1a;
+  border: 1px solid #404040;
+  border-radius: 4px;
+  color: white;
+  font-size: 12px;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.subtype-input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.subtype-suggestions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: #1a1a1a;
+  border: 1px solid #3b82f6;
+  border-top: none;
+  border-radius: 0 0 4px 4px;
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 1000;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.subtype-suggestion {
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 12px;
+  border-bottom: 1px solid #333333;
+  transition: background-color 0.1s ease;
+}
+
+.subtype-suggestion:hover,
+.subtype-suggestion.highlighted {
+  background: #3b82f6;
+  color: white;
+}
+
+.subtype-suggestion:last-child {
+  border-bottom: none;
+}
+
+.subtype-help-text {
+  font-size: 11px;
+  color: #888888;
+  font-style: italic;
+  margin-top: 4px;
+  line-height: 1.3;
+}
+
+/* Color Filter Grid - 2 Row Layout */
+.color-filter-grid-row1,
+.color-filter-grid-row2 {
+  display: flex;
+  gap: 3px;
+  margin-bottom: 2px;
+  justify-content: flex-start;
+}
+
+.color-filter-grid-row2 {
+  margin-bottom: 0;
+}
+
+.color-filter-grid-row1 {
+  /* Row 1: W U B R G */
+}
+
+.color-filter-grid-row2 {
+  /* Row 2: C GOLD */
+  justify-content: center;
+  gap: 12px;
+}
+
+/* Clean Color Button Styling - Letters in Circles */
+/* Clean Color Button Styling - Letters in Circles */
+.color-button {
+  font-family: 'Segoe UI', Arial, sans-serif;
+  font-size: 11px;
+  font-weight: bold;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  text-shadow: none;
+}
+
+.color-button:hover:not(.disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.color-button.selected {
+  border-color: #3b82f6;
+  box-shadow: 0 0 16px rgba(59, 130, 246, 1.0), 0 0 8px rgba(59, 130, 246, 0.8), inset 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* Individual Color Styling */
+.color-button.color-w {
+  background: linear-gradient(135deg, #FFFBD5 0%, #F0F0F0 100%);
+  color: #333333;
+  border-color: #E0E0E0;
+}
+
+.color-button.color-u {
+  background: linear-gradient(135deg, #0E68AB 0%, #1E88E5 100%);
+  color: #ffffff;
+  border-color: #1976D2;
+}
+
+.color-button.color-b {
+  background: linear-gradient(135deg, #150B00 0%, #2D1B00 100%);
+  color: #ffffff;
+  border-color: #4A3000;
+}
+
+.color-button.color-r {
+  background: linear-gradient(135deg, #D32F2F 0%, #F44336 100%);
+  color: #ffffff;
+  border-color: #C62828;
+}
+
+.color-button.color-g {
+  background: linear-gradient(135deg, #2E7D32 0%, #4CAF50 100%);
+  color: #ffffff;
+  border-color: #1B5E20;
+}
+
+.color-button.color-c {
+  background: linear-gradient(135deg, #9E9E9E 0%, #BDBDBD 100%);
+  color: #333333;
+  border-color: #757575;
+}
+
+.color-button.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.color-button.color-u {
+  background: linear-gradient(135deg, #0E68AB 0%, #1E88E5 100%);
+  color: #ffffff;
+  border-color: #1976D2;
+}
+
+.color-button.color-b {
+  background: linear-gradient(135deg, #150B00 0%, #2D1B00 100%);
+  color: #ffffff;
+  border-color: #4A3000;
+}
+
+.color-button.color-r {
+  background: linear-gradient(135deg, #D32F2F 0%, #F44336 100%);
+  color: #ffffff;
+  border-color: #C62828;
+}
+
+.color-button.color-g {
+  background: linear-gradient(135deg, #2E7D32 0%, #4CAF50 100%);
+  color: #ffffff;
+  border-color: #1B5E20;
+}
+
+.color-button.color-c {
+  background: linear-gradient(135deg, #9E9E9E 0%, #BDBDBD 100%);
+  color: #333333;
+  border-color: #757575;
+}
+
+/* Enhanced Filter Panel Layout */
+.mtgo-filter-panel {
+  display: flex;
+  flex-direction: column;
+  background: #2a2a2a;
+  border-right: 1px solid #404040;
+  overflow: hidden;
+  position: relative;
+}
+
+.mtgo-filter-panel.collapsed {
+  width: 40px !important;
+  min-width: 40px;
+}
+
+.filter-content {
+  flex: 1;
+  overflow-y: auto;
+  padding-bottom: 20px;
+}
+
+/* Color filter grid enhancement for gold button */
+.color-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.color-filter-grid .color-button:nth-child(7) {
+  grid-column: 1 / -1;
+  justify-self: center;
+  min-width: 60px;
+}
+
+/* Accessibility improvements */
+.section-header:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+.subtype-input:focus-visible {
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5);
+}
+
+.color-button:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 1200px) {
+  .section-title {
+    font-size: 11px;
+  }
+  
+  .section-content {
+    padding: 8px;
+  }
+  
+  .subtype-chip {
+    font-size: 10px;
+    padding: 3px 6px;
+  }
+}
+
+/* Animation improvements */
+.filter-group {
+  transition: opacity 0.2s ease;
+}
+
+.mtgo-filter-panel.collapsed .filter-group {
+  opacity: 0;
+}
+
+/* Search Input Container Fix */
+.search-group {
+  margin-bottom: 12px;
+  overflow: hidden; /* Prevent escaping */
+}
+
+.search-group .search-autocomplete {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.search-group .search-input {
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+/* Search Group - Compact and Contained */
+.search-group {
+  margin-bottom: 4px;
+  padding: 0 4px;
+  box-sizing: border-box;
+  width: 100%;
+  overflow: hidden;
+}
+
+.search-group .search-autocomplete {
+  width: 100% !important;
+  max-width: calc(100% - 8px) !important;
+  box-sizing: border-box !important;
+}
+
+.search-group .search-input {
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+  padding: 6px 8px !important;
+  font-size: 11px !important;
+}
+
+/* Format Group - Compact */
+.format-group {
+  margin-bottom: 4px;
+}
+
+.format-group select {
+  width: 100%;
+  padding: 4px 6px;
+  background: #1a1a1a;
+  border: 1px solid #404040;
+  border-radius: 3px;
+  color: white;
+  font-size: 11px;
+}
+
+/* Multi-select grid improvements */
+.multi-select-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2px;
+  margin-top: 3px;
+}
+
+.type-button,
+.rarity-button {
+  padding: 3px 4px;
+  background: #333333;
+  border: 1px solid #404040;
+  border-radius: 3px;
+  color: white;
+  cursor: pointer;
+  font-size: 9px;
+  text-align: center;
+  transition: all 0.2s ease;
+}
+
+.type-button:hover,
+.rarity-button:hover {
+  background: #404040;
+}
+
+.type-button.selected,
+.rarity-button.selected {
+  background: #3b82f6;
+  border-color: #3b82f6;
+}
+
+/* Range filter improvements */
+.range-filter {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.range-filter span {
+  font-size: 11px;
+  color: #cccccc;
+  min-width: 20px;
+  text-align: center;
+}
+
+.range-input,
+.stat-input {
+  width: 60px;
+  padding: 4px 6px;
+  background: #1a1a1a;
+  border: 1px solid #404040;
+  border-radius: 3px;
+  color: white;
+  font-size: 11px;
+}
+
+/* Stats filter layout */
+.stats-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.stat-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.stat-row span:first-child {
+  font-size: 11px;
+  color: #cccccc;
+  min-width: 65px;
+  text-align: left;
+}
+
+.stat-row span:nth-child(3) {
+  font-size: 11px;
+  color: #cccccc;
+  min-width: 20px;
+  text-align: center;
+}
+
+/* Rarity grid */
+.rarity-filter-grid {
+  display: flex;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.rarity-button {
+  flex: 1;
+  min-width: 40px;
+}
+
+/* Quick actions styling */
+.quick-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.quick-actions button {
+  padding: 6px 8px;
+  background: #404040;
+  border: 1px solid #555555;
+  border-radius: 4px;
+  color: white;
+  cursor: pointer;
+  font-size: 11px;
+  transition: background-color 0.2s ease;
+}
+
+.quick-actions button:hover {
+  background: #505050;
+}
+
+/* Panel minimum width and overflow handling */
+.mtgo-filter-panel {
+  min-width: 280px;
+  max-width: 400px;
+  overflow-x: hidden;
+}
+
+.filter-content {
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 4px;
+}
+
+/* Scrollbar styling for filter content */
+.filter-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.filter-content::-webkit-scrollbar-track {
+  background: #1a1a1a;
+}
+
+.filter-content::-webkit-scrollbar-thumb {
+  background: #404040;
+  border-radius: 3px;
+}
+
+.filter-content::-webkit-scrollbar-thumb:hover {
+  background: #555555;
+}
+/* Section Preview Text */
+.section-preview {
+  font-weight: 400;
+  color: #3b82f6;
+  font-size: 10px;
+  margin-left: 4px;
+}
+
+/* Color Layout - Horizontal Split */
+.color-layout-horizontal {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.color-buttons-left {
+  flex-shrink: 0;
+}
+
+.color-dropdown-right {
+  flex: 1;
+  min-width: 120px;
+}
+
+.color-dropdown-right .color-mode-select {
+  width: 100%;
+  padding: 4px 6px;
+  background: #1a1a1a;
+  border: 1px solid #404040;
+  border-radius: 3px;
+  color: white;
+  font-size: 10px;
+}
+
+/* Filter Group Spacing Fix */
+.filter-group {
+  margin-bottom: 0 !important;
+  padding: 0 !important;
+}
+
+.filter-group label {
+  font-size: 10px !important;
+  margin-bottom: 2px !important;
+  display: block;
+  color: #cccccc;
+}
+
+/* Collapsible section spacing */
+.collapsible-section {
+  border-bottom: none;
+  margin-bottom: 2px;
+}
+
+/* Color Layout - Single Row Vertical */
+.color-layout-vertical {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.color-buttons-row {
+  display: flex;
+  gap: 3px;
+  justify-content: center;
+  flex-wrap: nowrap;
+}
+
+.color-dropdown-below {
+  width: 100%;
+  text-align: center;
+}
+
+.color-dropdown-below .color-mode-select {
+  width: auto;
+  min-width: 140px;
+  padding: 3px 6px;
+  background: #1a1a1a;
+  border: 1px solid #404040;
+  border-radius: 3px;
+  color: white;
+  font-size: 10px;
+}

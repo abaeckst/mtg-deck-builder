@@ -1,0 +1,1072 @@
+#!/usr/bin/env python3
+
+import os
+import sys
+
+def emergency_restore_usecards():
+    """
+    Emergency restoration of useCards.ts from the working version in the session logs.
+    This will restore the file to the last known working state before corruption.
+    """
+    
+    # The clean working version before corruption
+    clean_usecards_content = '''// src/hooks/useCards.ts - Enhanced with progressive loading (75 initial + 175 per batch)
+import { useState, useEffect, useCallback } from 'react';
+import { ScryfallCard, PaginatedSearchState } from '../types/card';
+import { 
+  searchCards, 
+  getRandomCard, 
+  searchCardsWithFilters, 
+  SearchFilters, 
+  enhancedSearchCards, 
+  getSearchSuggestions, 
+  searchCardsWithSort,
+  searchCardsWithPagination,
+  loadMoreResults
+} from '../services/scryfallApi';
+import { useSorting, AreaType, SortCriteria, SortDirection } from './useSorting';
+
+export interface UseCardsState {
+  cards: ScryfallCard[];
+  loading: boolean;
+  error: string | null;
+  hasMore: boolean;
+  selectedCards: Set<string>;
+  searchQuery: string;
+  totalCards: number;
+  
+  // Enhanced search state
+  searchSuggestions: string[];
+  showSuggestions: boolean;
+  recentSearches: string[];
+
+  // Progressive loading pagination state
+  pagination: {
+    totalCards: number;
+    loadedCards: number;
+    hasMore: boolean;
+    isLoadingMore: boolean;
+    currentPage: number;
+  };
+
+  // Sort integration state
+  lastSearchMetadata: {
+    query: string;
+    filters: any;
+    totalCards: number;
+    loadedCards: number;
+  } | null;
+
+  // Enhanced filtering state
+  activeFilters: {
+    format: string;
+    colors: string[];
+    colorIdentity: 'subset' | 'exact' | 'include';
+    types: string[];
+    rarity: string[];
+    sets: string[];
+    cmc: { min: number | null; max: number | null };
+    power: { min: number | null; max: number | null };
+    toughness: { min: number | null; max: number | null };
+    // Phase 4B: Enhanced filter state
+    subtypes: string[];
+    isGoldMode: boolean;
+    sectionStates: {
+      colors: boolean;
+      cmc: boolean;
+      types: boolean;
+      subtypes: boolean;
+      sets: boolean;
+      rarity: boolean;
+      stats: boolean;
+    };
+  };
+  isFiltersCollapsed: boolean;
+}
+
+export interface UseCardsActions {
+  searchForCards: (query: string, format?: string) => Promise<void>;
+  searchWithAllFilters: (query: string, filtersOverride?: any) => Promise<void>;
+  loadPopularCards: () => Promise<void>;
+  loadRandomCard: () => Promise<void>;
+  selectCard: (cardId: string) => void;
+  deselectCard: (cardId: string) => void;
+  clearSelection: () => void;
+  isCardSelected: (cardId: string) => boolean;
+  getSelectedCardsData: () => ScryfallCard[];
+  clearCards: () => void;
+  
+  // Enhanced filter actions
+  updateFilter: (filterType: string, value: any) => void;
+  clearAllFilters: () => void;
+  toggleFiltersCollapsed: () => void;
+  hasActiveFilters: () => boolean;
+  
+  // Enhanced search actions
+  enhancedSearch: (query: string, filtersOverride?: any) => Promise<void>;
+  getSearchSuggestions: (query: string) => Promise<void>;
+  clearSearchSuggestions: () => void;
+  addToSearchHistory: (query: string) => void;
+  
+  // Sort integration actions
+  handleCollectionSortChange: (criteria: SortCriteria, direction: SortDirection) => void;
+  
+  // Progressive loading actions
+  loadMoreResultsAction: () => Promise<void>;
+  resetPagination: () => void;
+  
+  // Phase 4B: Enhanced filter actions
+  updateSectionState: (section: string, isExpanded: boolean) => void;
+  getSectionState: (section: string) => boolean;
+  autoExpandSection: (section: string) => void;
+}
+
+const POPULAR_CARDS_QUERY = 'type:creature legal:standard';
+
+export const useCards = (): UseCardsState & UseCardsActions => {
+  // Initialize sorting integration
+  const { getScryfallSortParams, subscribe, unsubscribe } = useSorting();
+  
+  // Internal pagination state for progressive loading
+  const [paginationState, setPaginationState] = useState<PaginatedSearchState | null>(null);
+  
+  const [state, setState] = useState<UseCardsState>({
+    cards: [],
+    loading: false,
+    error: null,
+    hasMore: false,
+    selectedCards: new Set(),
+    searchQuery: '',
+    totalCards: 0,
+    
+    // Enhanced search state
+    searchSuggestions: [],
+    showSuggestions: false,
+    recentSearches: [],
+    
+    // Progressive loading pagination state
+    pagination: {
+      totalCards: 0,
+      loadedCards: 0,
+      hasMore: false,
+      isLoadingMore: false,
+      currentPage: 1,
+    },
+    
+    // Sort integration state
+    lastSearchMetadata: null,
+    
+    // Enhanced filtering state
+    activeFilters: {
+      format: 'custom-standard',
+      colors: [],
+      colorIdentity: 'subset',
+      types: [],
+      rarity: [],
+      sets: [],
+      cmc: { min: null, max: null },
+      power: { min: null, max: null },
+      toughness: { min: null, max: null },
+      // Phase 4B: Enhanced filter state initialization
+      subtypes: [],
+      isGoldMode: false,
+      sectionStates: {
+        colors: true,      // Default sections expanded
+        cmc: true,
+        types: true,
+        subtypes: false,
+        sets: false,       // Advanced sections collapsed
+        rarity: false,
+        stats: false,
+      },
+    },
+    isFiltersCollapsed: false,
+  });
+
+  // Clear error when starting new operations
+  const clearError = useCallback(() => {
+    setState(prev => ({ ...prev, error: null }));
+  }, []);
+
+  // Set loading state
+  const setLoading = useCallback((loading: boolean) => {
+    setState(prev => ({ ...prev, loading }));
+  }, []);
+
+  // Reset pagination state
+  const resetPagination = useCallback(() => {
+    setPaginationState(null);
+    setState(prev => ({
+      ...prev,
+      pagination: {
+        totalCards: 0,
+        loadedCards: 0,
+        hasMore: false,
+        isLoadingMore: false,
+        currentPage: 1,
+      }
+    }));
+  }, []);
+
+  // Enhanced search with pagination support
+  const searchWithPagination = useCallback(async (query: string, filters: SearchFilters = {}) => {
+    const searchId = Date.now() + Math.random();
+    (window as any).currentSearchId = searchId;
+
+    console.log('🔍 PAGINATED SEARCH STARTED:', { 
+      searchId: searchId.toFixed(3), 
+      query, 
+      filters,
+      initialPageSize: 75
+    });
+
+    try {
+      clearError();
+      setLoading(true);
+      resetPagination();
+
+      // Rate limiting
+      const now = Date.now();
+      const lastSearch = (window as any).lastSearchTime || 0;
+      const timeSinceLastSearch = now - lastSearch;
+      
+      if (timeSinceLastSearch < 150) {
+        await new Promise(resolve => setTimeout(resolve, 150 - timeSinceLastSearch));
+      }
+      
+      if ((window as any).currentSearchId !== searchId) {
+        console.log('🚫 PAGINATED SEARCH CANCELLED:', searchId.toFixed(3));
+        return;
+      }
+      
+      (window as any).lastSearchTime = Date.now();
+
+      // Get Scryfall sort parameters
+      const sortParams = getScryfallSortParams('collection');
+      
+      // Execute paginated search with sort parameters
+      console.log('🔧 PAGINATED SEARCH - Using sort parameters:', sortParams);
+      console.log('🔧 PAGINATED SEARCH - Query details:', {
+        query: query,
+        filters: filters,
+        sortOrder: sortParams.order,
+        sortDirection: sortParams.dir
+      });
+      
+      const paginationResult = await searchCardsWithPagination(
+        query, 
+        filters, 
+        sortParams.order, 
+        sortParams.dir
+      );
+
+      if ((window as any).currentSearchId !== searchId) {
+        console.log('🚫 PAGINATED SEARCH CANCELLED DURING API:', searchId.toFixed(3));
+        return;
+      }
+
+      console.log('✅ PAGINATED SEARCH SUCCESS:', {
+        searchId: searchId.toFixed(3),
+        initialResultCount: paginationResult.initialResults.length,
+        totalAvailable: paginationResult.totalCards,
+        hasMore: paginationResult.hasMore
+      });
+
+      // Update state with initial results
+      console.log('🔄 Updating pagination state:', {
+        totalCards: paginationResult.totalCards,
+        loadedCards: paginationResult.loadedCards,
+        hasMore: paginationResult.hasMore,
+        cardsLength: paginationResult.initialResults.length
+      });
+
+      setState(prev => ({
+        ...prev,
+        cards: paginationResult.initialResults,
+        searchQuery: query === '*' ? 'Filtered Results' : query,
+        totalCards: paginationResult.totalCards,
+        hasMore: paginationResult.hasMore,
+        selectedCards: new Set(),
+        pagination: {
+          totalCards: paginationResult.totalCards,
+          loadedCards: paginationResult.loadedCards,
+          hasMore: paginationResult.hasMore,
+          isLoadingMore: false,
+          currentPage: 1,
+        },
+        lastSearchMetadata: {
+          query,
+          filters,
+          totalCards: paginationResult.totalCards,
+          loadedCards: paginationResult.loadedCards,
+        },
+      }));
+
+      console.log('✅ Pagination state updated - Load More should show if hasMore is true');
+
+      // Store pagination state for load more functionality
+      setPaginationState(paginationResult);
+
+    } catch (error) {
+      if ((window as any).currentSearchId === searchId) {
+        let errorMessage = error instanceof Error ? error.message : 'Failed to search cards';
+        let isNoResults = false;
+        
+        if (errorMessage.includes('404') || errorMessage.includes('No cards found')) {
+          errorMessage = 'No cards found matching your search. Try different keywords or filters.';
+          isNoResults = true;
+          console.log('📭 No results found for paginated search:', query);
+        } else {
+          console.error('❌ PAGINATED SEARCH ERROR:', {
+            searchId: searchId.toFixed(3),
+            query: query,
+            error: errorMessage
+          });
+        }
+
+        setState(prev => ({
+          ...prev,
+          error: isNoResults ? null : errorMessage,
+          cards: [],
+          totalCards: 0,
+          hasMore: false,
+          searchQuery: isNoResults ? 'No results found' : prev.searchQuery,
+          pagination: {
+            totalCards: 0,
+            loadedCards: 0,
+            hasMore: false,
+            isLoadingMore: false,
+            currentPage: 1,
+          },
+        }));
+        
+        resetPagination();
+      }
+    } finally {
+      if ((window as any).currentSearchId === searchId) {
+        setLoading(false);
+      }
+    }
+  }, [clearError, setLoading, resetPagination, getScryfallSortParams]);
+
+  // Handle collection sort changes - ENHANCED DEBUGGING AND SMART LOGIC
+  const handleCollectionSortChange = useCallback(async (criteria: SortCriteria, direction: SortDirection) => {
+    console.log('🚨 SORT CHANGE HANDLER CALLED:', { criteria, direction });
+    
+    const metadata = state.lastSearchMetadata;
+    console.log('🔍 Search metadata:', metadata);
+    
+    if (!metadata) {
+      console.log('❌ No search metadata available for sort change');
+      return;
+    }
+
+    // Get current Scryfall sort parameters BEFORE decision logic
+    const sortParams = getScryfallSortParams('collection');
+    console.log('🔧 Current sort params:', sortParams);
+
+    // Smart sorting logic: server-side only when there are more results available
+    const shouldUseServerSort = metadata.totalCards > 75;
+    console.log('🤔 Sort decision analysis:', {
+      criteria,
+      direction,
+      totalCards: metadata.totalCards,
+      loadedCards: metadata.loadedCards,
+      threshold: 75,
+      shouldUseServerSort,
+      sortParams: sortParams,
+      reason: shouldUseServerSort ? 'Large dataset - trigger server-side sort' : 'Small dataset - use client-side sort'
+    });
+
+    if (shouldUseServerSort) {
+      console.log('🌐 TRIGGERING SERVER-SIDE SORT - new Scryfall search');
+      console.log('🔧 Using sort params for re-search:', sortParams);
+      
+      try {
+        console.log('🚀 EXECUTING searchWithPagination for sort change...');
+        console.log('📋 Search parameters:', {
+          query: metadata.query,
+          filters: metadata.filters,
+          sortOrder: sortParams.order,
+          sortDirection: sortParams.dir
+        });
+        
+        // The searchWithPagination function should automatically use getScryfallSortParams
+        // but let's ensure it's working by logging the full flow
+        await searchWithPagination(metadata.query, metadata.filters);
+        console.log('✅ Sort-triggered search completed successfully');
+      } catch (error) {
+        console.error('❌ Sort-triggered search failed:', error);
+        setState(prev => ({
+          ...prev,
+          error: 'Failed to apply sort. Please try again.'
+        }));
+      }
+    } else {
+      console.log('🏠 Using CLIENT-SIDE sorting - just reordering current results');
+      console.log('💡 Client-side sort will be handled by UI components automatically');
+      // Client-side sorting will be handled automatically by the UI component
+    }
+  }, [state.lastSearchMetadata, getScryfallSortParams, searchWithPagination]);
+
+  // Subscribe to collection sort changes with enhanced debugging
+  useEffect(() => {
+    console.log('🔔 Setting up sort subscription for collection area');
+    
+    const subscriptionId = subscribe((area: AreaType, sortState) => {
+      console.log('📢 SORT SUBSCRIPTION EVENT RECEIVED:', { area, sortState });
+      
+      if (area === 'collection') {
+        console.log('🔄 Collection sort changed:', sortState);
+        console.log('🔍 Current search metadata:', state.lastSearchMetadata);
+        console.log('🔍 Available functions:', {
+          hasHandleCollectionSortChange: typeof handleCollectionSortChange,
+          hasMetadata: !!state.lastSearchMetadata
+        });
+        
+        if (state.lastSearchMetadata) {
+          console.log('✅ Triggering handleCollectionSortChange with:', {
+            criteria: sortState.criteria,
+            direction: sortState.direction
+          });
+          handleCollectionSortChange(sortState.criteria, sortState.direction);
+        } else {
+          console.log('❌ No search metadata - cannot trigger sort change');
+        }
+      } else {
+        console.log('ℹ️ Sort change for non-collection area:', area);
+      }
+    });
+
+    console.log('🔔 Sort subscription established with ID:', subscriptionId);
+
+    return () => {
+      console.log('🔕 Unsubscribing from sort changes:', subscriptionId);
+      unsubscribe(subscriptionId);
+    };
+  }, [subscribe, unsubscribe, state.lastSearchMetadata, handleCollectionSortChange]);
+
+  // Load more results action
+  const loadMoreResultsAction = useCallback(async () => {
+    if (!paginationState || !paginationState.hasMore || paginationState.isLoadingMore) {
+      console.log('🚫 Cannot load more:', { 
+        hasPaginationState: !!paginationState,
+        hasMore: paginationState?.hasMore,
+        isLoadingMore: paginationState?.isLoadingMore
+      });
+      return;
+    }
+
+    console.log('🔄 Loading more results...');
+    
+    // Update loading state
+    setState(prev => ({
+      ...prev,
+      pagination: { ...prev.pagination, isLoadingMore: true }
+    }));
+    
+    // Update pagination state
+    setPaginationState(prev => prev ? { ...prev, isLoadingMore: true } : null);
+
+    try {
+      console.log('🔄 Load more with current sort:', {
+        query: paginationState.lastQuery,
+        sort: paginationState.lastSort
+      });
+      
+      const newCards = await loadMoreResults(
+        paginationState,
+        (loaded, total) => {
+          // Progress callback
+          setState(prev => ({
+            ...prev,
+            pagination: { 
+              ...prev.pagination, 
+              loadedCards: loaded
+            }
+          }));
+        }
+      );
+
+      // Update cards and pagination state
+      const updatedCards = [...state.cards, ...newCards];
+      const newLoadedCount = updatedCards.length;
+      const stillHasMore = newLoadedCount < paginationState.totalCards;
+      
+      setState(prev => ({
+        ...prev,
+        cards: updatedCards,
+        totalCards: paginationState.totalCards,
+        hasMore: stillHasMore,
+        pagination: {
+          ...prev.pagination,
+          loadedCards: newLoadedCount,
+          hasMore: stillHasMore,
+          isLoadingMore: false,
+          currentPage: paginationState.currentPage + 1,
+        }
+      }));
+
+      // Update internal pagination state
+      setPaginationState(prev => prev ? {
+        ...prev,
+        loadedCards: newLoadedCount,
+        hasMore: stillHasMore,
+        isLoadingMore: false,
+        currentPage: prev.currentPage + 1,
+      } : null);
+
+      console.log('✅ Load more results successful:', {
+        newCardsLoaded: newCards.length,
+        totalLoadedNow: newLoadedCount,
+        stillHasMore
+      });
+
+    } catch (error) {
+      console.error('❌ Failed to load more results:', error);
+      
+      setState(prev => ({
+        ...prev,
+        pagination: { ...prev.pagination, isLoadingMore: false },
+        error: error instanceof Error ? error.message : 'Failed to load more results'
+      }));
+      
+      setPaginationState(prev => prev ? { ...prev, isLoadingMore: false } : null);
+    }
+  }, [paginationState, state.cards]);
+
+  // Search for cards with query and optional format filter - NOW WITH PAGINATION
+  const searchForCards = useCallback(async (query: string, format?: string) => {
+    // Handle empty query cases
+    if (!query.trim()) {
+      if (format && format !== '') {
+        query = '*';
+      } else {
+        setState(prev => ({ 
+          ...prev, 
+          cards: [], 
+          searchQuery: '', 
+          totalCards: 0,
+          selectedCards: new Set(),
+          pagination: {
+            totalCards: 0,
+            loadedCards: 0,
+            hasMore: false,
+            isLoadingMore: false,
+            currentPage: 1,
+          }
+        }));
+        resetPagination();
+        return;
+      }
+    }
+
+    const filters = format && format !== '' 
+      ? { format: format === 'custom-standard' ? 'standard' : format }
+      : {};
+
+    await searchWithPagination(query, filters);
+  }, [searchWithPagination, resetPagination]);
+
+  // Load popular/example cards with proper pagination and error handling
+  const loadPopularCards = useCallback(async () => {
+    console.log('🎯 Loading popular cards with pagination support...');
+    
+    try {
+      // Use the same pagination system as searches
+      await searchWithPagination(POPULAR_CARDS_QUERY, {});
+      
+      // Update the search query display
+      setState(prev => ({
+        ...prev,
+        searchQuery: 'Popular Cards',
+      }));
+      
+      console.log('✅ Popular cards loaded successfully');
+    } catch (error) {
+      console.error('❌ Failed to load popular cards:', error);
+      
+      // Fallback: try a simpler query
+      try {
+        console.log('🔄 Trying fallback query: creature');
+        await searchWithPagination('creature', {});
+        setState(prev => ({
+          ...prev,
+          searchQuery: 'Popular Cards',
+        }));
+        console.log('✅ Fallback popular cards loaded');
+      } catch (fallbackError) {
+        console.error('❌ Fallback also failed:', fallbackError);
+        setState(prev => ({
+          ...prev,
+          error: 'Failed to load popular cards. Try searching manually.',
+          searchQuery: 'Error loading popular cards',
+        }));
+      }
+    }
+  }, [searchWithPagination]);
+
+  // Load a single random card
+  const loadRandomCard = useCallback(async () => {
+    clearError();
+    setLoading(true);
+    resetPagination();
+
+    try {
+      const card = await getRandomCard();
+      setState(prev => ({
+        ...prev,
+        cards: [card],
+        searchQuery: 'Random Card',
+        totalCards: 1,
+        hasMore: false,
+        selectedCards: new Set(),
+        pagination: {
+          totalCards: 1,
+          loadedCards: 1,
+          hasMore: false,
+          isLoadingMore: false,
+          currentPage: 1,
+        },
+      }));
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to load random card';
+      setState(prev => ({
+        ...prev,
+        error: errorMessage,
+        cards: [],
+        totalCards: 0,
+        hasMore: false,
+        pagination: {
+          totalCards: 0,
+          loadedCards: 0,
+          hasMore: false,
+          isLoadingMore: false,
+          currentPage: 1,
+        },
+      }));
+    } finally {
+      setLoading(false);
+    }
+  }, [clearError, setLoading, resetPagination]);
+
+  // Card selection functions
+  const selectCard = useCallback((cardId: string) => {
+    setState(prev => {
+      const newSelected = new Set(prev.selectedCards);
+      newSelected.add(cardId);
+      return {
+        ...prev,
+        selectedCards: newSelected,
+      };
+    });
+  }, []);
+
+  const deselectCard = useCallback((cardId: string) => {
+    setState(prev => {
+      const newSelected = new Set(prev.selectedCards);
+      newSelected.delete(cardId);
+      return {
+        ...prev,
+        selectedCards: newSelected,
+      };
+    });
+  }, []);
+
+  const clearSelection = useCallback(() => {
+    setState(prev => ({
+      ...prev,
+      selectedCards: new Set(),
+    }));
+  }, []);
+
+  const isCardSelected = useCallback((cardId: string): boolean => {
+    return state.selectedCards.has(cardId);
+  }, [state.selectedCards]);
+
+  // Get selected cards data
+  const getSelectedCardsData = useCallback((): ScryfallCard[] => {
+    return state.cards.filter(card => state.selectedCards.has(card.id));
+  }, [state.cards, state.selectedCards]);
+
+  // Clear all cards and reset state
+  const clearCards = useCallback(() => {
+    resetPagination();
+    setState({
+      cards: [],
+      loading: false,
+      error: null,
+      hasMore: false,
+      selectedCards: new Set(),
+      searchQuery: '',
+      totalCards: 0,
+      searchSuggestions: [],
+      showSuggestions: false,
+      recentSearches: [],
+      pagination: {
+        totalCards: 0,
+        loadedCards: 0,
+        hasMore: false,
+        isLoadingMore: false,
+        currentPage: 1,
+      },
+      lastSearchMetadata: null,
+      activeFilters: {
+        format: '',
+        colors: [],
+        colorIdentity: 'subset',
+        types: [],
+        rarity: [],
+        sets: [],
+        cmc: { min: null, max: null },
+        power: { min: null, max: null },
+        toughness: { min: null, max: null },
+        // Phase 4B: Enhanced filter reset
+        subtypes: [],
+        isGoldMode: false,
+        sectionStates: {
+          colors: true,
+          cmc: true,
+          types: true,
+          subtypes: false,
+          sets: false,
+          rarity: false,
+          stats: false,
+        },
+      },
+      isFiltersCollapsed: false,
+    });
+  }, [resetPagination]);
+
+  // Load popular cards on mount
+  useEffect(() => {
+    loadPopularCards();
+  }, [loadPopularCards]);
+
+  // Enhanced filter management functions
+  const updateFilter = useCallback((filterType: string, value: any) => {
+    console.log('🎛️ Updating filter:', filterType, '=', value);
+    setState(prev => {
+      const newFilters = {
+        ...prev.activeFilters,
+        [filterType]: value,
+      };
+      console.log('🎛️ New filter state:', newFilters);
+      return {
+        ...prev,
+        activeFilters: newFilters,
+      };
+    });
+  }, []);
+
+  const clearAllFilters = useCallback(() => {
+    console.log('🧹 Clearing all filters and resetting search');
+    setState(prev => ({
+      ...prev,
+      activeFilters: {
+        format: '',
+        colors: [],
+        colorIdentity: 'subset',
+        types: [],
+        rarity: [],
+        sets: [],
+        cmc: { min: null, max: null },
+        power: { min: null, max: null },
+        toughness: { min: null, max: null },
+        // Phase 4B: Enhanced filter clear
+        subtypes: [],
+        isGoldMode: false,
+        sectionStates: {
+          colors: true,
+          cmc: true,
+          types: true,
+          subtypes: false,
+          sets: false,
+          rarity: false,
+          stats: false,
+        },
+      },
+    }));
+    
+    setTimeout(() => {
+      console.log('🧹 Loading popular cards after filter clear');
+      loadPopularCards();
+    }, 50);
+  }, [loadPopularCards]);
+
+  const toggleFiltersCollapsed = useCallback(() => {
+    setState(prev => ({
+      ...prev,
+      isFiltersCollapsed: !prev.isFiltersCollapsed,
+    }));
+  }, []);
+
+  const hasActiveFilters = useCallback((): boolean => {
+    const filters = state.activeFilters;
+    return (
+      filters.format !== '' ||
+      filters.colors.length > 0 ||
+      filters.types.length > 0 ||
+      filters.rarity.length > 0 ||
+      filters.sets.length > 0 ||
+      filters.cmc.min !== null ||
+      filters.cmc.max !== null ||
+      filters.power.min !== null ||
+      filters.power.max !== null ||
+      filters.toughness.min !== null ||
+      filters.toughness.max !== null ||
+      // Phase 4B: Enhanced filter detection
+      filters.subtypes.length > 0 ||
+      filters.isGoldMode
+    );
+  }, [state.activeFilters]);
+
+  // Phase 4B: Section state management functions
+  const updateSectionState = useCallback((section: string, isExpanded: boolean) => {
+    setState(prev => ({
+      ...prev,
+      activeFilters: {
+        ...prev.activeFilters,
+        sectionStates: {
+          ...prev.activeFilters.sectionStates,
+          [section]: isExpanded,
+        },
+      },
+    }));
+  }, []);
+
+  const getSectionState = useCallback((section: string): boolean => {
+    return state.activeFilters.sectionStates[section as keyof typeof state.activeFilters.sectionStates] ?? true;
+  }, [state.activeFilters.sectionStates]);
+
+  const autoExpandSection = useCallback((section: string) => {
+    // Auto-expand sections that have active filters
+    const filters = state.activeFilters;
+    let shouldExpand = false;
+    
+    switch (section) {
+      case 'colors':
+        shouldExpand = filters.colors.length > 0 || filters.isGoldMode;
+        break;
+      case 'types':
+        shouldExpand = filters.types.length > 0;
+        break;
+      case 'subtypes':
+        shouldExpand = filters.subtypes.length > 0;
+        break;
+      case 'rarity':
+        shouldExpand = filters.rarity.length > 0;
+        break;
+      case 'stats':
+        shouldExpand = filters.power.min !== null || filters.power.max !== null || 
+                     filters.toughness.min !== null || filters.toughness.max !== null;
+        break;
+      case 'cmc':
+        shouldExpand = filters.cmc.min !== null || filters.cmc.max !== null;
+        break;
+      case 'sets':
+        shouldExpand = filters.sets.length > 0;
+        break;
+    }
+    
+    if (shouldExpand && !getSectionState(section)) {
+      updateSectionState(section, true);
+    }
+  }, [state.activeFilters, getSectionState, updateSectionState]);
+
+  // Enhanced search function that uses all active filters with pagination
+  const searchWithAllFilters = useCallback(async (query: string, filtersOverride?: any) => {
+    const filters = filtersOverride || state.activeFilters;
+    
+    console.log('🚀 searchWithAllFilters called:', { query, filters, usingOverride: !!filtersOverride });
+    
+    // Build comprehensive filter object
+    const searchFilters: any = {};
+    
+    if (filters.format && filters.format !== '') {
+      searchFilters.format = filters.format;
+    }
+    if (filters.colors && filters.colors.length > 0) {
+      searchFilters.colors = filters.colors;
+      searchFilters.colorIdentity = filters.colorIdentity;
+    }
+    if (filters.types && filters.types.length > 0) {
+      searchFilters.types = filters.types;
+    }
+    if (filters.rarity && filters.rarity.length > 0) {
+      searchFilters.rarity = filters.rarity;
+    }
+    if (filters.sets && filters.sets.length > 0) {
+      searchFilters.sets = filters.sets;
+    }
+    if (filters.cmc && (filters.cmc.min !== null || filters.cmc.max !== null)) {
+      searchFilters.cmc = {};
+      if (filters.cmc.min !== null) searchFilters.cmc.min = filters.cmc.min;
+      if (filters.cmc.max !== null) searchFilters.cmc.max = filters.cmc.max;
+    }
+    if (filters.power && (filters.power.min !== null || filters.power.max !== null)) {
+      searchFilters.power = {};
+      if (filters.power.min !== null) searchFilters.power.min = filters.power.min;
+      if (filters.power.max !== null) searchFilters.power.max = filters.power.max;
+    }
+    if (filters.toughness && (filters.toughness.min !== null || filters.toughness.max !== null)) {
+      searchFilters.toughness = {};
+      if (filters.toughness.min !== null) searchFilters.toughness.min = filters.toughness.min;
+      if (filters.toughness.max !== null) searchFilters.toughness.max = filters.toughness.max;
+    }
+    // Phase 4B: Add enhanced filter types
+    if (filters.subtypes && filters.subtypes.length > 0) {
+      searchFilters.subtypes = filters.subtypes;
+    }
+    if (filters.isGoldMode) {
+      searchFilters.isGoldMode = filters.isGoldMode;
+    }
+
+    // Determine query strategy
+    const hasFilters = Object.keys(searchFilters).length > 0;
+    const hasQuery = query && query.trim() !== '';
+    
+    let actualQuery: string;
+    if (hasQuery) {
+      actualQuery = query.trim();
+    } else if (hasFilters) {
+      actualQuery = '*';
+    } else {
+      console.log('❌ No query and no filters - falling back to popular cards');
+      loadPopularCards();
+      return;
+    }
+    
+    await searchWithPagination(actualQuery, searchFilters);
+  }, [state.activeFilters, searchWithPagination, loadPopularCards]);
+
+  // Enhanced search function with full-text capabilities and pagination
+  const enhancedSearch = useCallback(async (query: string, filtersOverride?: any) => {
+    const filters = filtersOverride || state.activeFilters;
+    
+    console.log('🔍 enhancedSearch called with:', { query, filters, hasFilters: Object.keys(filters).length });
+    
+    // Handle empty query cases
+    if (!query.trim()) {
+      if (Object.keys(filters).some(key => {
+        const value = filters[key];
+        return value && (Array.isArray(value) ? value.length > 0 : 
+                        typeof value === 'object' ? Object.values(value).some(v => v !== null) :
+                        value !== '');
+      })) {
+        query = '*';
+      } else {
+        loadPopularCards();
+        return;
+      }
+    }
+
+    await searchWithPagination(query, filters);
+    addToSearchHistory(query);
+  }, [state.activeFilters, searchWithPagination, loadPopularCards]);
+
+  const getSearchSuggestionsFunc = useCallback(async (query: string) => {
+    if (!query.trim() || query.length < 2) {
+      setState(prev => ({ ...prev, searchSuggestions: [], showSuggestions: false }));
+      return;
+    }
+
+    try {
+      const suggestions = await getSearchSuggestions(query);
+      setState(prev => ({ 
+        ...prev, 
+        searchSuggestions: suggestions.slice(0, 8),
+        showSuggestions: suggestions.length > 0 
+      }));
+    } catch (error) {
+      console.error('Failed to get search suggestions:', error);
+    }
+  }, []);
+
+  const clearSearchSuggestions = useCallback(() => {
+    setState(prev => ({ ...prev, searchSuggestions: [], showSuggestions: false }));
+  }, []);
+
+  const addToSearchHistory = useCallback((query: string) => {
+    if (!query.trim() || query === '*') return;
+    
+    setState(prev => {
+      const newHistory = [query, ...prev.recentSearches.filter(h => h !== query)].slice(0, 10);
+      return { ...prev, recentSearches: newHistory };
+    });
+  }, []);
+
+  return {
+    ...state,
+    searchForCards,
+    searchWithAllFilters,
+    loadPopularCards,
+    loadRandomCard,
+    selectCard,
+    deselectCard,
+    clearSelection,
+    isCardSelected,
+    getSelectedCardsData,
+    clearCards,
+    updateFilter,
+    clearAllFilters,
+    toggleFiltersCollapsed,
+    hasActiveFilters,
+    enhancedSearch,
+    getSearchSuggestions: getSearchSuggestionsFunc,
+    clearSearchSuggestions,
+    addToSearchHistory,
+    handleCollectionSortChange,
+    loadMoreResultsAction,
+    resetPagination,
+    // Phase 4B: Enhanced filter actions
+    updateSectionState,
+    getSectionState,
+    autoExpandSection,
+  };
+};'''
+
+    filepath = "src/hooks/useCards.ts"
+    
+    # Create backup of corrupted file
+    if os.path.exists(filepath):
+        backup_path = filepath + ".corrupted.backup"
+        with open(filepath, 'r', encoding='utf-8') as f:
+            corrupted_content = f.read()
+        with open(backup_path, 'w', encoding='utf-8') as f:
+            f.write(corrupted_content)
+        print(f"📁 Corrupted file backed up to: {backup_path}")
+    
+    # Write clean version
+    with open(filepath, 'w', encoding='utf-8') as f:
+        f.write(clean_usecards_content)
+    
+    print("✅ useCards.ts EMERGENCY RESTORATION COMPLETE!")
+    print("\n🎯 File Status:")
+    print("• Clean working version restored")
+    print("• All smart sorting functionality preserved") 
+    print("• Phase 4B filter enhancements included")
+    print("• TypeScript compilation should work")
+    print("• Ready for continued development")
+    
+    return True
+
+if __name__ == "__main__":
+    success = emergency_restore_usecards()
+    
+    if success:
+        print("\n🧪 Test Instructions:")
+        print("1. Run: npm start")
+        print("2. Verify TypeScript compilation succeeds")
+        print("3. Test basic search functionality")
+        print("4. Test Load More button appears")
+        print("5. Test sort changes (should see debug logs)")
+        print("\n🎯 Next Steps:")
+        print("• Verify application works completely")
+        print("• Test smart sorting system")
+        print("• Continue with systematic sort fixes if needed")
+    else:
+        print("\n❌ Emergency restoration failed")
+    
+    sys.exit(0 if success else 1)
+

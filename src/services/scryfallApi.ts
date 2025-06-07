@@ -79,6 +79,9 @@ export interface SearchFilters {
   keywords?: string[];
   artist?: string;
   price?: { min?: number; max?: number };
+  // Phase 4B: Enhanced filter types
+  subtypes?: string[];
+  isGoldMode?: boolean;
 }
 
 /**
@@ -201,15 +204,63 @@ export const searchCards = async (
     });
     
     const url = `${SCRYFALL_API_BASE}/cards/search?${params.toString()}`;
-    console.log('🌐 SCRYFALL API REQUEST:', { 
-      fullURL: url,
-      queryParam: query.trim(),
+    
+    console.log('🌐 ===== SCRYFALL API REQUEST DETAILED =====');
+    console.log('🌐 FULL URL:', url);
+    console.log('🌐 PARSED PARAMS:', Object.fromEntries(new URLSearchParams(url.split('?')[1] || '')));
+    console.log('🌐 SORT ANALYSIS:', {
+      originalQuery: query.trim(),
       sortOrder: order,
       sortDirection: dir,
-      parsedParams: Object.fromEntries(new URLSearchParams(url.split('?')[1] || ''))
+      expectedBehavior: `Results should be sorted by ${order} in ${dir}ending order`,
+      timestamp: new Date().toISOString()
     });
+    console.log('🌐 REQUEST BREAKDOWN:', {
+      baseURL: SCRYFALL_API_BASE,
+      endpoint: '/cards/search',
+      queryParameter: query.trim(),
+      sortParameter: `order=${order}`,
+      directionParameter: `dir=${dir}`,
+      pageParameter: `page=${page}`
+    });
+    
     const response = await rateLimitedFetch(url);
     const data = await response.json();
+    
+    console.log('🌐 ===== SCRYFALL API RESPONSE ANALYSIS =====');
+    console.log('🌐 RESPONSE STATUS:', response.status);
+    console.log('🌐 TOTAL CARDS:', data.total_cards);
+    console.log('🌐 RETURNED COUNT:', data.data?.length || 0);
+    console.log('🌐 HAS MORE:', data.has_more);
+    
+    // ULTRA-SIMPLE card name debugging
+    if (data.data && data.data.length > 0) {
+      console.log('🌐 CARD 1 NAME:', data.data[0].name);
+      if (data.data.length > 1) console.log('🌐 CARD 2 NAME:', data.data[1].name);
+      if (data.data.length > 2) console.log('🌐 CARD 3 NAME:', data.data[2].name);
+      
+      console.log('🌐 SORT VERIFICATION SIMPLE:', {
+        direction: dir,
+        expectedOrder: dir === 'asc' ? 'A→Z' : 'Z→A',
+        card1: data.data[0].name,
+        card2: data.data[1]?.name || 'N/A',
+        card3: data.data[2]?.name || 'N/A'
+      });
+      
+      // Simple A-Z verification
+      if (data.data.length >= 2) {
+        const isAscending = data.data[0].name <= data.data[1].name;
+        const expectedAscending = dir === 'asc';
+        console.log('🌐 SORT ORDER CHECK:', {
+          actuallyAscending: isAscending,
+          shouldBeAscending: expectedAscending,
+          isCorrect: isAscending === expectedAscending
+        });
+      }
+    } else {
+      console.log('🌐 NO CARDS IN RESPONSE');
+    }
+    console.log('🌐 ===== API RESPONSE COMPLETE =====');
     
     return data as ScryfallSearchResponse;
   } catch (error) {
@@ -271,8 +322,16 @@ export const searchCardsWithFilters = async (
     }
   }
   
-  // Add color identity filters with advanced logic
-  if (filters.colors && filters.colors.length > 0) {
+  // Phase 4B: Enhanced color and gold mode filtering
+  if (filters.isGoldMode && filters.colors && filters.colors.length > 0) {
+    // Gold mode: multicolor cards containing selected colors
+    const colorQuery = filters.colors.join('');
+    searchQuery += ` color>=2 color:${colorQuery}`;
+  } else if (filters.isGoldMode && (!filters.colors || filters.colors.length === 0)) {
+    // Gold mode with no specific colors: just multicolor
+    searchQuery += ` color>=2`;
+  } else if (filters.colors && filters.colors.length > 0) {
+    // Standard color filtering (no gold mode)
     // Handle colorless separately
     if (filters.colors.includes('C')) {
       // If colorless is selected with other colors, handle as multicolor search
@@ -325,6 +384,12 @@ export const searchCardsWithFilters = async (
   if (filters.types && filters.types.length > 0) {
     const typeQuery = filters.types.map(type => `type:${type}`).join(' OR ');
     searchQuery += ` (${typeQuery})`;
+  }
+  
+  // Phase 4B: Add subtype filters
+  if (filters.subtypes && filters.subtypes.length > 0) {
+    const subtypeQuery = filters.subtypes.map(subtype => `type:${subtype}`).join(' OR ');
+    searchQuery += ` (${subtypeQuery})`;
   }
   
   // Add rarity filter
@@ -383,9 +448,12 @@ export const searchCardsWithFilters = async (
       case 'rarity':
       case 'sets':
       case 'keywords':
+      case 'subtypes':
         return Array.isArray(value) && value.length > 0;
       case 'colorIdentity':
         return typeof value === 'string' && value !== 'exact'; // 'exact' is default
+      case 'isGoldMode':
+        return typeof value === 'boolean' && value === true;
       case 'cmc':
       case 'power':
       case 'toughness':

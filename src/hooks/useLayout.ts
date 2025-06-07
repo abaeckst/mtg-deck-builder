@@ -120,6 +120,23 @@ export const useLayout = () => {
     }
   }, []);
 
+  // Force collection to grid view if localStorage has wrong value
+  useEffect(() => {
+    const savedLayout = localStorage.getItem(STORAGE_KEY);
+    if (savedLayout) {
+      try {
+        const parsed = JSON.parse(savedLayout);
+        if (parsed.viewModes && parsed.viewModes.collection !== 'grid') {
+          console.log('🔧 Forcing collection view to grid mode');
+          parsed.viewModes.collection = 'grid';
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
+        }
+      } catch (error) {
+        console.warn('Error processing saved layout:', error);
+      }
+    }
+  }, []);
+
   // Update CSS variables when layout changes or window resizes
   useEffect(() => {
     updateCSSVariables();
@@ -222,6 +239,7 @@ export const useLayout = () => {
   // Update view modes
   const updateViewMode = useCallback((area: keyof LayoutState['viewModes'], mode: string) => {
     setLayout(prev => {
+      console.log('🔧 View mode update:', { area, mode, before: prev.viewModes[area] });
       const newLayout = {
         ...prev,
         viewModes: {
