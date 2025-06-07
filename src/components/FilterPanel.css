@@ -105,39 +105,7 @@
   }
 }
 
-/* Gold Button Styling */
-.color-gold {
-  background: #FFD700 !important;
-  border: 1px solid #B8860B !important;
-  color: #000000 !important;
-  font-weight: 900 !important;
-  font-size: 9px !important;
-  text-shadow: none !important;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3) !important;
-  transition: all 0.2s ease;
-}
 
-.color-gold:hover:not(.disabled) {
-  background: linear-gradient(135deg, #FFED4A 0%, #FFB84D 100%);
-  box-shadow: 0 4px 8px rgba(255, 215, 0, 0.4);
-  transform: translateY(-1px);
-}
-
-.color-gold.selected {
-  background: #FFD700;
-  box-shadow: 0 0 16px rgba(59, 130, 246, 1.0), 0 0 8px rgba(59, 130, 246, 0.8), 0 0 4px rgba(255, 215, 0, 0.6), inset 0 2px 4px rgba(0, 0, 0, 0.2);
-  border-color: #3b82f6;
-  color: #000000;
-}
-
-.color-gold.disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-  background: #666666;
-  border-color: #888888 !important;
-  color: #cccccc;
-  box-shadow: none;
-}
 
 /* Subtype Input Styling */
 .subtype-input-container {
@@ -291,14 +259,14 @@
 /* Clean Color Button Styling - Letters in Circles */
 .color-button {
   font-family: 'Segoe UI', Arial, sans-serif;
-  font-size: 11px;
+  font-size: 14px;
   font-weight: bold;
-  width: 24px;
-  height: 24px;
+  width: 36px;  /* Increased from 24px (50% larger) */
+  height: 36px; /* Increased from 24px (50% larger) */
   border-radius: 50%;
-  border: 1px solid transparent;
+  border: 2px solid transparent;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.1s ease; /* Faster for responsiveness */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -312,8 +280,8 @@
 }
 
 .color-button.selected {
-  border-color: #3b82f6;
-  box-shadow: 0 0 16px rgba(59, 130, 246, 1.0), 0 0 8px rgba(59, 130, 246, 0.8), inset 0 2px 4px rgba(0, 0, 0, 0.2);
+  border: 3px solid #3b82f6 !important; /* Prominent but not overwhelming */
+  box-shadow: 0 0 0 1px #3b82f6 !important; /* Cleaner, less aggressive glow */
 }
 
 /* Individual Color Styling */
@@ -359,6 +327,30 @@
   transform: none;
 }
 
+/* Gold Button - Inherits sizing from .color-button base class */
+.color-button.color-gold {
+  background: linear-gradient(135deg, #FFD700 0%, #FFC107 100%);
+  border-color: #B8860B;
+  color: #000000;
+  font-weight: bold;
+}
+
+.color-button.color-gold:hover:not(.disabled) {
+  background: linear-gradient(135deg, #FFED4A 0%, #FFB84D 100%);
+  box-shadow: 0 4px 12px rgba(255, 215, 0, 0.4);
+}
+
+.color-button.color-gold.selected {
+  /* Uses .color-button.selected styles automatically */
+  background: linear-gradient(135deg, #FFD700 0%, #FFC107 100%);
+}
+
+.color-button.color-gold.disabled {
+  background: #666666;
+  border-color: #888888;
+  color: #cccccc;
+}
+
 .color-button.color-u {
   background: linear-gradient(135deg, #0E68AB 0%, #1E88E5 100%);
   color: #ffffff;
@@ -387,6 +379,30 @@
   background: linear-gradient(135deg, #9E9E9E 0%, #BDBDBD 100%);
   color: #333333;
   border-color: #757575;
+}
+
+
+/* Enhanced Blue Circle Selection Indicators - More Prominent and Responsive */
+.color-button {
+  position: relative;
+  transition: all 0.1s ease !important; /* Immediate visual feedback */
+}
+
+
+
+
+
+
+
+/* Enhanced responsiveness for all color buttons */
+.color-button:active:not(.disabled) {
+  transform: scale(0.95);
+}
+
+/* Immediate visual feedback on click before state updates */
+.color-button:active:not(.selected):not(.disabled) {
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 1px #3b82f6 !important;
 }
 
 /* Enhanced Filter Panel Layout */

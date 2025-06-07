@@ -620,7 +620,7 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
               <span>Size: </span>
               <input
                 type="range"
-                min="0.7"
+                min="1.3"
                 max="2.5"
                 step="0.1"
                 value={cardSizes.collection}
@@ -914,7 +914,7 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
                 <span>Size: </span>
                 <input
                   type="range"
-                  min="0.7"
+                  min="1.3"
                   max="2.5"
                   step="0.1"
                   value={cardSizes.deck}
@@ -1142,12 +1142,7 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
                       );
                     });
                   })()}
-                  
-                  {sideboard.length === 0 && (
-                    <div className="empty-sideboard-message">
-                      Drag cards here for your sideboard
-                    </div>
-                  )}
+
                 </div>
               )}
             </div>
@@ -1190,7 +1185,7 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
                 <span>Size: </span>
                 <input
                   type="range"
-                  min="0.7"
+                  min="1.3"
                   max="2.5"
                   step="0.1"
                   value={cardSizes.sideboard}
@@ -1411,12 +1406,7 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
                       );
                     });
                   })()}
-                  
-                  {sideboard.length === 0 && (
-                    <div className="empty-sideboard-message">
-                      Drag cards here for your sideboard
-                    </div>
-                  )}
+
                 </div>
               )}
             </div>

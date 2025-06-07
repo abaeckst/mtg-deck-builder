@@ -2,7 +2,7 @@
 // React component for displaying Magic: The Gathering cards
 
 import React, { useState, useCallback } from 'react';
-import { ScryfallCard, DeckCard, getCardImageUri } from '../types/card';
+import { ScryfallCard, DeckCard, getCardImageUri, isBasicLand } from '../types/card';
 
 /**
  * Props for the MagicCard component
@@ -161,7 +161,10 @@ export const MagicCard: React.FC<MagicCardProps> = ({
               height: '100%',
               objectFit: 'cover',
               display: imageLoaded ? 'block' : 'none',
-            }}
+              // Crisp image rendering for sharp text at small sizes
+              imageRendering: scaleFactor < 0.8 ? 'crisp-edges' : 'auto',
+              WebkitImageRendering: scaleFactor < 0.8 ? '-webkit-optimize-contrast' : 'auto',
+            } as React.CSSProperties}
             onLoad={handleImageLoad}
             onError={handleImageError}
           />
@@ -245,7 +248,7 @@ export const MagicCard: React.FC<MagicCardProps> = ({
                 border: '1px solid rgba(255,255,255,0.3)',
                 zIndex: 10,
               }}>
-                {availableQuantity}
+                {isBasicLand(card) ? '∞' : availableQuantity}
               </div>
             )}
 

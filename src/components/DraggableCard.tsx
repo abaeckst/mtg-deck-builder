@@ -170,9 +170,20 @@ const DraggableCard: React.FC<DraggableCardProps> = ({
       return;
     }
     
-    console.log(`Right-click on ${card.name} in ${zone}`);
+    console.log(`Right-click on ${card.name} in ${zone} - triggering selection`);
+    
+    // Right-click should select the card
+    if (cardIsInstance && cardInstanceId && onInstanceClick) {
+      // Instance-based selection for deck/sideboard cards
+      onInstanceClick(cardInstanceId, card as DeckCardInstance, event);
+    } else {
+      // Card-based selection for collection cards
+      onClick?.(card, event);
+    }
+    
+    // Then show context menu
     onRightClick?.(card, zone, event);
-  }, [card, zone, onRightClick, disabled]);
+  }, [card, zone, onRightClick, disabled, cardIsInstance, cardInstanceId, onInstanceClick, onClick]);
 
   // Mouse move detection for interaction refinement
   const handleMouseMove = useCallback((event: React.MouseEvent) => {
@@ -344,23 +355,7 @@ const DraggableCard: React.FC<DraggableCardProps> = ({
         </div>
       )}
       
-      {/* Visual feedback for interaction states */}
-      {selected && !isBeingDragged && (
-        <div
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            border: '2px solid #3b82f6',
-            borderRadius: '8px',
-            pointerEvents: 'none',
-            transition: 'all 0.2s ease',
-            boxShadow: '0 0 0 1px rgba(59, 130, 246, 0.3)',
-          }}
-        />
-      )}
+
     </div>
   );
 };

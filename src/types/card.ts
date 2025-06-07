@@ -481,19 +481,22 @@ export const isBasicLand = (card: ScryfallCard | DeckCard | DeckCardInstance): b
 
 /**
  * Utility function to get the appropriate image URI from a Scryfall card
+ * Updated to use PNG format for highest quality (745×1040)
  */
 export const getCardImageUri = (card: ScryfallCard, size: 'small' | 'normal' | 'large' = 'normal'): string => {
   // Handle double-faced cards
   if (card.card_faces && card.card_faces.length > 0) {
     const face = card.card_faces[0];
     if (face.image_uris) {
-      return face.image_uris[size];
+      // Use PNG format for highest quality, fallback to requested size
+      return face.image_uris.png || face.image_uris[size];
     }
   }
   
   // Handle normal cards
   if (card.image_uris) {
-    return card.image_uris[size];
+    // Use PNG format for highest quality (745×1040), fallback to requested size
+    return card.image_uris.png || card.image_uris[size];
   }
   
   // Fallback - this shouldn't happen with valid Scryfall data

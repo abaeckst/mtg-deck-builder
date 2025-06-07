@@ -28,16 +28,6 @@ const GoldButton: React.FC<GoldButtonProps> = ({
       }
       aria-label={`Gold multicolor filter ${isSelected ? 'active' : 'inactive'}`}
       aria-pressed={isSelected}
-      style={{
-        backgroundColor: isSelected ? '#FFD700' : 'transparent',
-        border: '2px solid #FFD700',
-        color: isSelected ? '#000000' : '#FFD700',
-        fontWeight: 'bold',
-        transition: 'all 0.2s ease',
-        opacity: disabled ? 0.5 : 1,
-        cursor: disabled ? 'not-allowed' : 'pointer',
-        boxShadow: isSelected ? '0 0 8px rgba(255, 215, 0, 0.6)' : 'none',
-      }}
     >
     </button>
   );

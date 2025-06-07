@@ -18,9 +18,9 @@ interface CardSizeSettings {
 }
 
 const DEFAULT_SIZES: CardSizeState = {
-  collection: 1.4,  // 140% (1.4) default - consistent across all areas
-  deck: 1.4,        // 140% (1.4) default - consistent across all areas  
-  sideboard: 1.4    // 140% (1.4) default - consistent across all areas
+  collection: 1.6,  // 160% (1.6) default - consistent across all areas
+  deck: 1.6,        // 160% (1.6) default - consistent across all areas  
+  sideboard: 1.6    // 160% (1.6) default - consistent across all areas
 };
 
 const STORAGE_KEY = 'mtg-deck-builder-card-sizes';
@@ -38,12 +38,12 @@ export const useCardSizing = (): CardSizeSettings => {
       console.warn('Failed to clear card sizes from localStorage:', error);
     }
     
-    // Always start with clean defaults (140% for all areas)
-    console.log('Initializing card sizes with 140% defaults:', DEFAULT_SIZES);
+    // Always start with clean defaults (160% for all areas)
+    console.log('Initializing card sizes with 160% defaults:', DEFAULT_SIZES);
     return { 
-      collection: 1.4,
-      deck: 1.4, 
-      sideboard: 1.4
+      collection: 1.6,
+      deck: 1.6, 
+      sideboard: 1.6
     };
   });
 
@@ -58,17 +58,17 @@ export const useCardSizing = (): CardSizeSettings => {
 
   // Update functions
   const updateCollectionSize = useCallback((size: number) => {
-    const clampedSize = Math.max(0.7, Math.min(2.5, size));
+    const clampedSize = Math.max(1.3, Math.min(2.5, size));
     setSizes(prev => ({ ...prev, collection: clampedSize }));
   }, []);
 
   const updateDeckSize = useCallback((size: number) => {
-    const clampedSize = Math.max(0.7, Math.min(2.5, size));
+    const clampedSize = Math.max(1.3, Math.min(2.5, size));
     setSizes(prev => ({ ...prev, deck: clampedSize }));
   }, []);
 
   const updateSideboardSize = useCallback((size: number) => {
-    const clampedSize = Math.max(0.7, Math.min(2.5, size));
+    const clampedSize = Math.max(1.3, Math.min(2.5, size));
     setSizes(prev => ({ ...prev, sideboard: clampedSize }));
   }, []);
 
