@@ -1,18 +1,12 @@
-// src/hooks/useCards.ts - Cleaned and simplified with dual sort system
-import { useState, useEffect, useCallback } from 'react';
-import { ScryfallCard, PaginatedSearchState } from '../types/card';
-import { 
-  searchCards, 
-  getRandomCard, 
-  searchCardsWithFilters, 
-  SearchFilters, 
-  enhancedSearchCards, 
-  getSearchSuggestions, 
-  searchCardsWithPagination,
-  loadMoreResults
-} from '../services/scryfallApi';
+// src/hooks/useCards.ts - Refactored coordinator with clean separation of concerns
+import { useEffect, useCallback } from 'react';
+import { ScryfallCard } from '../types/card';
 import { SortCriteria, SortDirection } from './useSorting';
 import { useFilters, FilterState } from './useFilters';
+import { useSearch } from './useSearch';
+import { usePagination } from './usePagination';
+import { useCardSelection } from './useCardSelection';
+import { useSearchSuggestions } from './useSearchSuggestions';
 
 export interface UseCardsState {
   cards: ScryfallCard[];
@@ -85,8 +79,6 @@ export interface UseCardsActions {
   autoExpandSection: (section: string) => void;
 }
 
-const POPULAR_CARDS_QUERY = 'type:creature legal:standard';
-
 export const useCards = (): UseCardsState & UseCardsActions => {
   // Integrate with useFilters hook
   const {
@@ -100,481 +92,86 @@ export const useCards = (): UseCardsState & UseCardsActions => {
     getSectionState,
     autoExpandSection,
   } = useFilters();
-  
-  // Internal pagination state for progressive loading
-  const [paginationState, setPaginationState] = useState<PaginatedSearchState | null>(null);
-  
-  const [state, setState] = useState<UseCardsState>({
-    cards: [],
-    loading: false,
-    error: null,
-    selectedCards: new Set(),
-    searchQuery: '',
-    totalCards: 0,
-    
-    // Enhanced search state
-    searchSuggestions: [],
-    showSuggestions: false,
-    recentSearches: [],
-    
-    // Progressive loading pagination state
-    pagination: {
-      totalCards: 0,
-      loadedCards: 0,
-      hasMore: false,
-      isLoadingMore: false,
-      currentPage: 1,
-    },
-    
-    // Simplified sort integration state
-    lastSearchMetadata: null,
-    isResorting: false,
+
+  // Card selection hook
+  const {
+    selectedCards,
+    selectCard,
+    deselectCard,
+    clearSelection,
+    isCardSelected,
+    getSelectedCardsData: getSelectedCardsDataFunc,
+  } = useCardSelection();
+
+  // Search suggestions hook
+  const {
+    searchSuggestions,
+    showSuggestions,
+    recentSearches,
+    getSearchSuggestions,
+    clearSearchSuggestions,
+    addToSearchHistory,
+  } = useSearchSuggestions();
+
+  // Pagination hook with proper coordination
+  const {
+    pagination,
+    resetPagination,
+    setPaginationState,
+    updatePagination,
+  } = usePagination();
+
+  // Search hook with coordination callbacks
+  const {
+    cards,
+    loading,
+    error,
+    searchQuery,
+    totalCards,
+    lastSearchMetadata,
+    isResorting,
+    searchForCards,
+    searchWithAllFilters,
+    enhancedSearch,
+    loadPopularCards,
+    loadRandomCard,
+    clearCards: clearCardsSearch,
+    handleCollectionSortChange,
+    loadMoreCards: searchHookLoadMore,
+  } = useSearch({
+    activeFilters,
+    hasActiveFilters,
+    onPaginationStateChange: setPaginationState,
+    onPaginationUpdate: updatePagination,
+    resetPagination,
+    addToSearchHistory,
   });
-
-  // Clear error when starting new operations
-  const clearError = useCallback(() => {
-    setState(prev => ({ ...prev, error: null }));
-  }, []);
-
-  // Set loading state
-  const setLoading = useCallback((loading: boolean) => {
-    setState(prev => ({ ...prev, loading }));
-  }, []);
-
-  // Reset pagination state
-  const resetPagination = useCallback(() => {
-    setPaginationState(null);
-    setState(prev => ({
-      ...prev,
-      pagination: {
-        totalCards: 0,
-        loadedCards: 0,
-        hasMore: false,
-        isLoadingMore: false,
-        currentPage: 1,
-      }
-    }));
-  }, []);
-
-  // Enhanced search with pagination support - SIMPLIFIED, NO RACE CONDITIONS
-  const searchWithPagination = useCallback(async (
-    query: string, 
-    filters: SearchFilters = {},
-    sortOrder = 'name',
-    sortDirection: 'asc' | 'desc' = 'asc'
-  ) => {
-    console.log('🔍 SIMPLIFIED SEARCH:', { query, filters, sort: { sortOrder, sortDirection } });
-
-    try {
-      clearError();
-      setLoading(true);
-      resetPagination();
-
-      // Rate limiting
-      const now = Date.now();
-      const lastSearch = (window as any).lastSearchTime || 0;
-      const timeSinceLastSearch = now - lastSearch;
-      
-      if (timeSinceLastSearch < 150) {
-        await new Promise(resolve => setTimeout(resolve, 150 - timeSinceLastSearch));
-      }
-      
-      (window as any).lastSearchTime = Date.now();
-
-      // Execute paginated search
-      console.log('🔍 Calling searchCardsWithPagination with sort:', { sortOrder, sortDirection });
-      const paginationResult = await searchCardsWithPagination(
-        query, 
-        filters, 
-        sortOrder, 
-        sortDirection
-      );
-
-      console.log('✅ SEARCH SUCCESS:', {
-        initialResultCount: paginationResult.initialResults.length,
-        totalAvailable: paginationResult.totalCards,
-        hasMore: paginationResult.hasMore,
-        sortApplied: { sortOrder, sortDirection }
-      });
-
-      // Update state with new results
-      setState(prev => ({
-        ...prev,
-        cards: [...paginationResult.initialResults], // New array reference
-        searchQuery: query === '*' ? 'Filtered Results' : query,
-        totalCards: paginationResult.totalCards,
-        selectedCards: new Set<string>(),
-        pagination: {
-          totalCards: paginationResult.totalCards,
-          loadedCards: paginationResult.loadedCards,
-          hasMore: paginationResult.hasMore,
-          isLoadingMore: false,
-          currentPage: 1,
-        },
-        lastSearchMetadata: {
-          query,
-          filters: filters as FilterState,
-          totalCards: paginationResult.totalCards,
-          loadedCards: paginationResult.loadedCards,
-        },
-      }));
-
-      // Store pagination state for load more functionality
-      setPaginationState(paginationResult);
-
-    } catch (error) {
-      let errorMessage = error instanceof Error ? error.message : 'Failed to search cards';
-      let isNoResults = false;
-      
-      if (errorMessage.includes('404') || errorMessage.includes('No cards found')) {
-        errorMessage = 'No cards found matching your search. Try different keywords or filters.';
-        isNoResults = true;
-        console.log('📭 No results found for search:', query);
-      } else {
-        console.error('❌ SEARCH ERROR:', { query, error: errorMessage });
-      }
-
-      setState(prev => ({
-        ...prev,
-        error: isNoResults ? null : errorMessage,
-        cards: [],
-        totalCards: 0,
-        searchQuery: isNoResults ? 'No results found' : prev.searchQuery,
-        pagination: {
-          totalCards: 0,
-          loadedCards: 0,
-          hasMore: false,
-          isLoadingMore: false,
-          currentPage: 1,
-        },
-      }));
-      
-      resetPagination();
-    } finally {
-      setLoading(false);
-    }
-  }, [clearError, setLoading, resetPagination]);
-
-  // DUAL SORT SYSTEM - Simple and reliable
-  const handleCollectionSortChange = useCallback(async (criteria: SortCriteria, direction: SortDirection) => {
-    console.log('🎯 DUAL SORT SYSTEM:', { criteria, direction });
+  // Coordinated Load More function
+  const coordinatedLoadMore = useCallback(async () => {
+    console.log('🎯 useCards coordinated Load More executing');
     
-    const metadata = state.lastSearchMetadata;
-    if (!metadata) {
-      console.log('❌ No search metadata available for sort change');
-      return;
-    }
-
-    // Simple decision logic: complete dataset (≤75 total) = client sort
-    const isCompleteDataset = metadata.totalCards <= 75;
-    
-    console.log('🤔 Sort decision:', {
-      criteria,
-      direction,
-      totalCards: metadata.totalCards,
-      loadedCards: metadata.loadedCards,
-      threshold: 75,
-      isCompleteDataset,
-      decision: isCompleteDataset ? 'CLIENT-SIDE (instant)' : 'SERVER-SIDE (new search)'
-    });
-
-    if (isCompleteDataset) {
-      console.log('🏠 CLIENT-SIDE SORT: Dataset complete, will be handled by UI components');
-      // Client-side sorting handled automatically by UI components using useSorting hook
-    } else {
-      console.log('🌐 SERVER-SIDE SORT: Large dataset, triggering new search');
-      
-      // Convert SortCriteria to Scryfall sort parameters
-      const scryfallSortMapping: Record<SortCriteria, string> = {
-        mana: 'cmc',
-        color: 'color',
-        rarity: 'rarity',
-        name: 'name',
-        type: 'type',
-      };
-      
-      const sortOrder = scryfallSortMapping[criteria];
-      const sortDirection = direction;
-      
-      try {
-        setState(prev => ({ ...prev, isResorting: true }));
-        
-        console.log('🚀 EXECUTING SERVER-SIDE SORT:', {
-          query: metadata.query,
-          filters: metadata.filters,
-          sortOrder,
-          sortDirection
-        });
-        
-        // Clear current results and show loading
-        setState(prev => ({ ...prev, cards: [] }));
-        
-        // Trigger new search with sort parameters
-        await searchWithPagination(
-          metadata.query, 
-          metadata.filters as SearchFilters, 
-          sortOrder, 
-          sortDirection
-        );
-        
-        console.log('✅ Server-side sort completed successfully');
-      } catch (error) {
-        console.error('❌ Server-side sort failed:', error);
-        setState(prev => ({
-          ...prev,
-          error: 'Failed to apply sort. Please try again.'
-        }));
-      } finally {
-        setState(prev => ({ ...prev, isResorting: false }));
-      }
-    }
-  }, [state.lastSearchMetadata, searchWithPagination]);
-
-  // Load more results action
-  const loadMoreResultsAction = useCallback(async () => {
-    if (!paginationState || !paginationState.hasMore || paginationState.isLoadingMore) {
+    if (!pagination.hasMore || pagination.isLoadingMore) {
       console.log('🚫 Cannot load more:', { 
-        hasPaginationState: !!paginationState,
-        hasMore: paginationState?.hasMore,
-        isLoadingMore: paginationState?.isLoadingMore
+        hasMore: pagination.hasMore,
+        isLoadingMore: pagination.isLoadingMore
       });
       return;
     }
 
-    console.log('🔄 Loading more results...');
-    
-    // Update loading state
-    setState(prev => ({
-      ...prev,
-      pagination: { ...prev.pagination, isLoadingMore: true }
-    }));
-    
-    // Update pagination state
-    setPaginationState(prev => prev ? { ...prev, isLoadingMore: true } : null);
+    console.log('🔄 Setting loading state...');
+    updatePagination({ isLoadingMore: true });
 
     try {
-      const newCards = await loadMoreResults(
-        paginationState,
-        (loaded, total) => {
-          // Progress callback
-          setState(prev => ({
-            ...prev,
-            pagination: { 
-              ...prev.pagination, 
-              loadedCards: loaded
-            }
-          }));
-        }
-      );
-
-      // Update cards and pagination state
-      const updatedCards = [...state.cards, ...newCards];
-      const newLoadedCount = updatedCards.length;
-      const stillHasMore = newLoadedCount < paginationState.totalCards;
-      
-      setState(prev => ({
-        ...prev,
-        cards: updatedCards,
-        totalCards: paginationState.totalCards,
-        pagination: {
-          ...prev.pagination,
-          loadedCards: newLoadedCount,
-          hasMore: stillHasMore,
-          isLoadingMore: false,
-          currentPage: paginationState.currentPage + 1,
-        }
-      }));
-
-      // Update internal pagination state
-      setPaginationState(prev => prev ? {
-        ...prev,
-        loadedCards: newLoadedCount,
-        hasMore: stillHasMore,
-        isLoadingMore: false,
-        currentPage: prev.currentPage + 1,
-      } : null);
-
-      console.log('✅ Load more results successful:', {
-        newCardsLoaded: newCards.length,
-        totalLoadedNow: newLoadedCount,
-        stillHasMore
-      });
-
+      console.log('📡 Calling search hook loadMoreCards...');
+      await searchHookLoadMore();
+      console.log('✅ Coordinated Load More successful');
     } catch (error) {
-      console.error('❌ Failed to load more results:', error);
-      
-      setState(prev => ({
-        ...prev,
-        pagination: { ...prev.pagination, isLoadingMore: false },
-        error: error instanceof Error ? error.message : 'Failed to load more results'
-      }));
-      
-      setPaginationState(prev => prev ? { ...prev, isLoadingMore: false } : null);
+      console.error('❌ Coordinated Load More failed:', error);
+      updatePagination({ isLoadingMore: false });
     }
-  }, [paginationState, state.cards]);
+  }, [pagination.hasMore, pagination.isLoadingMore, updatePagination, searchHookLoadMore]);
 
-  // Search for cards with query and optional format filter
-  const searchForCards = useCallback(async (query: string, format?: string) => {
-    if (!query.trim()) {
-      if (format && format !== '') {
-        query = '*';
-      } else {
-        setState(prev => ({ 
-          ...prev, 
-          cards: [], 
-          searchQuery: '', 
-          totalCards: 0,
-          selectedCards: new Set(),
-          pagination: {
-            totalCards: 0,
-            loadedCards: 0,
-            hasMore: false,
-            isLoadingMore: false,
-            currentPage: 1,
-          }
-        }));
-        resetPagination();
-        return;
-      }
-    }
 
-    const filters = format && format !== '' 
-      ? { format: format === 'custom-standard' ? 'standard' : format }
-      : {};
-
-    await searchWithPagination(query, filters);
-  }, [searchWithPagination, resetPagination]);
-
-  // Load popular/example cards
-  const loadPopularCards = useCallback(async () => {
-    console.log('🎯 Loading popular cards...');
-    
-    try {
-      await searchWithPagination(POPULAR_CARDS_QUERY, {});
-      setState(prev => ({
-        ...prev,
-        searchQuery: 'Popular Cards',
-      }));
-      console.log('✅ Popular cards loaded successfully');
-    } catch (error) {
-      console.error('❌ Failed to load popular cards:', error);
-      
-      // Fallback: try a simpler query
-      try {
-        console.log('🔄 Trying fallback query: creature');
-        await searchWithPagination('creature', {});
-        setState(prev => ({
-          ...prev,
-          searchQuery: 'Popular Cards',
-        }));
-        console.log('✅ Fallback popular cards loaded');
-      } catch (fallbackError) {
-        console.error('❌ Fallback also failed:', fallbackError);
-        setState(prev => ({
-          ...prev,
-          error: 'Failed to load popular cards. Try searching manually.',
-          searchQuery: 'Error loading popular cards',
-        }));
-      }
-    }
-  }, [searchWithPagination]);
-
-  // Load a single random card
-  const loadRandomCard = useCallback(async () => {
-    clearError();
-    setLoading(true);
-    resetPagination();
-
-    try {
-      const card = await getRandomCard();
-      setState(prev => ({
-        ...prev,
-        cards: [card],
-        searchQuery: 'Random Card',
-        totalCards: 1,
-        selectedCards: new Set(),
-        pagination: {
-          totalCards: 1,
-          loadedCards: 1,
-          hasMore: false,
-          isLoadingMore: false,
-          currentPage: 1,
-        },
-      }));
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to load random card';
-      setState(prev => ({
-        ...prev,
-        error: errorMessage,
-        cards: [],
-        totalCards: 0,
-        pagination: {
-          totalCards: 0,
-          loadedCards: 0,
-          hasMore: false,
-          isLoadingMore: false,
-          currentPage: 1,
-        },
-      }));
-    } finally {
-      setLoading(false);
-    }
-  }, [clearError, setLoading, resetPagination]);
-
-  // Card selection functions
-  const selectCard = useCallback((cardId: string) => {
-    setState(prev => {
-      const newSelected = new Set(prev.selectedCards);
-      newSelected.add(cardId);
-      return { ...prev, selectedCards: newSelected };
-    });
-  }, []);
-
-  const deselectCard = useCallback((cardId: string) => {
-    setState(prev => {
-      const newSelected = new Set(prev.selectedCards);
-      newSelected.delete(cardId);
-      return { ...prev, selectedCards: newSelected };
-    });
-  }, []);
-
-  const clearSelection = useCallback(() => {
-    setState(prev => ({ ...prev, selectedCards: new Set() }));
-  }, []);
-
-  const isCardSelected = useCallback((cardId: string): boolean => {
-    return state.selectedCards.has(cardId);
-  }, [state.selectedCards]);
-
-  const getSelectedCardsData = useCallback((): ScryfallCard[] => {
-    return state.cards.filter(card => state.selectedCards.has(card.id));
-  }, [state.cards, state.selectedCards]);
-
-  // Clear all cards and reset state
-  const clearCards = useCallback(() => {
-    resetPagination();
-    setState(prev => ({
-      ...prev,
-      cards: [],
-      loading: false,
-      error: null,
-      selectedCards: new Set(),
-      searchQuery: '',
-      totalCards: 0,
-      searchSuggestions: [],
-      showSuggestions: false,
-      recentSearches: [],
-      pagination: {
-        totalCards: 0,
-        loadedCards: 0,
-        hasMore: false,
-        isLoadingMore: false,
-        currentPage: 1,
-      },
-      lastSearchMetadata: null,
-      isResorting: false,
-    }));
-  }, [resetPagination]);
 
   // Enhanced filter-aware clear function
   const clearAllFilters = useCallback(() => {
@@ -587,122 +184,16 @@ export const useCards = (): UseCardsState & UseCardsActions => {
     }, 50);
   }, [clearFilters, loadPopularCards]);
 
-  // Enhanced search function that uses all active filters
-  const searchWithAllFilters = useCallback(async (query: string, filtersOverride?: any) => {
-    const filters = filtersOverride || activeFilters;
-    
-    console.log('🚀 searchWithAllFilters called:', { query, filters, usingOverride: !!filtersOverride });
-    
-    // Build comprehensive filter object for SearchFilters interface
-    const searchFilters: SearchFilters = {};
-    
-    if (filters.format && filters.format !== '') {
-      searchFilters.format = filters.format;
-    }
-    if (filters.colors && filters.colors.length > 0) {
-      searchFilters.colors = filters.colors;
-      searchFilters.colorIdentity = filters.colorIdentity;
-    }
-    if (filters.types && filters.types.length > 0) {
-      searchFilters.types = filters.types;
-    }
-    if (filters.rarity && filters.rarity.length > 0) {
-      searchFilters.rarity = filters.rarity;
-    }
-    if (filters.sets && filters.sets.length > 0) {
-      searchFilters.sets = filters.sets;
-    }
-    if (filters.cmc && (filters.cmc.min !== null || filters.cmc.max !== null)) {
-      searchFilters.cmc = {};
-      if (filters.cmc.min !== null) searchFilters.cmc.min = filters.cmc.min;
-      if (filters.cmc.max !== null) searchFilters.cmc.max = filters.cmc.max;
-    }
-    if (filters.power && (filters.power.min !== null || filters.power.max !== null)) {
-      searchFilters.power = {};
-      if (filters.power.min !== null) searchFilters.power.min = filters.power.min;
-      if (filters.power.max !== null) searchFilters.power.max = filters.power.max;
-    }
-    if (filters.toughness && (filters.toughness.min !== null || filters.toughness.max !== null)) {
-      searchFilters.toughness = {};
-      if (filters.toughness.min !== null) searchFilters.toughness.min = filters.toughness.min;
-      if (filters.toughness.max !== null) searchFilters.toughness.max = filters.toughness.max;
-    }
-    if (filters.subtypes && filters.subtypes.length > 0) {
-      searchFilters.subtypes = filters.subtypes;
-    }
-    if (filters.isGoldMode) {
-      searchFilters.isGoldMode = filters.isGoldMode;
-    }
+  // Clear cards with selection reset
+  const clearCards = useCallback(() => {
+    clearCardsSearch();
+    clearSelection();
+  }, [clearCardsSearch, clearSelection]);
 
-    // Determine query strategy
-    const hasFilters = Object.keys(searchFilters).length > 0;
-    const hasQuery = query && query.trim() !== '';
-    
-    let actualQuery: string;
-    if (hasQuery) {
-      actualQuery = query.trim();
-    } else if (hasFilters) {
-      actualQuery = '*';
-    } else {
-      console.log('❌ No query and no filters - falling back to popular cards');
-      loadPopularCards();
-      return;
-    }
-    
-    await searchWithPagination(actualQuery, searchFilters);
-  }, [activeFilters, searchWithPagination, loadPopularCards]);
-
-  // Enhanced search function with full-text capabilities
-  const enhancedSearch = useCallback(async (query: string, filtersOverride?: any) => {
-    const filters = filtersOverride || activeFilters;
-    
-    console.log('🔍 enhancedSearch called with:', { query, filters });
-    
-    // Handle empty query cases
-    if (!query.trim()) {
-      if (hasActiveFilters()) {
-        query = '*';
-      } else {
-        loadPopularCards();
-        return;
-      }
-    }
-
-    await searchWithPagination(query, filters as SearchFilters);
-    addToSearchHistory(query);
-  }, [activeFilters, searchWithPagination, loadPopularCards, hasActiveFilters]);
-
-  // Search suggestions
-  const getSearchSuggestionsFunc = useCallback(async (query: string) => {
-    if (!query.trim() || query.length < 2) {
-      setState(prev => ({ ...prev, searchSuggestions: [], showSuggestions: false }));
-      return;
-    }
-
-    try {
-      const suggestions = await getSearchSuggestions(query);
-      setState(prev => ({ 
-        ...prev, 
-        searchSuggestions: suggestions.slice(0, 8),
-        showSuggestions: suggestions.length > 0 
-      }));
-    } catch (error) {
-      console.error('Failed to get search suggestions:', error);
-    }
-  }, []);
-
-  const clearSearchSuggestions = useCallback(() => {
-    setState(prev => ({ ...prev, searchSuggestions: [], showSuggestions: false }));
-  }, []);
-
-  const addToSearchHistory = useCallback((query: string) => {
-    if (!query.trim() || query === '*') return;
-    
-    setState(prev => {
-      const newHistory = [query, ...prev.recentSearches.filter(h => h !== query)].slice(0, 10);
-      return { ...prev, recentSearches: newHistory };
-    });
-  }, []);
+  // Get selected cards data with current cards
+  const getSelectedCardsData = useCallback((): ScryfallCard[] => {
+    return getSelectedCardsDataFunc(cards);
+  }, [getSelectedCardsDataFunc, cards]);
 
   // Load popular cards on mount
   useEffect(() => {
@@ -710,7 +201,26 @@ export const useCards = (): UseCardsState & UseCardsActions => {
   }, [loadPopularCards]);
 
   return {
-    ...state,
+    // Search state
+    cards,
+    loading,
+    error,
+    searchQuery,
+    totalCards,
+    lastSearchMetadata,
+    isResorting,
+    
+    // Selection state
+    selectedCards,
+    
+    // Search suggestions state
+    searchSuggestions,
+    showSuggestions,
+    recentSearches,
+    
+    // Pagination state
+    pagination,
+    
     // Filter integration (pass-through)
     activeFilters,
     isFiltersCollapsed,
@@ -721,26 +231,32 @@ export const useCards = (): UseCardsState & UseCardsActions => {
     updateSectionState,
     getSectionState,
     autoExpandSection,
-    // Card actions
+    
+    // Search actions
     searchForCards,
     searchWithAllFilters,
+    enhancedSearch,
     loadPopularCards,
     loadRandomCard,
+    clearCards,
+    
+    // Selection actions
     selectCard,
     deselectCard,
     clearSelection,
     isCardSelected,
     getSelectedCardsData,
-    clearCards,
-    // Enhanced search actions
-    enhancedSearch,
-    getSearchSuggestions: getSearchSuggestionsFunc,
+    
+    // Search suggestions actions
+    getSearchSuggestions,
     clearSearchSuggestions,
     addToSearchHistory,
-    // Dual sort system
+    
+    // Sort system
     handleCollectionSortChange,
-    // Progressive loading actions
-    loadMoreResultsAction,
+    
+    // Pagination actions
+    loadMoreResultsAction: coordinatedLoadMore,
     resetPagination,
   };
 };

@@ -1,20 +1,12 @@
 // src/services/scryfallApi.ts - Enhanced with progressive loading and 60-card batches
-import { ScryfallCard, ScryfallSearchResponse } from '../types/card';
+import { ScryfallCard, ScryfallSearchResponse, PaginatedSearchState } from '../types/card';
 // DEBUGGING HELPER: Copy this function to browser console for easy output capture
-function captureSearchDebug() {
-  console.log('='.repeat(80));
-  console.log('SEARCH DEBUG CAPTURE - Ready for copy/paste');
-  console.log('='.repeat(80));
-  console.log('Instructions: Now perform your search, then scroll up to copy all the debug output');
-  console.log('='.repeat(80));
-}
 
 
 
 const SCRYFALL_API_BASE = 'https://api.scryfall.com';
 const REQUEST_DELAY = 100; // 100ms delay between requests to respect rate limiting
 const INITIAL_PAGE_SIZE = 75; // Initial results limited to 75 cards
-const LOAD_MORE_PAGE_SIZE = 175; // Load 175 more cards at a time (Scryfall's max)
 
 // Simple delay function for rate limiting
 const delay = (ms: number): Promise<void> => {
@@ -48,20 +40,7 @@ const rateLimitedFetch = async (url: string): Promise<Response> => {
   return response;
 };
 
-/**
- * Pagination state interface for progressive loading
- */
-export interface PaginatedSearchState {
-  initialResults: ScryfallCard[];
-  totalCards: number;
-  loadedCards: number;
-  hasMore: boolean;
-  isLoadingMore: boolean;
-  currentPage: number;
-  lastQuery: string;
-  lastFilters: any;
-  lastSort: { order: string; dir: 'asc' | 'desc' };
-}
+;
 
 /**
  * Advanced search with filters and enhanced sort support
@@ -524,7 +503,13 @@ export const searchCardsWithPagination = async (
       currentPage: 1,
       lastQuery: query,
       lastFilters: filters,
-      lastSort: { order, dir }
+      lastSort: { order, dir },
+      // Partial page consumption tracking
+      currentScryfallPage: 1,
+      cardsConsumedFromCurrentPage: initialResults.length,
+      currentPageCards: response.data,
+      scryfallPageSize: 175,
+      displayBatchSize: 75,
     };
   } catch (error) {
     console.error('❌ Paginated search failed:', error);
@@ -540,13 +525,14 @@ export const loadMoreResults = async (
   onProgress?: (loaded: number, total: number) => void
 ): Promise<ScryfallCard[]> => {
   try {
-    const nextPage = paginationState.currentPage + 1;
-    console.log('🔄 Loading more results:', { 
-      currentPage: paginationState.currentPage,
-      nextPage,
+    console.log('🔄 Load More with partial page consumption:', { 
+      currentScryfallPage: paginationState.currentScryfallPage,
+      cardsConsumedFromCurrentPage: paginationState.cardsConsumedFromCurrentPage,
+      currentPageCards: paginationState.currentPageCards?.length || 0,
       loadedSoFar: paginationState.loadedCards,
       totalCards: paginationState.totalCards,
-      batchSize: LOAD_MORE_PAGE_SIZE
+      scryfallPageSize: paginationState.scryfallPageSize || 175,
+      displayBatchSize: paginationState.displayBatchSize || 75
     });
     
     // Report progress start
@@ -554,21 +540,68 @@ export const loadMoreResults = async (
       onProgress(paginationState.loadedCards, paginationState.totalCards);
     }
     
-    const response = await enhancedSearchCards(
-      paginationState.lastQuery,
-      paginationState.lastFilters,
-      nextPage,
-      paginationState.lastSort.order,
-      paginationState.lastSort.dir
-    );
+    const scryfallPageSize = paginationState.scryfallPageSize || 175;
+    const displayBatchSize = paginationState.displayBatchSize || 75;
+    const cardsConsumed = paginationState.cardsConsumedFromCurrentPage || 0;
+    const currentPageCards = paginationState.currentPageCards || [];
     
-    // Take up to 175 cards from this batch
-    const newCards = response.data.slice(0, LOAD_MORE_PAGE_SIZE);
+    // Check if current Scryfall page has remaining cards
+    const remainingInCurrentPage = currentPageCards.length - cardsConsumed;
+    
+    console.log('📊 Partial page analysis:', {
+      currentPageTotalCards: currentPageCards.length,
+      cardsAlreadyConsumed: cardsConsumed,
+      remainingInCurrentPage,
+      needsNewPage: remainingInCurrentPage <= 0
+    });
+    
+    let newCards: ScryfallCard[];
+    
+    if (remainingInCurrentPage > 0) {
+      // Return remaining cards from current page
+      const cardsToReturn = Math.min(remainingInCurrentPage, displayBatchSize);
+      newCards = currentPageCards.slice(cardsConsumed, cardsConsumed + cardsToReturn);
+      
+      console.log('📄 Returning remaining cards from current page:', {
+        cardsToReturn,
+        sliceStart: cardsConsumed,
+        sliceEnd: cardsConsumed + cardsToReturn,
+        remainingAfterThis: remainingInCurrentPage - cardsToReturn
+      });
+      
+    } else {
+      // Current page exhausted - fetch next Scryfall page
+      const nextScryfallPage = paginationState.currentScryfallPage + 1;
+      
+      console.log('🌐 Fetching next Scryfall page:', {
+        currentPage: paginationState.currentScryfallPage,
+        nextPage: nextScryfallPage,
+        reason: 'Current page exhausted'
+      });
+      
+      const response = await enhancedSearchCards(
+        paginationState.lastQuery,
+        paginationState.lastFilters,
+        nextScryfallPage,
+        paginationState.lastSort.order,
+        paginationState.lastSort.dir
+      );
+      
+      // Return first batch from new page
+      const cardsToReturn = Math.min(response.data.length, displayBatchSize);
+      newCards = response.data.slice(0, cardsToReturn);
+      
+      console.log('🌐 New page fetched:', {
+        newPageCards: response.data.length,
+        cardsToReturn,
+        hasMorePages: response.has_more
+      });
+    }
     
     console.log('✅ Load more batch complete:', {
       batchLoaded: newCards.length,
       totalLoadedNow: paginationState.loadedCards + newCards.length,
-      stillHasMore: response.has_more
+      alphabeticalSequence: newCards.length > 0 ? `${newCards[0].name} → ${newCards[newCards.length - 1].name}` : 'No cards'
     });
     
     // Report progress completion

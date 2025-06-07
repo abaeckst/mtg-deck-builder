@@ -72,6 +72,12 @@ export interface PaginatedSearchState {
   lastQuery: string;
   lastFilters: any;
   lastSort: { order: string; dir: 'asc' | 'desc' };
+  // Partial page consumption tracking
+  currentScryfallPage: number;        // Actual Scryfall page number (1-based)
+  cardsConsumedFromCurrentPage: number; // How many cards used from current Scryfall page
+  currentPageCards: ScryfallCard[];   // Full current page data from Scryfall
+  scryfallPageSize: number;           // Scryfall page size (175)
+  displayBatchSize: number;           // User display batch size (75)
 }
 
 /**
