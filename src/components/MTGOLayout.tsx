@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useLayout } from '../hooks/useLayout';
 import { useSelection } from '../hooks/useSelection';
 import { useResize } from '../hooks/useResize';
@@ -13,32 +13,25 @@ import './FilterPanel.css';
 // Card types import
 import { ScryfallCard, DeckCard, DeckCardInstance, scryfallToDeckCard, scryfallToDeckInstance, 
          deckCardToDeckInstance, isBasicLand, getTotalCardQuantity, getCardQuantityInZone, 
-         removeInstancesForCard } from '../types/card';
+         removeInstancesForCard, getCardId } from '../types/card';
 
 // Import components
 import { useCards } from '../hooks/useCards';
 import { useSorting, SortCriteria, SortDirection } from '../hooks/useSorting';
 import { useCardSizing } from '../hooks/useCardSizing';
-import DraggableCard from './DraggableCard';
-import DropZoneComponent from './DropZone';
 import DragPreview from './DragPreview';
 import ContextMenu from './ContextMenu';
-import SearchAutocomplete from './SearchAutocomplete';
-import PileView from './PileView';
-import ListView from './ListView';
-import AdaptiveHeader from './AdaptiveHeader';
-// Phase 4B: Enhanced filter components
 import FilterPanel from './FilterPanel';
+import CollectionArea from './CollectionArea';
+import DeckArea from './DeckArea';
+import SideboardArea from './SideboardArea';
 // Export modal imports
 import { TextExportModal } from './TextExportModal';
 import { ScreenshotModal } from './ScreenshotModal';
-import { getFormatDisplayName } from '../utils/deckFormatting';
 
 interface MTGOLayoutProps {
   // Props for any data that needs to be passed down
 }
-
-// Pile view sort state - using SortCriteria from useSorting hook
 
 // MJ's Championship Helper: Pure instance creation
 const createDeckInstance = (card: ScryfallCard | DeckCard | DeckCardInstance, zone: 'deck' | 'sideboard'): DeckCardInstance => {
@@ -97,7 +90,7 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
     autoExpandSection
   } = useCards();
   
-  // PHASE 3B-1: Card sizing system
+  // Card sizing system
   const { 
     sizes: cardSizes, 
     updateCollectionSize, 
@@ -105,7 +98,7 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
     updateSideboardSize 
   } = useCardSizing();
   
-  // UPDATED: Initialize resize functionality with new percentage-based system
+  // Initialize resize functionality
   const { handlers: resizeHandlers } = useResize({ 
     layout, 
     updatePanelDimensions,
@@ -141,36 +134,6 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
   const collectionSort = getSortState('collection');
   const deckSort = getSortState('deck');
   const sideboardSort = getSortState('sideboard');
-  
-  // Sort menu visibility state for all areas
-  const [showCollectionSortMenu, setShowCollectionSortMenu] = useState(false);
-  const [showDeckSortMenu, setShowDeckSortMenu] = useState(false);
-  const [showSideboardSortMenu, setShowSideboardSortMenu] = useState(false);
-  
-  // Refs for click-outside detection
-  const collectionSortRef = useRef<HTMLDivElement>(null);
-  const deckSortRef = useRef<HTMLDivElement>(null);
-  const sideboardSortRef = useRef<HTMLDivElement>(null);
-
-  // Click-outside effect for sort menus
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (collectionSortRef.current && !collectionSortRef.current.contains(event.target as Node)) {
-        setShowCollectionSortMenu(false);
-      }
-      if (deckSortRef.current && !deckSortRef.current.contains(event.target as Node)) {
-        setShowDeckSortMenu(false);
-      }
-      if (sideboardSortRef.current && !sideboardSortRef.current.contains(event.target as Node)) {
-        setShowSideboardSortMenu(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, []);
 
   // Clear both deck and sideboard functionality
   const handleClearDeck = useCallback(() => {
@@ -196,14 +159,6 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
     setShowScreenshotModal(false);
   }, []);
 
-  // Helper to safely get card ID from any card type
-  const getCardId = (card: ScryfallCard | DeckCard | DeckCardInstance): string => {
-    if ('instanceId' in card) {
-      return card.cardId; // DeckCardInstance - use cardId (original Scryfall ID)
-    }
-    return card.id; // ScryfallCard or DeckCard - use id
-  };
-
   // Helper function to get total copies across deck and sideboard
   const getTotalCopies = useCallback((cardId: string): number => {
     return getTotalCardQuantity(mainDeck, sideboard, cardId);
@@ -218,7 +173,7 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
     return getCardQuantityInZone(sideboard, cardId);
   }, [sideboard]);
 
-  // PHASE 3A: Clear sideboard functionality
+  // Clear sideboard functionality
   const handleClearSideboard = useCallback(() => {
     setSideboard([]);
     clearSelection();
@@ -318,7 +273,7 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
   // Initialize context menu hook
   const { contextMenuState, showContextMenu, hideContextMenu, getContextMenuActions } = useContextMenu(deckManagementCallbacks);
   
-  // PHASE 3A: Enhanced drag and drop callbacks
+  // Enhanced drag and drop callbacks
   const dragCallbacks = {
     onCardMove: useCallback((cards: DraggedCard[], from: DropZoneType, to: DropZoneType) => {
       cards.forEach(card => {
@@ -522,18 +477,50 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
     return sorted;
   }, []);
 
-  // Get sorted cards for each area - SIMPLIFIED CLIENT-SIDE ONLY
-  const sortedCollectionCards = useMemo(() => {
-    return sortCards([...cards], collectionSort.criteria, collectionSort.direction);
-  }, [cards, collectionSort.criteria, collectionSort.direction, sortCards]);
+  // Deck quantity change handlers
+  const handleDeckQuantityChange = useCallback((cardId: string, newQuantity: number) => {
+    if (newQuantity === 0) {
+      setMainDeck(prev => prev.filter(instance => instance.cardId !== cardId));
+    } else {
+      const currentQuantity = getDeckQuantity(cardId);
+      const diff = newQuantity - currentQuantity;
+      
+      if (diff > 0) {
+        const cardData = cards.find(c => c.id === cardId);
+        if (cardData) {
+          const newInstances: DeckCardInstance[] = [];
+          for (let i = 0; i < diff; i++) {
+            newInstances.push(createDeckInstance(cardData, 'deck'));
+          }
+          setMainDeck(prev => [...prev, ...newInstances]);
+        }
+      } else if (diff < 0) {
+        setMainDeck(prev => removeInstancesForCard(prev, cardId, Math.abs(diff)));
+      }
+    }
+  }, [cards, getDeckQuantity]);
 
-  const sortedMainDeck = useMemo((): DeckCardInstance[] => {
-    return layout.viewModes.deck === 'pile' ? mainDeck : sortCards(mainDeck as any, deckSort.criteria, deckSort.direction) as DeckCardInstance[];
-  }, [mainDeck, deckSort.criteria, deckSort.direction, layout.viewModes.deck, sortCards]);
-
-  const sortedSideboard = useMemo((): DeckCardInstance[] => {
-    return layout.viewModes.sideboard === 'pile' ? sideboard : sortCards(sideboard as any, sideboardSort.criteria, sideboardSort.direction) as DeckCardInstance[];
-  }, [sideboard, sideboardSort.criteria, sideboardSort.direction, layout.viewModes.sideboard, sortCards]);
+  const handleSideboardQuantityChange = useCallback((cardId: string, newQuantity: number) => {
+    if (newQuantity === 0) {
+      setSideboard(prev => prev.filter(instance => instance.cardId !== cardId));
+    } else {
+      const currentQuantity = getSideboardQuantity(cardId);
+      const diff = newQuantity - currentQuantity;
+      
+      if (diff > 0) {
+        const cardData = cards.find(c => c.id === cardId);
+        if (cardData) {
+          const newInstances: DeckCardInstance[] = [];
+          for (let i = 0; i < diff; i++) {
+            newInstances.push(createDeckInstance(cardData, 'sideboard'));
+          }
+          setSideboard(prev => [...prev, ...newInstances]);
+        }
+      } else if (diff < 0) {
+        setSideboard(prev => removeInstancesForCard(prev, cardId, Math.abs(diff)));
+      }
+    }
+  }, [cards, getSideboardQuantity]);
 
   // Mobile fallback
   if (!canUseMTGO) {
@@ -551,7 +538,7 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
       {/* Drag Preview */}
       <DragPreview dragState={dragState} />
       
-      {/* Phase 4B: Enhanced Filter Panel */}
+      {/* Enhanced Filter Panel */}
       <FilterPanel
         searchText={searchText}
         onSearchTextChange={setSearchText}
@@ -604,277 +591,33 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
       
       {/* Main Content Area */}
       <div className="mtgo-main-content">
-        {/* Collection Grid - Drop Zone */}
-        <DropZoneComponent
-          zone="collection"
+        {/* Collection Area */}
+        <CollectionArea
+          cards={cards}
+          loading={loading}
+          error={error}
+          pagination={pagination}
+          loadMoreResultsAction={loadMoreResultsAction}
+          sortState={collectionSort}
+          onSortChange={(criteria, direction) => handleSortChange('collection', criteria, direction)}
+          viewMode={layout.viewModes.collection}
+          onViewModeChange={(mode) => updateViewMode('collection', mode)}
+          cardSize={cardSizes.collection}
+          onCardSizeChange={updateCollectionSize}
+          onCardClick={handleCardClick}
+          onCardDoubleClick={handleAddToDeck}
+          onCardRightClick={handleRightClick}
+          onDragStart={handleDragStart}
           onDragEnter={handleDragEnter}
           onDragLeave={handleDragLeave}
-          canDrop={canDropInZone('collection', dragState.draggedCards)}
-          isDragActive={dragState.isDragging}
-          className="mtgo-collection-area"
-        >
-          <div className="panel-header">
-            <h3>Collection ({cards.length.toLocaleString()} {pagination.totalCards > pagination.loadedCards && (<span className="pagination-info">of {pagination.totalCards.toLocaleString()}</span>)} cards)</h3>
-
-            <div className="view-controls">
-              <span>Size: </span>
-              <input
-                type="range"
-                min="1.3"
-                max="2.5"
-                step="0.1"
-                value={cardSizes.collection}
-                onChange={(e) => updateCollectionSize(parseFloat(e.target.value))}
-                className="size-slider"
-                title={`Card size: ${Math.round(cardSizes.collection * 100)}%`}
-              />
-              <div className="sort-button-container" ref={collectionSortRef}>
-                <button 
-                  className="sort-toggle-btn"
-                  onClick={() => setShowCollectionSortMenu(!showCollectionSortMenu)}
-                  title="Sort options"
-                >
-                  Sort
-                </button>
-                {showCollectionSortMenu && (
-                  <div className="sort-menu">
-                    <button 
-                      className={collectionSort.criteria === 'name' ? 'active' : ''}
-                      onClick={() => { 
-                        if (collectionSort.criteria === 'name') {
-                          const newDirection = collectionSort.direction === 'asc' ? 'desc' : 'asc';
-                          handleSortChange('collection', 'name', newDirection);
-                        } else {
-                          handleSortChange('collection', 'name', 'asc');
-                        }
-                        setShowCollectionSortMenu(false); 
-                      }}
-                    >
-                      Name {collectionSort.criteria === 'name' ? (collectionSort.direction === 'asc' ? '↑' : '↓') : ''}
-                    </button>
-                    <button 
-                      className={collectionSort.criteria === 'mana' ? 'active' : ''}
-                      onClick={() => { 
-                        if (collectionSort.criteria === 'mana') {
-                          handleSortChange('collection', 'mana', collectionSort.direction === 'asc' ? 'desc' : 'asc');
-                        } else {
-                          handleSortChange('collection', 'mana', 'asc');
-                        }
-                        setShowCollectionSortMenu(false); 
-                      }}
-                    >
-                      Mana Value {collectionSort.criteria === 'mana' ? (collectionSort.direction === 'asc' ? '↑' : '↓') : ''}
-                    </button>
-                    <button 
-                      className={collectionSort.criteria === 'color' ? 'active' : ''}
-                      onClick={() => { 
-                        if (collectionSort.criteria === 'color') {
-                          handleSortChange('collection', 'color', collectionSort.direction === 'asc' ? 'desc' : 'asc');
-                        } else {
-                          handleSortChange('collection', 'color', 'asc');
-                        }
-                        setShowCollectionSortMenu(false); 
-                      }}
-                    >
-                      Color {collectionSort.criteria === 'color' ? (collectionSort.direction === 'asc' ? '↑' : '↓') : ''}
-                    </button>
-                    <button 
-                      className={collectionSort.criteria === 'rarity' ? 'active' : ''}
-                      onClick={() => { 
-                        if (collectionSort.criteria === 'rarity') {
-                          handleSortChange('collection', 'rarity', collectionSort.direction === 'asc' ? 'desc' : 'asc');
-                        } else {
-                          handleSortChange('collection', 'rarity', 'asc');
-                        }
-                        setShowCollectionSortMenu(false); 
-                      }}
-                    >
-                      Rarity {collectionSort.criteria === 'rarity' ? (collectionSort.direction === 'asc' ? '↑' : '↓') : ''}
-                    </button>
-                  </div>
-                )}
-              </div>
-              <span>View: </span>
-              <button 
-                className={layout.viewModes.collection === 'grid' ? 'active' : ''}
-                onClick={() => { clearSelection(); updateViewMode('collection', 'grid'); }}
-              >
-                Card
-              </button>
-              <button 
-                className={layout.viewModes.collection === 'list' ? 'active' : ''}
-                onClick={() => { clearSelection(); updateViewMode('collection', 'list'); }}
-              >
-                List
-              </button>
-            </div>
-          </div>
-          
-          {/* Collection Content - Conditional Rendering */}
-          {loading && <div className="loading-message">Loading cards...</div>}
-          {error && <div className="error-message">Error: {error}</div>}
-          {!loading && !error && cards.length === 0 && (
-            <div className="no-results-message">
-              <div className="no-results-icon">🔍</div>
-              <h3>No cards found</h3>
-              <p>No cards match your current search and filter criteria.</p>
-              <div className="no-results-suggestions">
-                <p><strong>Try:</strong></p>
-                <ul>
-                  <li>Adjusting your search terms</li>
-                  <li>Changing filter settings</li>
-                  <li>Using broader criteria</li>
-                  <li>Clearing some filters</li>
-                </ul>
-              </div>
-            </div>
-          )}
-          
-          {!loading && !error && cards.length > 0 && (
-            layout.viewModes.collection === 'list' ? (
-              <>
-                <ListView
-                  cards={sortedCollectionCards}
-                  area="collection"
-                  scaleFactor={cardSizes.collection}
-                  sortCriteria={collectionSort.criteria}
-                  sortDirection={collectionSort.direction}
-                  onSortChange={(criteria, direction) => {
-                    handleSortChange('collection', criteria, direction);
-                  }}
-                  onClick={handleCardClick}
-                  onDoubleClick={handleAddToDeck}
-                  onRightClick={handleRightClick}
-                  onDragStart={handleDragStart}
-                  isSelected={isSelected}
-                  selectedCards={getSelectedCardObjects()}
-                  isDragActive={dragState.isDragging}
-                />
-                
-                {/* Load More Results integrated into List View */}
-                {!loading && !error && pagination.hasMore && (
-                  <div className="load-more-section-integrated">
-                    {pagination.isLoadingMore ? (
-                      <div className="loading-progress">
-                        <div className="progress-bar">
-                          <div 
-                            className="progress-fill" 
-                            style={{
-                              width: `${(pagination.loadedCards / pagination.totalCards) * 100}%`
-                            }}
-                          />
-                        </div>
-                        <span className="progress-text">
-                          Loading... ({pagination.loadedCards.toLocaleString()}/{pagination.totalCards.toLocaleString()} cards)
-                        </span>
-                      </div>
-                    ) : (
-                      <button 
-                        className="load-more-results-btn"
-                        onClick={loadMoreResultsAction}
-                        disabled={loading}
-                        title={`Load 175 more cards (${pagination.totalCards - pagination.loadedCards} remaining)`}
-                      >
-                        Load More Results ({(pagination.totalCards - pagination.loadedCards).toLocaleString()} more cards)
-                      </button>
-                    )}
-                  </div>
-                )}
-              </>
-            ) : (
-              <div 
-                className="collection-grid"
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: `repeat(auto-fill, minmax(${Math.round(130 * cardSizes.collection)}px, max-content))`,
-                  gap: `${Math.round(4 * cardSizes.collection)}px`,
-                  alignContent: 'start',
-                  padding: '8px'
-                }}
-              >
-                {sortedCollectionCards.map((card) => (
-                  <DraggableCard
-                    key={getCardId(card)}
-                    card={card}
-                    zone="collection"
-                    size="normal"
-                    scaleFactor={cardSizes.collection}
-                    onClick={(card, event) => handleCardClick(card, event)} 
-                    onDoubleClick={(card) => handleAddToDeck(card)}
-                    onEnhancedDoubleClick={handleDoubleClick}
-                    onRightClick={handleRightClick}
-                    onDragStart={handleDragStart}
-                    showQuantity={true}
-                    availableQuantity={4}
-                    quantity={getTotalCopies(getCardId(card))}
-                    selected={isSelected(getCardId(card))}
-                    selectable={true}
-                    isDragActive={dragState.isDragging}
-                    isBeingDragged={dragState.draggedCards.some(dc => getCardId(dc) === getCardId(card))}
-                    selectedCards={getSelectedCardObjects()}
-                  />
-                ))}
-                
-                {/* Load More Results integrated into Card Grid */}
-                {!loading && !error && pagination.hasMore && (
-                  <div className="load-more-section-integrated" style={{
-                    gridColumn: '1 / -1',
-                    display: 'flex',
-                    justifyContent: 'center',
-                    padding: '20px',
-                    marginTop: '10px'
-                  }}>
-                    {pagination.isLoadingMore ? (
-                      <div className="loading-progress">
-                        <div className="progress-bar">
-                          <div 
-                            className="progress-fill" 
-                            style={{
-                              width: `${(pagination.loadedCards / pagination.totalCards) * 100}%`
-                            }}
-                          />
-                        </div>
-                        <span className="progress-text">
-                          Loading... ({pagination.loadedCards.toLocaleString()}/{pagination.totalCards.toLocaleString()} cards)
-                        </span>
-                      </div>
-                    ) : (
-                      <button 
-                        className="load-more-results-btn"
-                        onClick={loadMoreResultsAction}
-                        disabled={loading}
-                        title={`Load 175 more cards (${pagination.totalCards - pagination.loadedCards} remaining)`}
-                      >
-                        Load More Results ({(pagination.totalCards - pagination.loadedCards).toLocaleString()} more cards)
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
-            )
-          )}
-          
-          {/* Resize Handle */}
-          <div 
-            className="resize-handle resize-handle-bottom"
-            onMouseDown={resizeHandlers.onDeckAreaResize}
-            title="Drag to resize collection area"
-            style={{
-              position: 'absolute',
-              left: 0,
-              bottom: -3,
-              width: '100%',
-              height: 6,
-              cursor: 'ns-resize',
-              background: 'linear-gradient(0deg, transparent 0%, #555555 50%, transparent 100%)',
-              zIndex: 1001,
-              opacity: 0.7,
-              transition: 'opacity 0.2s ease'
-            }}
-            onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
-            onMouseLeave={(e) => e.currentTarget.style.opacity = '0.7'}
-          />
-        </DropZoneComponent>
+          canDropInZone={canDropInZone}
+          dragState={dragState}
+          isSelected={isSelected}
+          getSelectedCardObjects={getSelectedCardObjects}
+          clearSelection={clearSelection}
+          getTotalCopies={getTotalCopies}
+          sortCards={sortCards}
+        />
         
         {/* Bottom Area */}
         <div className="mtgo-bottom-area">
@@ -900,517 +643,66 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
           />
           
           {/* Main Deck Area */}
-          <DropZoneComponent
-            zone="deck"
+          <DeckArea
+            mainDeck={mainDeck}
+            cards={cards}
+            sortState={deckSort}
+            onSortChange={(criteria, direction) => updateSort('deck', criteria, direction)}
+            viewMode={layout.viewModes.deck}
+            onViewModeChange={(mode) => updateViewMode('deck', mode)}
+            cardSize={cardSizes.deck}
+            onCardSizeChange={updateDeckSize}
+            onCardClick={handleCardClick}
+            onInstanceClick={handleInstanceClick}
+            onCardDoubleClick={handleAddToDeck}
+            onEnhancedDoubleClick={handleDoubleClick}
+            onCardRightClick={handleRightClick}
+            onDragStart={handleDragStart}
             onDragEnter={handleDragEnter}
             onDragLeave={handleDragLeave}
-            canDrop={canDropInZone('deck', dragState.draggedCards)}
-            isDragActive={dragState.isDragging}
-            className="mtgo-deck-area"
-          >
-            <div className="panel-header">
-              <h3>Main Deck ({mainDeck.length} cards)</h3>
-              <div className="deck-controls">
-                <span>Size: </span>
-                <input
-                  type="range"
-                  min="1.3"
-                  max="2.5"
-                  step="0.1"
-                  value={cardSizes.deck}
-                  onChange={(e) => updateDeckSize(parseFloat(e.target.value))}
-                  className="size-slider"
-                  title={`Card size: ${Math.round(cardSizes.deck * 100)}%`}
-                />
-                <div className="sort-button-container" ref={deckSortRef}>
-                  <button 
-                    className="sort-toggle-btn"
-                    onClick={() => setShowDeckSortMenu(!showDeckSortMenu)}
-                    title="Sort options"
-                  >
-                    Sort
-                  </button>
-                  {showDeckSortMenu && (
-                    <div className="sort-menu">
-                      <button 
-                        className={deckSort.criteria === 'mana' ? 'active' : ''}
-                        onClick={() => { 
-                          if (layout.viewModes.deck === 'card' && deckSort.criteria === 'mana') {
-                            updateSort('deck', 'mana', deckSort.direction === 'asc' ? 'desc' : 'asc');
-                          } else {
-                            updateSort('deck', 'mana', 'asc');
-                          }
-                          setShowDeckSortMenu(false); 
-                        }}
-                      >
-                        Mana Value {deckSort.criteria === 'mana' && layout.viewModes.deck === 'card' ? (deckSort.direction === 'asc' ? '↑' : '↓') : ''}
-                      </button>
-                      <button 
-                        className={deckSort.criteria === 'color' ? 'active' : ''}
-                        onClick={() => { 
-                          if (layout.viewModes.deck === 'card' && deckSort.criteria === 'color') {
-                            updateSort('deck', 'color', deckSort.direction === 'asc' ? 'desc' : 'asc');
-                          } else {
-                            updateSort('deck', 'color', 'asc');
-                          }
-                          setShowDeckSortMenu(false); 
-                        }}
-                      >
-                        Color {deckSort.criteria === 'color' && layout.viewModes.deck === 'card' ? (deckSort.direction === 'asc' ? '↑' : '↓') : ''}
-                      </button>
-                      <button 
-                        className={deckSort.criteria === 'rarity' ? 'active' : ''}
-                        onClick={() => { 
-                          if (layout.viewModes.deck === 'card' && deckSort.criteria === 'rarity') {
-                            updateSort('deck', 'rarity', deckSort.direction === 'asc' ? 'desc' : 'asc');
-                          } else {
-                            updateSort('deck', 'rarity', 'asc');
-                          }
-                          setShowDeckSortMenu(false); 
-                        }}
-                      >
-                        Rarity {deckSort.criteria === 'rarity' && layout.viewModes.deck === 'card' ? (deckSort.direction === 'asc' ? '↑' : '↓') : ''}
-                      </button>
-                    </div>
-                  )}
-                </div>
-                <span>View: </span>
-                <button 
-                  className={layout.viewModes.deck === 'card' ? 'active' : ''}
-                  onClick={() => { clearSelection(); updateViewMode('deck', 'card'); }}
-                >
-                  Card
-                </button>
-                <button 
-                  className={layout.viewModes.deck === 'pile' ? 'active' : ''}
-                  onClick={() => { clearSelection(); updateViewMode('deck', 'pile'); }}
-                >
-                  Pile
-                </button>
-                <button 
-                  className={layout.viewModes.deck === 'list' ? 'active' : ''}
-                  onClick={() => { clearSelection(); updateViewMode('deck', 'list'); }}
-                >
-                  List
-                </button>
-                <button onClick={handleTextExport} title="Export deck as text for MTGO">
-                  Export Text
-                </button>
-                <button onClick={handleScreenshot} title="Generate deck image">
-                  Screenshot
-                </button>
-                <button>Save Deck</button>
-                <button onClick={handleClearDeck} title="Clear all cards from deck and sideboard">
-                  Clear All
-                </button>
-              </div>
-            </div>
-            
-            <div className="deck-content">
-              {layout.viewModes.deck === 'pile' ? (
-                <PileView
-                  cards={mainDeck}
-                  zone="deck"
-                  scaleFactor={cardSizes.deck}
-                  forcedSortCriteria={deckSort.criteria === 'name' || deckSort.criteria === 'type' ? 'mana' : deckSort.criteria as any}
-                  onClick={(card, event) => handleCardClick(card, event)}
-                  onInstanceClick={handleInstanceClick}
-                  onDoubleClick={handleAddToDeck}
-                  onEnhancedDoubleClick={handleDoubleClick}
-                  onRightClick={handleRightClick}
-                  onDragStart={handleDragStart}
-                  isSelected={isSelected}
-                  selectedCards={getSelectedCardObjects()}
-                  isDragActive={dragState.isDragging}
-                  onDragEnter={handleDragEnter}
-                  onDragLeave={handleDragLeave}
-                  canDropInZone={canDropInZone}
-                />
-              ) : layout.viewModes.deck === 'list' ? (
-                <ListView
-                  cards={sortedMainDeck}
-                  area="deck"
-                  scaleFactor={cardSizes.deck}
-                  sortCriteria={deckSort.criteria}
-                  sortDirection={deckSort.direction}
-                  onSortChange={(criteria, direction) => {
-                    if (criteria === 'name' || criteria === 'mana' || criteria === 'color' || criteria === 'rarity') {
-                      updateSort('deck', criteria, direction);
-                    }
-                  }}
-                  onClick={(card, event) => handleCardClick(card, event)}
-                  onDoubleClick={(card) => handleDoubleClick(card as any, 'deck', { preventDefault: () => {}, stopPropagation: () => {} } as React.MouseEvent)}
-                  onRightClick={handleRightClick}
-                  onDragStart={handleDragStart}
-                  isSelected={isSelected}
-                  selectedCards={getSelectedCardObjects()}
-                  isDragActive={dragState.isDragging}
-                  onQuantityChange={(cardId, newQuantity) => {
-                    if (newQuantity === 0) {
-                      setMainDeck(prev => prev.filter(instance => instance.cardId !== cardId));
-                    } else {
-                      const currentQuantity = getDeckQuantity(cardId);
-                      const diff = newQuantity - currentQuantity;
-                      
-                      if (diff > 0) {
-                        const cardData = cards.find(c => c.id === cardId);
-                        if (cardData) {
-                          const newInstances: DeckCardInstance[] = [];
-                          for (let i = 0; i < diff; i++) {
-                            newInstances.push(createDeckInstance(cardData, 'deck'));
-                          }
-                          setMainDeck(prev => [...prev, ...newInstances]);
-                        }
-                      } else if (diff < 0) {
-                        setMainDeck(prev => removeInstancesForCard(prev, cardId, Math.abs(diff)));
-                      }
-                    }
-                  }}
-                />
-              ) : (
-                <div 
-                  className="deck-grid"
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: `repeat(auto-fill, minmax(${Math.round(130 * cardSizes.deck)}px, max-content))`,
-                    gap: `${Math.round(4 * cardSizes.deck)}px`,
-                    alignContent: 'start',
-                    minHeight: '150px',
-                    paddingBottom: '40px'
-                  }}
-                >
-                  {(() => {
-                    // Group instances by cardId for clean stacking
-                    const groupedCards = new Map<string, DeckCardInstance[]>();
-                    sortedMainDeck.forEach(instance => {
-                      const cardId = instance.cardId;
-                      if (!groupedCards.has(cardId)) {
-                        groupedCards.set(cardId, []);
-                      }
-                      groupedCards.get(cardId)!.push(instance);
-                    });
-
-                    return Array.from(groupedCards.entries()).map(([cardId, instances]) => {
-                      const representativeCard = instances[0];
-                      const quantity = instances.length;
-                      const isAnySelected = instances.some(instance => isSelected(instance.instanceId));
-
-                      const handleStackClick = (card: any, event?: React.MouseEvent) => {
-                        if (instances.length > 1) {
-                          const unselectedInstance = instances.find(inst => !isSelected(inst.instanceId));
-                          const targetInstance = unselectedInstance || instances[0];
-                          handleInstanceClick(targetInstance.instanceId, targetInstance, event as React.MouseEvent);
-                        } else {
-                          handleInstanceClick(representativeCard.instanceId, representativeCard, event as React.MouseEvent);
-                        }
-                      };
-
-                      const handleStackInstanceClick = (instanceId: string, instance: DeckCardInstance, event: React.MouseEvent) => {
-                        handleStackClick(instance, event);
-                      };
-
-                      const handleStackDragStart = (cards: any[], zone: any, event: React.MouseEvent) => {
-                        handleDragStart(instances as any[], zone, event);
-                      };
-
-                      return (
-                        <DraggableCard
-                          key={cardId}
-                          card={representativeCard}
-                          zone="deck"
-                          size="normal"
-                          scaleFactor={cardSizes.deck}
-                          onClick={handleStackClick}
-                          instanceId={representativeCard.instanceId}
-                          isInstance={true}
-                          onInstanceClick={handleStackInstanceClick}
-                          onEnhancedDoubleClick={handleDoubleClick}
-                          onRightClick={handleRightClick}
-                          onDragStart={handleStackDragStart}
-                          showQuantity={true}
-                          quantity={quantity}
-                          selected={isAnySelected}
-                          selectable={true}
-                          isDragActive={dragState.isDragging}
-                          isBeingDragged={dragState.draggedCards.some(dc => 
-                            instances.some(inst => 
-                              'instanceId' in dc ? dc.instanceId === inst.instanceId : dc.id === inst.cardId
-                            )
-                          )}
-                          selectedCards={getSelectedCardObjects()}
-                        />
-                      );
-                    });
-                  })()}
-
-                </div>
-              )}
-            </div>
-            
-          </DropZoneComponent>
+            canDropInZone={canDropInZone}
+            dragState={dragState}
+            isSelected={isSelected}
+            getSelectedCardObjects={getSelectedCardObjects}
+            clearSelection={clearSelection}
+            onTextExport={handleTextExport}
+            onScreenshot={handleScreenshot}
+            onClearDeck={handleClearDeck}
+            getDeckQuantity={getDeckQuantity}
+            onQuantityChange={handleDeckQuantityChange}
+            sortCards={sortCards}
+            createDeckInstance={createDeckInstance}
+          />
           
           {/* Sideboard Area */}
-          <DropZoneComponent
-            zone="sideboard"
+          <SideboardArea
+            sideboard={sideboard}
+            sideboardWidth={layout.panels.sideboardWidth}
+            sortState={sideboardSort}
+            onSortChange={(criteria, direction) => updateSort('sideboard', criteria, direction)}
+            viewMode={layout.viewModes.sideboard}
+            onViewModeChange={(mode) => updateViewMode('sideboard', mode)}
+            cardSize={cardSizes.sideboard}
+            onCardSizeChange={updateSideboardSize}
+            onCardClick={handleCardClick}
+            onInstanceClick={handleInstanceClick}
+            onCardDoubleClick={handleAddToDeck}
+            onEnhancedDoubleClick={handleDoubleClick}
+            onCardRightClick={handleRightClick}
+            onDragStart={handleDragStart}
             onDragEnter={handleDragEnter}
             onDragLeave={handleDragLeave}
-            canDrop={canDropInZone('sideboard', dragState.draggedCards)}
-            isDragActive={dragState.isDragging}
-            className="mtgo-sideboard-panel"
-            style={{ width: `${layout.panels.sideboardWidth}px` }}
-          >
-            {/* Horizontal Resize Handle */}
-            <div 
-              className="resize-handle resize-handle-left"
-              onMouseDown={resizeHandlers.onSideboardResize}
-              title="Drag to resize sideboard"
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: -3,
-                width: 6,
-                height: '100%',
-                cursor: 'ew-resize',
-                background: 'linear-gradient(90deg, transparent 0%, #555555 50%, transparent 100%)',
-                zIndex: 1001,
-                opacity: 0.7,
-                transition: 'opacity 0.2s ease'
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
-              onMouseLeave={(e) => e.currentTarget.style.opacity = '0.7'}
-            />
-            <div className="panel-header">
-              <h3>Sideboard ({sideboard.length} cards)</h3>
-              <div className="sideboard-controls">
-                <span>Size: </span>
-                <input
-                  type="range"
-                  min="1.3"
-                  max="2.5"
-                  step="0.1"
-                  value={cardSizes.sideboard}
-                  onChange={(e) => updateSideboardSize(parseFloat(e.target.value))}
-                  className="size-slider"
-                  title={`Card size: ${Math.round(cardSizes.sideboard * 100)}%`}
-                />
-                <div className="sort-button-container" ref={sideboardSortRef}>
-                  <button 
-                    className="sort-toggle-btn"
-                    onClick={() => setShowSideboardSortMenu(!showSideboardSortMenu)}
-                    title="Sort options"
-                  >
-                    Sort
-                  </button>
-                  {showSideboardSortMenu && (
-                    <div className="sort-menu">
-                      <button 
-                        className={sideboardSort.criteria === 'mana' ? 'active' : ''}
-                        onClick={() => { 
-                          if (layout.viewModes.sideboard === 'card' && sideboardSort.criteria === 'mana') {
-                            updateSort('sideboard', 'mana', sideboardSort.direction === 'asc' ? 'desc' : 'asc');
-                          } else {
-                            updateSort('sideboard', 'mana', 'asc');
-                          }
-                          setShowSideboardSortMenu(false); 
-                        }}
-                      >
-                        Mana Value {sideboardSort.criteria === 'mana' && layout.viewModes.sideboard === 'card' ? (sideboardSort.direction === 'asc' ? '↑' : '↓') : ''}
-                      </button>
-                      <button 
-                        className={sideboardSort.criteria === 'color' ? 'active' : ''}
-                        onClick={() => { 
-                          if (layout.viewModes.sideboard === 'card' && sideboardSort.criteria === 'color') {
-                            updateSort('sideboard', 'color', sideboardSort.direction === 'asc' ? 'desc' : 'asc');
-                          } else {
-                            updateSort('sideboard', 'color', 'asc');
-                          }
-                          setShowSideboardSortMenu(false); 
-                        }}
-                      >
-                        Color {sideboardSort.criteria === 'color' && layout.viewModes.sideboard === 'card' ? (sideboardSort.direction === 'asc' ? '↑' : '↓') : ''}
-                      </button>
-                      <button 
-                        className={sideboardSort.criteria === 'rarity' ? 'active' : ''}
-                        onClick={() => { 
-                          if (layout.viewModes.sideboard === 'card' && sideboardSort.criteria === 'rarity') {
-                            updateSort('sideboard', 'rarity', sideboardSort.direction === 'asc' ? 'desc' : 'asc');
-                          } else {
-                            updateSort('sideboard', 'rarity', 'asc');
-                          }
-                          setShowSideboardSortMenu(false); 
-                        }}
-                      >
-                        Rarity {sideboardSort.criteria === 'rarity' && layout.viewModes.sideboard === 'card' ? (sideboardSort.direction === 'asc' ? '↑' : '↓') : ''}
-                      </button>
-                    </div>
-                  )}
-                </div>
-                <span>View: </span>
-                <button 
-                  className={layout.viewModes.sideboard === 'card' ? 'active' : ''}
-                  onClick={() => { clearSelection(); updateViewMode('sideboard', 'card'); }}
-                >
-                  Card
-                </button>
-                <button 
-                  className={layout.viewModes.sideboard === 'pile' ? 'active' : ''}
-                  onClick={() => { clearSelection(); updateViewMode('sideboard', 'pile'); }}
-                >
-                  Pile
-                </button>
-                <button 
-                  className={layout.viewModes.sideboard === 'list' ? 'active' : ''}
-                  onClick={() => { clearSelection(); updateViewMode('sideboard', 'list'); }}
-                >
-                  List
-                </button>
-                <button onClick={handleClearSideboard} title="Clear all cards from sideboard">
-                  Clear
-                </button>
-              </div>
-            </div>
-            
-            <div className="sideboard-content">
-              {layout.viewModes.sideboard === 'pile' ? (
-                <PileView
-                  cards={sideboard}
-                  zone="sideboard"
-                  scaleFactor={cardSizes.sideboard}
-                  forcedSortCriteria={sideboardSort.criteria === 'name' || sideboardSort.criteria === 'type' ? 'mana' : sideboardSort.criteria as any}
-                  onClick={(card, event) => handleCardClick(card, event)}
-                  onInstanceClick={handleInstanceClick}
-                  onDoubleClick={handleAddToDeck}
-                  onEnhancedDoubleClick={handleDoubleClick}
-                  onRightClick={handleRightClick}
-                  onDragStart={handleDragStart}
-                  isSelected={isSelected}
-                  selectedCards={getSelectedCardObjects()}
-                  isDragActive={dragState.isDragging}
-                  onDragEnter={handleDragEnter}
-                  onDragLeave={handleDragLeave}
-                  canDropInZone={canDropInZone}
-                />
-              ) : layout.viewModes.sideboard === 'list' ? (
-                <ListView
-                  cards={sortedSideboard}
-                  area="sideboard"
-                  scaleFactor={cardSizes.sideboard}
-                  sortCriteria={sideboardSort.criteria}
-                  sortDirection={sideboardSort.direction}
-                  onSortChange={(criteria, direction) => {
-                    if (criteria === 'name' || criteria === 'mana' || criteria === 'color' || criteria === 'rarity') {
-                      updateSort('sideboard', criteria, direction);
-                    }
-                  }}
-                  onClick={(card, event) => handleCardClick(card, event)}
-                  onDoubleClick={(card) => handleDoubleClick(card as any, 'sideboard', { preventDefault: () => {}, stopPropagation: () => {} } as React.MouseEvent)}
-                  onRightClick={handleRightClick}
-                  onDragStart={handleDragStart}
-                  isSelected={isSelected}
-                  selectedCards={getSelectedCardObjects()}
-                  isDragActive={dragState.isDragging}
-                  onQuantityChange={(cardId, newQuantity) => {
-                    if (newQuantity === 0) {
-                      setSideboard(prev => prev.filter(instance => instance.cardId !== cardId));
-                    } else {
-                      const currentQuantity = getSideboardQuantity(cardId);
-                      const diff = newQuantity - currentQuantity;
-                      
-                      if (diff > 0) {
-                        const cardData = cards.find(c => c.id === cardId);
-                        if (cardData) {
-                          const newInstances: DeckCardInstance[] = [];
-                          for (let i = 0; i < diff; i++) {
-                            newInstances.push(createDeckInstance(cardData, 'sideboard'));
-                          }
-                          setSideboard(prev => [...prev, ...newInstances]);
-                        }
-                      } else if (diff < 0) {
-                        setSideboard(prev => removeInstancesForCard(prev, cardId, Math.abs(diff)));
-                      }
-                    }
-                  }}
-                />
-              ) : (
-                <div 
-                  className="sideboard-grid"
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: `repeat(auto-fill, minmax(${Math.round(130 * cardSizes.sideboard)}px, max-content))`,
-                    gap: `${Math.round(4 * cardSizes.sideboard)}px`,
-                    alignContent: 'start',
-                    minHeight: '150px',
-                    paddingBottom: '40px'
-                  }}
-                >
-                  {(() => {
-                    // Group instances by cardId for clean stacking
-                    const groupedCards = new Map<string, DeckCardInstance[]>();
-                    sortedSideboard.forEach(instance => {
-                      const cardId = instance.cardId;
-                      if (!groupedCards.has(cardId)) {
-                        groupedCards.set(cardId, []);
-                      }
-                      groupedCards.get(cardId)!.push(instance);
-                    });
-
-                    return Array.from(groupedCards.entries()).map(([cardId, instances]) => {
-                      const representativeCard = instances[0];
-                      const quantity = instances.length;
-                      const isAnySelected = instances.some(instance => isSelected(instance.instanceId));
-
-                      const handleStackClick = (card: any, event?: React.MouseEvent) => {
-                        if (instances.length > 1) {
-                          const unselectedInstance = instances.find(inst => !isSelected(inst.instanceId));
-                          const targetInstance = unselectedInstance || instances[0];
-                          handleInstanceClick(targetInstance.instanceId, targetInstance, event as React.MouseEvent);
-                        } else {
-                          handleInstanceClick(representativeCard.instanceId, representativeCard, event as React.MouseEvent);
-                        }
-                      };
-
-                      const handleStackInstanceClick = (instanceId: string, instance: DeckCardInstance, event: React.MouseEvent) => {
-                        handleStackClick(instance, event);
-                      };
-
-                      const handleStackDragStart = (cards: any[], zone: any, event: React.MouseEvent) => {
-                        handleDragStart(instances as any[], zone, event);
-                      };
-
-                      return (
-                        <DraggableCard
-                          key={cardId}
-                          card={representativeCard}
-                          zone="sideboard"
-                          size="normal"
-                          scaleFactor={cardSizes.sideboard}
-                          onClick={handleStackClick}
-                          instanceId={representativeCard.instanceId}
-                          isInstance={true}
-                          onInstanceClick={handleStackInstanceClick}
-                          onEnhancedDoubleClick={handleDoubleClick}
-                          onRightClick={handleRightClick}
-                          onDragStart={handleStackDragStart}
-                          showQuantity={true}
-                          quantity={quantity}
-                          selected={isAnySelected}
-                          selectable={true}
-                          isDragActive={dragState.isDragging}
-                          isBeingDragged={dragState.draggedCards.some(dc => 
-                            instances.some(inst => 
-                              'instanceId' in dc ? dc.instanceId === inst.instanceId : dc.id === inst.cardId
-                            )
-                          )}
-                          selectedCards={getSelectedCardObjects()}
-                        />
-                      );
-                    });
-                  })()}
-
-                </div>
-              )}
-            </div>
-          </DropZoneComponent>
+            canDropInZone={canDropInZone}
+            dragState={dragState}
+            isSelected={isSelected}
+            getSelectedCardObjects={getSelectedCardObjects}
+            clearSelection={clearSelection}
+            onClearSideboard={handleClearSideboard}
+            getSideboardQuantity={getSideboardQuantity}
+            onQuantityChange={handleSideboardQuantityChange}
+            onSideboardResize={resizeHandlers.onSideboardResize}
+            sortCards={sortCards}
+          />
         </div>
       </div>
 
