@@ -1,4 +1,4 @@
-// src/hooks/useLayout.ts - PERCENTAGE-BASED LAYOUT SYSTEM
+// src/hooks/useLayout.ts - PERCENTAGE-BASED LAYOUT SYSTEM WITH UNIFIED DECK/SIDEBOARD STATE
 import { useState, useEffect, useCallback } from 'react';
 
 export interface PanelDimensions {
@@ -18,17 +18,15 @@ export interface LayoutState {
   previewPane: PreviewPaneState;
   viewModes: {
     collection: 'grid' | 'list';
-    deck: 'pile' | 'card' | 'list';
-    sideboard: 'pile' | 'card' | 'list';
+    deckSideboard: 'pile' | 'card' | 'list'; // UNIFIED: Single view mode for both deck and sideboard
   };
   cardSizes: {
     collection: number;
-    deck: number;
-    sideboard: number;
+    deckSideboard: number; // UNIFIED: Single size for both deck and sideboard
   };
 }
 
-// PERCENTAGE-BASED DEFAULTS
+// PERCENTAGE-BASED DEFAULTS WITH UNIFIED DECK/SIDEBOARD
 const DEFAULT_LAYOUT: LayoutState = {
   panels: {
     filterPanelWidth: 280,
@@ -42,13 +40,11 @@ const DEFAULT_LAYOUT: LayoutState = {
   },
   viewModes: {
     collection: 'grid',
-    deck: 'card',
-    sideboard: 'card',
+    deckSideboard: 'card', // UNIFIED: Both deck and sideboard use this view mode
   },
   cardSizes: {
     collection: 1, // 0 = small, 1 = normal, 2 = large
-    deck: 1,
-    sideboard: 0,
+    deckSideboard: 1.3, // UNIFIED: Both deck and sideboard use slider scale (1.3-2.5)
   },
 };
 
@@ -57,7 +53,7 @@ const STORAGE_KEY = 'mtg-deckbuilder-layout';
 // PERCENTAGE-BASED CONSTRAINTS
 const CONSTRAINTS = {
   filterPanelWidth: { min: 180, max: 500 },    // Keep search bar accessible (180px minimum)
-  deckAreaHeightPercent: { min: 8, max: 75 },  // Allow much smaller/larger ranges
+  deckAreaHeightPercent: { min: 15, max: 75 },  // Allow much smaller/larger ranges
   sideboardWidth: { min: 20, max: 1000 },      // Allow near-invisible (20px = resize handle only)
   previewPane: {
     size: { minWidth: 250, maxWidth: 500, minHeight: 350, maxHeight: 700 },
@@ -89,7 +85,7 @@ export const useLayout = () => {
     document.documentElement.style.setProperty('--collection-area-height', `${heights.collectionAreaHeight}px`);
   }, [getCalculatedHeights]);
 
-  // Load layout from localStorage on mount
+  // Load layout from localStorage on mount with migration support
   useEffect(() => {
     try {
       const savedLayout = localStorage.getItem(STORAGE_KEY);
@@ -103,6 +99,33 @@ export const useLayout = () => {
           const estimatedPercent = Math.max(25, Math.min(60, Math.round((oldPixelHeight / window.innerHeight) * 100)));
           parsed.panels.deckAreaHeightPercent = estimatedPercent;
           delete parsed.panels.deckAreaHeight; // Remove old property
+        }
+        
+        // MIGRATION: Handle old separate deck/sideboard state
+        if (parsed.viewModes) {
+          const hasOldDeckMode = parsed.viewModes.deck !== undefined;
+          const hasOldSideboardMode = parsed.viewModes.sideboard !== undefined;
+          
+          if (hasOldDeckMode || hasOldSideboardMode) {
+            // Use deck view mode as the unified mode (deck usually has more intentional settings)
+            parsed.viewModes.deckSideboard = parsed.viewModes.deck || parsed.viewModes.sideboard || 'card';
+            delete parsed.viewModes.deck;
+            delete parsed.viewModes.sideboard;
+          }
+        }
+        
+        if (parsed.cardSizes) {
+          const hasOldDeckSize = parsed.cardSizes.deck !== undefined;
+          const hasOldSideboardSize = parsed.cardSizes.sideboard !== undefined;
+          
+          if (hasOldDeckSize || hasOldSideboardSize) {
+            // Use deck size as the unified size (deck usually has more intentional settings)
+            // Convert from old scale if needed: old deck/sideboard used slider values (1.3-2.5)
+            const oldSize = parsed.cardSizes.deck || parsed.cardSizes.sideboard || 1.6;
+            parsed.cardSizes.deckSideboard = oldSize;
+            delete parsed.cardSizes.deck;
+            delete parsed.cardSizes.sideboard;
+          }
         }
         
         // Merge with defaults to handle new properties
@@ -236,7 +259,7 @@ export const useLayout = () => {
     });
   }, [saveLayout]);
 
-  // Update view modes
+  // Update view modes (now supports unified deck/sideboard)
   const updateViewMode = useCallback((area: keyof LayoutState['viewModes'], mode: string) => {
     setLayout(prev => {
       console.log('🔧 View mode update:', { area, mode, before: prev.viewModes[area] });
@@ -252,20 +275,39 @@ export const useLayout = () => {
     });
   }, [saveLayout]);
 
-  // Update card sizes
+  // UNIFIED DECK/SIDEBOARD VIEW MODE UPDATE
+  const updateDeckSideboardViewMode = useCallback((mode: 'pile' | 'card' | 'list') => {
+    console.log('🔧 Unified deck/sideboard view mode update:', { mode });
+    updateViewMode('deckSideboard', mode);
+  }, [updateViewMode]);
+
+  // Update card sizes (now supports unified deck/sideboard)
   const updateCardSize = useCallback((area: keyof LayoutState['cardSizes'], size: number) => {
     setLayout(prev => {
+      const constraints = area === 'collection' 
+        ? { min: 0, max: 2 }  // Collection uses 0-2 scale
+        : { min: 1.3, max: 2.5 }; // Deck/Sideboard use slider scale 1.3-2.5
+      
       const newLayout = {
         ...prev,
         cardSizes: {
           ...prev.cardSizes,
-          [area]: Math.max(0, Math.min(2, size)), // Constrain to 0-2
+          [area]: Math.max(constraints.min, Math.min(constraints.max, size)),
         },
       };
       saveLayout(newLayout);
       return newLayout;
     });
   }, [saveLayout]);
+
+  // UNIFIED DECK/SIDEBOARD CARD SIZE UPDATE
+  const updateDeckSideboardCardSize = useCallback((size: number) => {
+    console.log("🔧 updateDeckSideboardCardSize called with:", size);
+    console.log('🔧 Unified deck/sideboard card size update:', { size });
+    console.log("🔧 About to call updateCardSize with:", size);
+    updateCardSize('deckSideboard', size);
+    console.log("🔧 updateCardSize completed");
+  }, [updateCardSize]);
 
   // Reset to defaults
   const resetLayout = useCallback(() => {
@@ -285,6 +327,8 @@ export const useLayout = () => {
     updatePreviewPane,
     updateViewMode,
     updateCardSize,
+    updateDeckSideboardViewMode, // NEW: Unified deck/sideboard view mode
+    updateDeckSideboardCardSize, // NEW: Unified deck/sideboard card size
     resetLayout,
     togglePreviewPane,
     constraints: CONSTRAINTS,

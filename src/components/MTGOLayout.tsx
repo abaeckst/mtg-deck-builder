@@ -50,7 +50,21 @@ const createDeckInstance = (card: ScryfallCard | DeckCard | DeckCardInstance, zo
 };
 
 const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
-  const { layout, updatePanelDimensions, updateDeckAreaHeightByPixels, updateViewMode, constraints } = useLayout();
+  // UNIFIED STATE MANAGEMENT: deck and sideboard share view mode and card size
+    const {
+    layout,
+    updatePanelDimensions,
+    updateDeckAreaHeightByPixels,
+    updatePreviewPane,
+    updateViewMode,
+    updateCardSize,
+    updateDeckSideboardViewMode, // NEW: Unified deck/sideboard view mode
+    updateDeckSideboardCardSize, // NEW: Unified deck/sideboard card size
+    resetLayout,
+    togglePreviewPane,
+    constraints,
+    getCalculatedHeights,
+  } = useLayout();
   const { 
     selectedCards, 
     selectCard, 
@@ -648,10 +662,10 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
             cards={cards}
             sortState={deckSort}
             onSortChange={(criteria, direction) => updateSort('deck', criteria, direction)}
-            viewMode={layout.viewModes.deck}
-            onViewModeChange={(mode) => updateViewMode('deck', mode)}
-            cardSize={cardSizes.deck}
-            onCardSizeChange={updateDeckSize}
+            viewMode={layout.viewModes.deckSideboard}
+            onViewModeChange={updateDeckSideboardViewMode}
+            cardSize={layout.cardSizes.deckSideboard}
+            onCardSizeChange={updateDeckSideboardCardSize}
             onCardClick={handleCardClick}
             onInstanceClick={handleInstanceClick}
             onCardDoubleClick={handleAddToDeck}
@@ -680,10 +694,9 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
             sideboardWidth={layout.panels.sideboardWidth}
             sortState={sideboardSort}
             onSortChange={(criteria, direction) => updateSort('sideboard', criteria, direction)}
-            viewMode={layout.viewModes.sideboard}
-            onViewModeChange={(mode) => updateViewMode('sideboard', mode)}
-            cardSize={cardSizes.sideboard}
-            onCardSizeChange={updateSideboardSize}
+            cardSize={layout.cardSizes.deckSideboard}
+            viewMode={layout.viewModes.deckSideboard}
+            onViewModeChange={updateDeckSideboardViewMode}            onCardSizeChange={updateSideboardSize}
             onCardClick={handleCardClick}
             onInstanceClick={handleInstanceClick}
             onCardDoubleClick={handleAddToDeck}

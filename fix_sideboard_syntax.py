@@ -1,96 +1,35 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { ScryfallCard, DeckCard, DeckCardInstance, getCardId } from '../types/card';
-import { SortCriteria, SortDirection } from '../hooks/useSorting';
-import { DropZone as DropZoneType, DraggedCard } from '../hooks/useDragAndDrop';
-import DraggableCard from './DraggableCard';
-import DropZoneComponent from './DropZone';
-import ListView from './ListView';
-import PileView from './PileView';
+#!/usr/bin/env python3
+"""
+Fix the JSX syntax error in SideboardArea.tsx caused by the previous script.
+This script will restore the proper JSX structure while fixing the resize handle.
+"""
 
-interface SideboardAreaProps {
-  sideboard: DeckCardInstance[];
-  sideboardWidth: number;
-  
-  // Sorting (internal state, no UI controls)
-  sortState: {
-    criteria: SortCriteria;
-    direction: SortDirection;
-  };
-  onSortChange: (criteria: SortCriteria, direction: SortDirection) => void;
-  
-  // View and sizing - INHERITED FROM UNIFIED STATE (no controls shown)
-  viewMode: 'card' | 'pile' | 'list';
-  onViewModeChange: (mode: 'card' | 'pile' | 'list') => void;
-  cardSize: number;
-  onCardSizeChange: (size: number) => void;
-  
-  // Card interactions
-  onCardClick: (card: ScryfallCard | DeckCard | DeckCardInstance, event?: React.MouseEvent) => void;
-  onInstanceClick: (instanceId: string, instance: DeckCardInstance, event: React.MouseEvent) => void;
-  onCardDoubleClick: (card: ScryfallCard | DeckCard | DeckCardInstance) => void;
-  onEnhancedDoubleClick: (card: any, zone: DropZoneType, event: React.MouseEvent) => void;
-  onCardRightClick: (card: any, zone: DropZoneType, event: React.MouseEvent) => void;
-  onDragStart: (cards: DraggedCard[], zone: DropZoneType, event: React.MouseEvent) => void;
-  
-  // Drag and drop
-  onDragEnter: (zone: DropZoneType, canDrop: boolean) => void;
-  onDragLeave: () => void;
-  canDropInZone: (zone: DropZoneType, cards: DraggedCard[]) => boolean;
-  dragState: {
-    isDragging: boolean;
-    draggedCards: DraggedCard[];
-  };
-  
-  // Selection
-  isSelected: (cardId: string) => boolean;
-  getSelectedCardObjects: () => any[];
-  clearSelection: () => void;
-  
-  // Sideboard management
-  onClearSideboard: () => void;
-  getSideboardQuantity: (cardId: string) => number;
-  onQuantityChange: (cardId: string, newQuantity: number) => void;
-  
-  // Resize
-  onSideboardResize: (event: React.MouseEvent) => void;
-  
-  // Utility
-  sortCards: (cards: (ScryfallCard | DeckCard | DeckCardInstance)[], criteria: SortCriteria, direction: 'asc' | 'desc') => (ScryfallCard | DeckCard | DeckCardInstance)[];
-}
-
-const SideboardArea: React.FC<SideboardAreaProps> = ({
-  sideboard,
-  sideboardWidth,
-  sortState,
-  onSortChange,
-  viewMode, // Inherited from unified state
-  onViewModeChange,
-  cardSize, // Inherited from unified state
-  onCardSizeChange,
-  onCardClick,
-  onInstanceClick,
-  onCardDoubleClick,
-  onEnhancedDoubleClick,
-  onCardRightClick,
-  onDragStart,
-  onDragEnter,
-  onDragLeave,
-  canDropInZone,
-  dragState,
-  isSelected,
-  getSelectedCardObjects,
-  clearSelection,
-  onClearSideboard,
-  getSideboardQuantity,
-  onQuantityChange,
-  onSideboardResize,
-  sortCards
-}) => {
-  // Get sorted cards (same sorting logic as deck area, but no UI controls)
-  const sortedSideboard = viewMode === 'pile' ? sideboard : sortCards(sideboard as any, sortState.criteria, sortState.direction) as DeckCardInstance[];
-
-  return (
-    <DropZoneComponent
+def fix_sideboard_syntax():
+    """Fix the broken JSX structure in SideboardArea.tsx"""
+    
+    try:
+        with open('src/components/SideboardArea.tsx', 'r', encoding='utf-8') as f:
+            content = f.read()
+        
+        print("🔧 Fixing SideboardArea.tsx JSX syntax error...")
+        
+        # Find the broken section and replace with correct structure
+        # The issue is around line 93-110 where the header div structure was corrupted
+        
+        # Look for the problematic section and replace it entirely
+        broken_section_start = content.find('<DropZoneComponent')
+        broken_section_end = content.find('</DropZoneComponent>') + len('</DropZoneComponent>')
+        
+        if broken_section_start == -1 or broken_section_end == -1:
+            print("❌ Could not find DropZoneComponent section")
+            return False
+        
+        # Extract the content before and after the broken section
+        before = content[:broken_section_start]
+        after = content[broken_section_end:]
+        
+        # Create the corrected DropZoneComponent section
+        fixed_section = '''<DropZoneComponent
       zone="sideboard"
       onDragEnter={onDragEnter}
       onDragLeave={onDragLeave}
@@ -140,7 +79,7 @@ const SideboardArea: React.FC<SideboardAreaProps> = ({
         {/* No controls - view mode and size are inherited from unified state */}
       </div>
       
-      <div className="sideboard-content">
+      <div className="sideboard-content" style={{ paddingLeft: '12px' }}>
         {/* View mode is inherited from unified state - uses same rendering logic */}
         {viewMode === 'pile' ? (
           <PileView
@@ -260,8 +199,42 @@ const SideboardArea: React.FC<SideboardAreaProps> = ({
           </div>
         )}
       </div>
-    </DropZoneComponent>
-  );
-};
+    </DropZoneComponent>'''
+        
+        # Reconstruct the file
+        new_content = before + fixed_section + after
+        
+        with open('src/components/SideboardArea.tsx', 'w', encoding='utf-8') as f:
+            f.write(new_content)
+            
+        print("✅ SideboardArea.tsx JSX syntax fixed")
+        print("✅ Resize handle cleaned up (no inline styles)")
+        print("✅ Sideboard content padding added to prevent overlap")
+        return True
+        
+    except Exception as e:
+        print(f"❌ Error fixing SideboardArea.tsx: {e}")
+        return False
 
-export default SideboardArea;
+def main():
+    """Execute the syntax fix"""
+    print("🚀 Fixing SideboardArea.tsx JSX syntax error...")
+    print()
+    
+    if fix_sideboard_syntax():
+        print()
+        print("✅ SYNTAX ERROR FIXED!")
+        print()
+        print("Changes made:")
+        print("1. Restored proper JSX structure for DropZoneComponent")
+        print("2. Fixed resize handle (removed problematic inline styles)")
+        print("3. Added sideboard content padding to prevent resize handle overlap")
+        print()
+        print("The resize handle now uses CSS-only styling with 20px hit zones.")
+        print("The compilation should work now.")
+    else:
+        print()
+        print("❌ Fix failed - please check the error message above")
+
+if __name__ == "__main__":
+    main()

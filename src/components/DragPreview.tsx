@@ -22,11 +22,13 @@ const DragPreview: React.FC<DragPreviewProps> = ({ dragState }) => {
     <div
       style={{
         position: 'fixed',
-        left: dragPreview.x,
-        top: dragPreview.y,
+        // IMPROVED: Slight offset from cursor (not centered)
+        left: dragPreview.x + 10,
+        top: dragPreview.y - 20,
         pointerEvents: 'none',
         zIndex: 10000,
-        transform: 'rotate(-5deg)',
+        transform: 'rotate(-5deg) scale(3)', // IMPROVED: 3x larger size
+        transformOrigin: 'top left', // IMPROVED: Scale from top-left for better positioning
         filter: canDrop ? 'none' : 'grayscale(50%)',
         opacity: canDrop ? 0.9 : 0.5,
         transition: 'filter 0.2s ease, opacity 0.2s ease',
@@ -46,7 +48,7 @@ const DragPreview: React.FC<DragPreviewProps> = ({ dragState }) => {
           >
             <MagicCard
               card={card as any}
-              size="small"
+              size="small" // Keep base size small, use scale transform for 3x
               style={{
                 boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
                 border: `2px solid ${canDrop ? '#10b981' : '#ef4444'}`,
@@ -101,26 +103,7 @@ const DragPreview: React.FC<DragPreviewProps> = ({ dragState }) => {
         )}
       </div>
 
-      {/* Drop zone indicator */}
-      <div
-        style={{
-          position: 'absolute',
-          top: '100%',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          marginTop: '8px',
-          padding: '4px 8px',
-          backgroundColor: canDrop ? '#10b981' : '#ef4444',
-          color: 'white',
-          borderRadius: '4px',
-          fontSize: '12px',
-          fontWeight: 'bold',
-          boxShadow: '0 2px 4px rgba(0,0,0,0.3)',
-          whiteSpace: 'nowrap',
-        }}
-      >
-        {canDrop ? '✓ Can Drop' : '✗ Cannot Drop'}
-      </div>
+      {/* REMOVED: Drop zone indicator under preview to reduce visual clutter */}
     </div>
   );
 };

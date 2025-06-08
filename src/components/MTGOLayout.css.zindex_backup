@@ -1,0 +1,3116 @@
+/* src/components/MTGOLayout.css - SIMPLE FIXED LAYOUT SOLUTION */
+
+/* CSS Custom Properties for Dynamic Resizing */
+:root {
+  --deck-area-height-percent: 30%; /* Percentage of viewport height */
+  --deck-area-height: 300px; /* Calculated pixel value (fallback) */
+  --collection-area-height: 700px; /* Calculated pixel value (fallback) */
+}
+
+/* Main Layout Container */
+.mtgo-layout {
+  display: flex;
+  width: 100vw;
+  height: 100vh;
+  background-color: #1a1a1a;
+  color: #ffffff;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  overflow: hidden;
+}
+
+/* Mobile Warning */
+.mtgo-mobile-warning {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  background-color: #1a1a1a;
+  color: #ffffff;
+  text-align: center;
+  padding: 2rem;
+}
+
+.mtgo-mobile-warning h2 {
+  color: #ef4444;
+  margin-bottom: 1rem;
+}
+
+.mtgo-mobile-warning p {
+  margin-bottom: 1rem;
+  line-height: 1.6;
+}
+
+/* Filter Panel - Left Side */
+.mtgo-filter-panel {
+  position: relative;
+  background-color: #2a2a2a;
+  border-right: 1px solid #404040;
+  display: flex;
+  flex-direction: column;
+  min-width: 200px;
+  max-width: 500px;
+}
+
+/* SIMPLE FIX: Main Content Area - Use CSS Grid */
+.mtgo-main-content {
+  flex: 1;
+  display: grid;
+  grid-template-rows: calc(100vh - var(--deck-area-height)) var(--deck-area-height);
+  height: 100vh;
+  overflow: hidden;
+}
+/* SIMPLE FIX: Collection Area - Fixed to 70% of viewport */
+.mtgo-collection-area {
+  display: flex;
+  flex-direction: column;
+  background-color: #1e1e1e;
+  border-bottom: 1px solid #404040;
+  position: relative;
+  overflow: hidden;
+  /* REMOVED: All complex height calculations */
+}
+
+/* SIMPLE FIX: Collection Grid - Absolutely constrained */
+.collection-grid {
+  padding: 12px;
+  overflow-y: auto;
+  flex: 1; /* Take remaining space after header */
+  display: grid;
+  /* Grid columns and gap set dynamically by JavaScript */
+  align-content: start;
+  transition: gap 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* SIMPLE FIX: Bottom Area - Fixed to 30% of viewport */
+.mtgo-bottom-area {
+  display: flex;
+  position: relative;
+  overflow: hidden;
+  /* REMOVED: All complex height calculations */
+}
+
+/* Main Deck Area */
+.mtgo-deck-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background-color: #252525;
+  border-right: 1px solid #404040;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Deck content area */
+.deck-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+  position: relative;
+}
+
+/* Deck grid */
+.deck-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
+  gap: 6px;
+  align-content: start;
+  min-height: 150px;
+  padding-bottom: 40px;
+}
+
+/* Sideboard Panel */
+.mtgo-sideboard-panel {
+  position: relative;
+  background-color: #2a2a2a;
+  display: flex;
+  flex-direction: column;
+  min-width: 200px;
+  max-width: 1000px;
+  overflow: hidden;
+}
+
+/* Sideboard content area */
+.sideboard-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+  position: relative;
+}
+
+/* Sideboard grid */
+.sideboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
+  gap: 6px;
+  align-content: start;
+  min-height: 150px;
+  padding-bottom: 40px;
+}
+
+/* Panel Headers - Consistent across all panels */
+.panel-header {
+  height: 40px;
+  background-color: #333333;
+  border-bottom: 1px solid #555555;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  flex-shrink: 0;
+}
+
+.panel-header h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+/* View Controls */
+.view-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.view-controls span {
+  color: #cccccc;
+}
+
+.view-controls button {
+  background-color: #404040;
+  color: #ffffff;
+  border: 1px solid #555555;
+  padding: 4px 8px;
+  border-radius: 3px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.view-controls button:hover {
+  background-color: #4a4a4a;
+}
+
+.view-controls button.active {
+  background-color: #3b82f6;
+  border-color: #2563eb;
+}
+/* PHASE 3B-1: Size slider styles - Professional larger sliders */
+.size-slider {
+  width: 180px;  /* Triple the original size for better precision */
+  height: 20px;
+  margin: 0 12px 0 6px;
+  background: linear-gradient(to right, #404040, #666666);
+  border-radius: 10px;
+  outline: none;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+  transition: all 0.2s ease;
+}
+
+.size-slider:hover {
+  background: linear-gradient(to right, #4a4a4a, #707070);
+}
+
+.size-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  background: #3b82f6;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid #ffffff;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+  transition: all 0.2s ease;
+}
+
+.size-slider::-webkit-slider-thumb:hover {
+  background: #2563eb;
+  transform: scale(1.15);
+  box-shadow: 0 3px 6px rgba(0,0,0,0.5);
+}
+
+.size-slider::-webkit-slider-thumb:active {
+  background: #1d4ed8;
+  transform: scale(1.1);
+}
+
+.size-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  background: #3b82f6;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+  transition: all 0.2s ease;
+}
+
+.size-slider::-moz-range-thumb:hover {
+  background: #2563eb;
+  transform: scale(1.15);
+  box-shadow: 0 3px 6px rgba(0,0,0,0.5);
+}
+
+.size-slider::-moz-range-thumb:active {
+  background: #1d4ed8;
+  transform: scale(1.1);
+}
+
+/* Consistent sizing across all areas */
+.deck-controls .size-slider,
+.sideboard-controls .size-slider {
+  width: 180px;  /* Same size as collection slider for consistency */
+  margin: 0 12px 0 6px;
+}
+
+/* Responsive grid styles with proportional spacing */
+.collection-grid-container {
+  overflow-y: auto;
+  flex: 1;
+}
+
+.collection-grid {
+  display: grid;
+  align-content: start;
+  /* Grid columns and gap will be set by JavaScript for consistency */
+}
+
+.deck-grid {
+  display: grid;
+  /* Grid columns and gap will be set dynamically by individual card grids */
+  align-content: start;
+  min-height: 150px;
+  padding-bottom: 40px;
+  transition: gap 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sideboard-grid {
+  display: grid;
+  /* Grid columns and gap will be set dynamically by individual card grids */
+  align-content: start;
+  min-height: 150px;
+  padding-bottom: 40px;
+  transition: gap 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Deck Controls */
+.deck-controls {
+  display: flex;
+  gap: 6px;
+}
+
+.deck-controls button {
+  background-color: #404040;
+  color: #ffffff;
+  border: 1px solid #555555;
+  padding: 4px 12px;
+  border-radius: 3px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.deck-controls button:hover {
+  background-color: #4a4a4a;
+}
+
+/* Sideboard Controls */
+.sideboard-controls {
+  display: flex;
+  gap: 6px;
+}
+
+.sideboard-controls button {
+  background-color: #404040;
+  color: #ffffff;
+  border: 1px solid #555555;
+  padding: 4px 8px;
+  border-radius: 3px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.sideboard-controls button:hover {
+  background-color: #4a4a4a;
+}
+
+/* Filter Content */
+.filter-content {
+  flex: 1;
+  padding: 12px;
+  overflow-y: auto;
+}
+
+.filter-group {
+  margin-bottom: 16px;
+}
+
+.filter-group label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: #cccccc;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Search Input */
+.search-input {
+  width: 100%;
+  background-color: #1a1a1a;
+  border: 1px solid #404040;
+  color: #ffffff;
+  padding: 8px 10px;
+  border-radius: 4px;
+  font-size: 13px;
+  transition: border-color 0.2s ease;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 1px #3b82f6;
+}
+
+.search-input::placeholder {
+  color: #888888;
+}
+
+/* Format Select */
+.format-select {
+  width: 100%;
+  background-color: #1a1a1a;
+  border: 1px solid #404040;
+  color: #ffffff;
+  padding: 8px 10px;
+  border-radius: 4px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color 0.2s ease;
+}
+
+.format-select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 1px #3b82f6;
+}
+
+.format-select option {
+  background-color: #1a1a1a;
+  color: #ffffff;
+}
+
+/* Color Filter Grid */
+.color-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 6px;
+}
+
+.color-button {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid #404040;
+  color: #ffffff;
+  font-weight: bold;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.color-button:hover {
+  border-color: #ffffff;
+  transform: scale(1.1);
+}
+
+.color-button.selected {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px #3b82f6;
+}
+
+/* Mana Color Specific Styling */
+.color-button.color-w { background-color: #fffbd5; color: #000000; }
+.color-button.color-u { background-color: #0e68ab; }
+.color-button.color-b { background-color: #150b00; }
+.color-button.color-r { background-color: #d3202a; }
+.color-button.color-g { background-color: #00733e; }
+.color-button.color-c { background-color: #ccc2c0; color: #000000; }
+
+/* Quick Actions */
+.quick-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.quick-actions button {
+  background-color: #404040;
+  color: #ffffff;
+  border: 1px solid #555555;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.quick-actions button:hover {
+  background-color: #4a4a4a;
+}
+
+.collection-card {
+  position: relative;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.collection-card:hover {
+  transform: translateY(-2px);
+}
+
+.collection-card.selected {
+  transform: translateY(-2px) scale(1.02);
+}
+
+.deck-card,
+.sideboard-card {
+  position: relative;
+}
+
+/* Enhanced empty state messages */
+.empty-deck-message,
+.empty-sideboard-message {
+  grid-column: 1 / -1;
+  text-align: center;
+  color: #888888;
+  font-style: italic;
+  padding: 40px 20px;
+  border: 2px dashed #404040;
+  border-radius: 8px;
+  margin: 12px;
+  min-height: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.loading-message,
+.error-message {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 20px;
+  border-radius: 8px;
+  margin: 12px;
+}
+
+.loading-message {
+  color: #3b82f6;
+  background-color: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.error-message {
+  color: #ef4444;
+  background-color: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+/* PHASE 3C: Enhanced Filter Panel Styles */
+
+/* Filter Panel Collapse/Expand */
+.mtgo-filter-panel.collapsed {
+  min-width: 40px;
+  max-width: 40px;
+}
+
+.mtgo-filter-panel.collapsed .panel-header h3 {
+  display: none;
+}
+
+.filter-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.clear-filters-btn {
+  background-color: #ef4444;
+  color: #ffffff;
+  border: 1px solid #dc2626;
+  padding: 4px 8px;
+  border-radius: 3px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.clear-filters-btn:hover {
+  background-color: #dc2626;
+  transform: scale(1.05);
+}
+
+.collapse-toggle-btn {
+  background-color: #3b82f6;
+  color: #ffffff;
+  border: 1px solid #2563eb;
+  padding: 4px 8px;
+  border-radius: 3px;
+  font-size: 12px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 24px;
+}
+
+.collapse-toggle-btn:hover {
+  background-color: #2563eb;
+  transform: scale(1.1);
+}
+
+/* Color Identity Controls */
+.color-identity-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.color-mode-select {
+  width: 100%;
+  background-color: #1a1a1a;
+  border: 1px solid #404040;
+  color: #ffffff;
+  padding: 6px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.color-mode-select:focus {
+  outline: none;
+  border-color: #3b82f6;
+}
+
+/* Range Filter Styles */
+.range-filter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.range-input {
+  width: 60px;
+  background-color: #1a1a1a;
+  border: 1px solid #404040;
+  color: #ffffff;
+  padding: 6px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  text-align: center;
+}
+
+.range-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 1px #3b82f6;
+}
+
+.range-filter span {
+  color: #cccccc;
+  font-size: 11px;
+}
+
+/* Multi-Select Grid for Card Types */
+.multi-select-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+}
+
+.type-button {
+  background-color: #404040;
+  color: #ffffff;
+  border: 1px solid #555555;
+  padding: 6px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: center;
+}
+
+.type-button:hover {
+  background-color: #4a4a4a;
+  transform: scale(1.02);
+}
+
+.type-button.selected {
+  background-color: #3b82f6;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 1px #2563eb;
+}
+
+/* Rarity Filter Grid */
+.rarity-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+
+.rarity-button {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  border: 2px solid #404040;
+  color: #ffffff;
+  font-weight: bold;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rarity-button:hover {
+  border-color: #ffffff;
+  transform: scale(1.1);
+}
+
+.rarity-button.selected {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px #3b82f6;
+}
+
+/* Rarity-specific colors */
+.rarity-button.rarity-common { background-color: #6b7280; }
+.rarity-button.rarity-uncommon { background-color: #c0c0c0; color: #000000; }
+.rarity-button.rarity-rare { background-color: #fbbf24; color: #000000; }
+.rarity-button.rarity-mythic { background-color: #f59e0b; color: #000000; }
+
+/* Creature Stats Filter */
+.stats-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.stat-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.stat-row span {
+  color: #cccccc;
+  font-size: 11px;
+  min-width: 65px;
+}
+
+.stat-input {
+  width: 50px;
+  background-color: #1a1a1a;
+  border: 1px solid #404040;
+  color: #ffffff;
+  padding: 4px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  text-align: center;
+}
+
+.stat-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 1px #3b82f6;
+}
+
+/* Enhanced Filter Group Spacing */
+.filter-group {
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #333333;
+}
+
+.filter-group:last-child {
+  border-bottom: none;
+}
+
+.filter-group label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: #ffffff;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Filter Panel Collapse Animation */
+.mtgo-filter-panel {
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+
+.filter-content {
+  opacity: 1;
+  transition: opacity 0.2s ease;
+}
+
+.mtgo-filter-panel.collapsed .filter-content {
+  opacity: 0;
+  display: none;
+}
+
+/* Active Filter Indicators */
+.filter-group.has-active-filters label::after {
+  content: " •";
+  color: #3b82f6;
+  font-weight: bold;
+}
+
+/* Responsive Filter Adjustments */
+@media (max-width: 1200px) {
+  .multi-select-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .rarity-filter-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .range-filter {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+  }
+  
+  .range-input {
+    width: 100%;
+  }
+}
+
+/* Enhanced Scrollbar for Filter Content */
+.filter-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.filter-content::-webkit-scrollbar-track {
+  background-color: #1a1a1a;
+  border-radius: 3px;
+}
+
+.filter-content::-webkit-scrollbar-thumb {
+  background-color: #404040;
+  border-radius: 3px;
+}
+
+.filter-content::-webkit-scrollbar-thumb:hover {
+  background-color: #555555;
+}
+
+/* Enhanced Resize Handles - Larger hit zones */
+.resize-handle {
+  position: absolute;
+  background-color: transparent;
+  transition: background-color 0.2s ease;
+  z-index: 1001;
+}
+
+.resize-handle:hover {
+  background-color: rgba(59, 130, 246, 0.2);
+}
+
+.resize-handle:active {
+  background-color: rgba(59, 130, 246, 0.4);
+}
+
+.resize-handle-right {
+  top: 0;
+  right: -15px;
+  width: 30px;
+  height: 100%;
+  cursor: ew-resize;
+}
+
+.resize-handle-left {
+  top: 0;
+  left: -15px;
+  width: 30px;
+  height: 100%;
+  cursor: ew-resize;
+}
+
+.resize-handle-bottom {
+  bottom: -15px;
+  left: 0;
+  right: 0;
+  height: 30px;
+  cursor: ns-resize;
+}
+
+.resize-handle-vertical {
+  top: -15px;
+  left: 0;
+  right: 0;
+  height: 30px;
+  cursor: ns-resize;
+}
+
+/* No Results State Styling */
+.no-results-message {
+  grid-column: 1 / -1;
+  text-align: center;
+  color: #cccccc;
+  padding: 60px 40px;
+  background-color: rgba(255, 255, 255, 0.02);
+  border: 2px dashed #404040;
+  border-radius: 12px;
+  margin: 20px;
+  max-width: 500px;
+  justify-self: center;
+}
+
+.no-results-icon {
+  font-size: 48px;
+  margin-bottom: 20px;
+  opacity: 0.7;
+}
+
+.no-results-message h3 {
+  color: #ffffff;
+  font-size: 24px;
+  margin: 0 0 12px 0;
+  font-weight: 600;
+}
+
+.no-results-message p {
+  color: #cccccc;
+  font-size: 16px;
+  margin: 0 0 20px 0;
+  line-height: 1.5;
+}
+
+.no-results-suggestions {
+  background-color: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 8px;
+  padding: 16px;
+  text-align: left;
+  margin-top: 20px;
+}
+
+.no-results-suggestions p {
+  margin: 0 0 8px 0;
+  font-weight: 600;
+  color: #3b82f6;
+}
+
+.no-results-suggestions ul {
+  margin: 0;
+  padding-left: 20px;
+  color: #cccccc;
+}
+
+.no-results-suggestions li {
+  margin-bottom: 4px;
+  font-size: 14px;
+}
+
+/* Validation Error Styling */
+.validation-error {
+  background-color: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.5);
+  color: #ef4444;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.validation-error::before {
+  content: "⚠️";
+  font-size: 14px;
+}
+
+/* Enhanced Loading and Error Messages */
+.loading-message {
+  background-color: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  color: #3b82f6;
+  padding: 20px;
+  border-radius: 8px;
+  margin: 20px;
+  text-align: center;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.loading-message::before {
+  content: "⏳";
+  font-size: 20px;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.error-message {
+  background-color: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #ef4444;
+  padding: 20px;
+  border-radius: 8px;
+  margin: 20px;
+  text-align: center;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.error-message::before {
+  content: "❌";
+  font-size: 20px;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* Scrollbar Styling */
+.filter-content::-webkit-scrollbar,
+.collection-grid::-webkit-scrollbar,
+.deck-content::-webkit-scrollbar,
+.sideboard-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.filter-content::-webkit-scrollbar-track,
+.collection-grid::-webkit-scrollbar-track,
+.deck-content::-webkit-scrollbar-track,
+.sideboard-content::-webkit-scrollbar-track {
+  background-color: #1a1a1a;
+}
+
+.filter-content::-webkit-scrollbar-thumb,
+.collection-grid::-webkit-scrollbar-thumb,
+.deck-content::-webkit-scrollbar-thumb,
+.sideboard-content::-webkit-scrollbar-thumb {
+  background-color: #404040;
+  border-radius: 4px;
+}
+
+.filter-content::-webkit-scrollbar-thumb:hover,
+.collection-grid::-webkit-scrollbar-thumb:hover,
+.deck-content::-webkit-scrollbar-thumb:hover,
+.sideboard-content::-webkit-scrollbar-thumb:hover {
+  background-color: #555555;
+}
+
+/* DRAG AND DROP STYLES */
+
+/* Drag and Drop Animations */
+@keyframes dropIndicatorPulse {
+  0%, 100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.05);
+    opacity: 0.9;
+  }
+}
+
+@keyframes dragPreviewFloat {
+  0%, 100% {
+    transform: translateY(0px) rotate(-5deg);
+  }
+  50% {
+    transform: translateY(-2px) rotate(-5deg);
+  }
+}
+
+/* Draggable Card Styles */
+.draggable-card {
+  position: relative;
+  display: inline-block;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: grab;
+}
+
+.draggable-card:hover {
+  transform: translateY(-2px);
+}
+
+.draggable-card:active {
+  cursor: grabbing;
+}
+
+.draggable-card.disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.draggable-card.dragging {
+  opacity: 0.3;
+  transform: scale(0.95);
+}
+
+.draggable-card.drag-preview {
+  animation: dragPreviewFloat 2s ease-in-out infinite;
+}
+
+/* Drop Zone Styles */
+.drop-zone {
+  position: relative;
+  transition: all 0.15s ease;
+  overflow: hidden;
+  min-height: fit-content;
+}
+
+.drop-zone.drag-over {
+  background-color: rgba(16, 185, 129, 0.15);
+  border: 2px dashed #10b981;
+  box-shadow: inset 0 0 25px rgba(16, 185, 129, 0.25);
+}
+
+.drop-zone.drag-over.cannot-drop {
+  background-color: rgba(239, 68, 68, 0.15);
+  border: 2px dashed #ef4444;
+  box-shadow: inset 0 0 25px rgba(239, 68, 68, 0.25);
+}
+
+.drop-zone.drag-active {
+  border: 1px dashed rgba(156, 163, 175, 0.4);
+  background-color: rgba(156, 163, 175, 0.02);
+}
+
+/* Collection Grid Drag States */
+.collection-grid .draggable-card.selected {
+  box-shadow: 0 0 0 2px #3b82f6, 0 4px 8px rgba(0,0,0,0.3);
+}
+
+.collection-grid .draggable-card.being-dragged {
+  opacity: 0.3;
+  transform: scale(0.9);
+}
+
+/* Deck Area Drag States */
+.deck-grid .draggable-card,
+.sideboard-grid .draggable-card {
+  margin: 2px;
+}
+
+.deck-grid .draggable-card.being-dragged,
+.sideboard-grid .draggable-card.being-dragged {
+  opacity: 0.3;
+  transform: scale(0.9);
+}
+
+/* Multi-selection Visual Feedback */
+.draggable-card .multi-select-indicator {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background-color: #3b82f6;
+  color: white;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: bold;
+  border: 2px solid white;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+  z-index: 10;
+}
+
+/* Drag Preview Styling */
+.drag-preview {
+  position: fixed;
+  pointer-events: none;
+  z-index: 10000;
+  animation: dragPreviewFloat 2s ease-in-out infinite;
+}
+
+.drag-preview .card-stack {
+  position: relative;
+}
+
+.drag-preview .card-count {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background-color: #10b981;
+  color: white;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: bold;
+  border: 2px solid white;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+.drag-preview .card-count.cannot-drop {
+  background-color: #ef4444;
+}
+
+.drag-preview .drop-indicator {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 8px;
+  padding: 4px 8px;
+  background-color: #10b981;
+  color: white;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: bold;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+  white-space: nowrap;
+}
+
+.drag-preview .drop-indicator.cannot-drop {
+  background-color: #ef4444;
+}
+
+/* Drop Zone Overlay */
+.drop-zone-overlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: #10b981;
+  color: white;
+  padding: 10px 18px;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: bold;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.4);
+  z-index: 1000;
+  pointerEvents: none;
+  animation: dropIndicatorPulse 0.8s ease-in-out infinite;
+  border: 2px solid rgba(255,255,255,0.3);
+}
+
+.drop-zone-overlay.cannot-drop {
+  background-color: #ef4444;
+}
+
+/* Smooth Transitions */
+.mtgo-collection-area,
+.mtgo-deck-area,
+.mtgo-sideboard-panel {
+  transition: border 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Responsive Drag Feedback */
+@media (max-width: 768px) {
+  .drag-preview {
+    transform: scale(0.8) rotate(-5deg);
+  }
+  
+  .drop-zone-overlay {
+    font-size: 12px;
+    padding: 6px 12px;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .drop-zone.drag-over {
+    border-width: 3px;
+  }
+  
+  .drag-preview .card-count,
+  .drop-zone-overlay {
+    border: 2px solid currentColor;
+  }
+}
+
+/* SMOOTH SLIDER SCALING - Eliminates card jumping during size changes */
+.collection-grid > *,
+.deck-grid > *,
+.sideboard-grid > * {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Enhanced grid container smoothness */
+.collection-grid,
+.deck-grid,
+.sideboard-grid {
+  transition: gap 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+              grid-template-columns 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Smooth slider handle transitions */
+.size-slider {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.size-slider::-webkit-slider-thumb {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.size-slider::-moz-range-thumb {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .draggable-card,
+  .drop-zone,
+  .drag-preview {
+    transition: none;
+    animation: none;
+  }
+  
+  @keyframes dropIndicatorPulse {
+    0%, 100% {
+      transform: translate(-50%, -50%) scale(1);
+      opacity: 1;
+    }
+  }
+  
+  @keyframes dragPreviewFloat {
+    0%, 100% {
+      transform: translateY(0px) rotate(-5deg);
+    }
+  }
+}
+
+/* Responsive Design for Smaller Screens */
+@media (max-width: 1200px) {
+  .mtgo-filter-panel {
+    min-width: 180px;
+  }
+  
+  .mtgo-sideboard-panel {
+    min-width: 180px;
+  }
+  
+  /* Collection grid sizing controlled by JavaScript */
+}
+
+@media (max-width: 900px) {
+  .panel-header h3 {
+    font-size: 13px;
+  }
+  
+  .view-controls,
+  .deck-controls {
+    display: none;
+  }
+  
+  /* Collection grid sizing controlled by JavaScript */
+}
+
+/* Pile Columns Container - Area-level scrolling only */
+
+/* Individual Pile Column - No internal scrolling */
+
+/* Simple Column Number - No header box */
+
+/* Column Content - Natural flow, no scrolling */
+
+/* Card stacking improvements */
+
+/* Empty column placeholder */
+.empty-column-placeholder {
+  text-align: center;
+  color: #666666;
+  font-size: 10px;
+  font-style: italic;
+  padding: 15px 8px;
+  border: 1px dashed #555555;
+  border-radius: 4px;
+  margin: 4px;
+}
+
+/* Area-level scrollbars only */
+
+/* Responsive adjustments */
+@media (max-width: 1200px) {
+
+}
+
+@media (max-width: 900px) {
+  
+}/* UPDATED: Pile Columns Container - Tighter gaps, area-level scrolling only */
+
+/* UPDATED: Individual Pile Column - Remove per-column scrolling */
+
+/* UPDATED: Column Header - Simple number styling */
+
+/* UPDATED: Column Content - No scrolling, better card flow */
+
+/* REMOVED: Per-column scrollbar styles */
+
+/* UPDATED: Card stacking improvements */
+
+/* UPDATED: Empty column placeholder */
+.empty-column-placeholder {
+  text-align: center;
+  color: #666666;
+  font-size: 10px;
+  font-style: italic;
+  padding: 15px 8px;
+  border: 1px dashed #555555;
+  border-radius: 4px;
+  margin: 4px;
+}
+/* Sort Controls */
+
+/* Sort Dropdown Styles */
+
+/* Compact Sort Dropdown for Header Integration */
+
+/* Pile Columns Container */
+
+/* Individual Pile Column - Dynamic sizing based on card scale */
+
+/* Column Header */
+
+/* Column Content */
+
+.empty-column-placeholder {
+  text-align: center;
+  color: #666666;
+  font-size: 11px;
+  font-style: italic;
+  padding: 20px 10px;
+  border: 1px dashed #555555;
+  border-radius: 4px;
+  margin: 8px;
+}
+
+/* Pile Column Scrollbar */
+
+/* Pile Columns Container Scrollbar */
+
+/* Cards in Pile View */
+
+/* Responsive Design for Pile View */
+@media (max-width: 1200px) {
+
+}
+
+/* MTGO-Style Card Stacking */
+
+/* Better stacking appearance */
+
+/* Enhanced pile column for better stacking */
+
+/* Pile sort controls improvements */
+
+@media (max-width: 900px) {
+  
+}
+
+
+/* ===== PILE VIEW STYLES - CLEAN CONSOLIDATED VERSION ===== */
+
+/* Pile View Container */
+.pile-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Pile Columns Container - Area-level scrolling only */
+.pile-columns-container {
+  flex: 1;
+  display: flex !important;
+  overflow-x: auto;
+  overflow-y: auto;
+  padding: 4px;
+  gap: 6px !important; /* CRITICAL: 8px breathing room between columns */
+  align-items: flex-start;
+  max-height: 100%;
+}
+
+/* Individual Pile Column - Clean, no background/border */
+.pile-column {
+  min-width: 120px;
+  background-color: transparent;
+  border: none;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  height: fit-content;
+  position: relative;
+  margin: 0 !important; /* CRITICAL: No margin to not interfere with gap */
+}
+
+.pile-column.empty-column {
+  min-width: 80px;
+  background-color: transparent;
+  border: none;
+  min-height: 100px;
+}
+
+/* Simple Column Number - No styling box */
+.pile-column-number {
+  text-align: center;
+  font-size: 12px;
+  font-weight: bold;
+  color: #ffffff;
+  margin-bottom: 4px;
+  padding: 2px 0;
+}
+
+/* Column Content - Natural flow, no scrolling */
+.pile-column-content {
+  flex: 1;
+  padding: 0px; /* Remove padding to eliminate visual gaps between columns */
+  display: flex;
+  flex-direction: column;
+  align-items: center; /* Center cards horizontally within column */
+  position: relative;
+  /* NO overflow or max-height - natural content flow */
+}
+
+/* Card Stacking */
+.pile-card-stack-item {
+  position: relative;
+  transition: transform 0.15s ease, z-index 0.15s ease;
+}
+
+.pile-card-stack-item:hover {
+  transform: translateY(-8px);
+  z-index: 1000 !important;
+  box-shadow: 0 6px 12px rgba(0,0,0,0.5);
+}
+
+/* Empty Column Placeholder */
+.empty-column-placeholder {
+  text-align: center;
+  color: #666666;
+  font-size: 10px;
+  font-style: italic;
+  padding: 15px 8px;
+  border: 1px dashed #555555;
+  border-radius: 4px;
+  margin: 4px;
+}
+
+/* Area-level Scrollbars Only */
+.pile-columns-container::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.pile-columns-container::-webkit-scrollbar-track {
+  background-color: #1a1a1a;
+  border-radius: 4px;
+}
+
+.pile-columns-container::-webkit-scrollbar-thumb {
+  background-color: #404040;
+  border-radius: 4px;
+}
+
+.pile-columns-container::-webkit-scrollbar-thumb:hover {
+  background-color: #555555;
+}
+
+.pile-columns-container::-webkit-scrollbar-corner {
+  background-color: #1a1a1a;
+}
+
+/* Sort Button and Menu */
+.sort-button-container {
+  position: relative;
+  display: inline-block;
+}
+
+.sort-toggle-btn {
+  background-color: #404040;
+  color: #ffffff;
+  border: 1px solid #555555;
+  padding: 4px 8px;
+  border-radius: 3px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin: 0 4px;
+}
+
+.sort-toggle-btn:hover {
+  background-color: #4a4a4a;
+  transform: scale(1.02);
+}
+
+.sort-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background-color: #333333;
+  border: 1px solid #555555;
+  border-radius: 4px;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+  z-index: 1000;
+  min-width: 120px;
+  overflow: hidden;
+}
+
+.sort-menu button {
+  display: block;
+  width: 100%;
+  background-color: transparent;
+  color: #ffffff;
+  border: none;
+  padding: 8px 12px;
+  font-size: 11px;
+  cursor: pointer;
+  text-align: left;
+  transition: background-color 0.2s ease;
+}
+
+.sort-menu button:hover {
+  background-color: #4a4a4a;
+}
+
+.sort-menu button.active {
+  background-color: #3b82f6;
+  color: #ffffff;
+}
+
+.sort-menu button:not(:last-child) {
+  border-bottom: 1px solid #555555;
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+  .pile-column {
+  min-width: 120px;
+  background-color: transparent;
+  border: none;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  height: fit-content;
+  position: relative;
+  margin: 0 !important; /* CRITICAL: No margin to not interfere with gap */
+}
+  
+  .pile-column-number {
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 900px) {
+  .pile-view {
+    display: none;
+  }
+}
+
+/* ===== END PILE VIEW STYLES ===== */
+
+
+/* PHASE 3D FINAL FIX: Pile Column Gaps - Highest Specificity */
+.mtgo-layout .pile-view .pile-columns-container {
+  gap: 6px !important; /* FORCE 8px gaps between columns */
+}
+
+.mtgo-layout .pile-view .pile-column {
+  margin: 0 !important; /* FORCE no margins to avoid gap conflicts */
+  padding: 0 !important; /* FORCE no padding on column itself */
+}
+
+/* End Phase 3D gap fix */
+
+/* ===== LIST VIEW COMPONENT STYLES ===== */
+
+/* Main list view container */
+.list-view {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.list-view-container {
+  flex: 1;
+  overflow-x: auto;
+  overflow-y: auto;
+}
+
+/* List view table */
+.list-view-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 12px;
+  color: #ffffff;
+}
+
+/* Header styles */
+.list-view-header-row {
+  background-color: #333333;
+  border-bottom: 2px solid #555555;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.list-view-header-cell {
+  padding: 8px 12px;
+  text-align: left;
+  font-weight: 600;
+  color: #ffffff;
+  border-right: 1px solid #555555;
+  user-select: none;
+  position: relative;
+}
+
+.list-view-header-cell.sortable {
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.list-view-header-cell.sortable:hover {
+  background-color: #404040;
+}
+
+.list-view-header-cell.active {
+  background-color: #3b82f6;
+  color: #ffffff;
+}
+
+.header-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.header-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.sort-indicator {
+  margin-left: 4px;
+  font-size: 12px;
+  color: #ffffff;
+}
+
+/* Column resize handle */
+.column-resize-handle:hover {
+  background-color: rgba(59, 130, 246, 0.5) !important;
+}
+
+/* Row styles */
+.list-view-row {
+  transition: background-color 0.2s ease;
+  cursor: pointer;
+  border-bottom: 1px solid #2a2a2a;
+}
+
+.list-view-row.even {
+  background-color: #2a2a2a;
+}
+
+.list-view-row.odd {
+  background-color: #1e1e1e;
+}
+
+.list-view-row:hover {
+  background-color: #3a3a3a !important;
+}
+
+.list-view-row.selected {
+  background-color: rgba(59, 130, 246, 0.3) !important;
+  border-color: #3b82f6;
+}
+
+/* Cell styles */
+.list-view-cell {
+  padding: 6px 12px;
+  border-right: 1px solid #333333;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+}
+
+/* Specific cell content styles */
+.card-name {
+  font-weight: 500;
+  color: #ffffff;
+}
+
+.mana-cost {
+  font-family: 'Courier New', monospace;
+  color: #fbbf24;
+  font-weight: bold;
+}
+
+.type-line {
+  color: #cccccc;
+  font-style: italic;
+}
+
+.power, .toughness {
+  font-weight: bold;
+  color: #ef4444;
+  text-align: center;
+  display: block;
+}
+
+.oracle-text {
+  color: #cccccc;
+  font-size: 11px;
+  line-height: 1.3;
+}
+
+/* Color circles */
+.color-circles {
+  display: flex;
+  gap: 2px;
+  align-items: center;
+}
+
+.color-circle {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: bold;
+  border: 1px solid #555555;
+  flex-shrink: 0;
+}
+
+.color-circle.color-w { background-color: #fffbd5; color: #000000; }
+.color-circle.color-u { background-color: #0e68ab; color: #ffffff; }
+.color-circle.color-b { background-color: #150b00; color: #ffffff; }
+.color-circle.color-r { background-color: #d3202a; color: #ffffff; }
+.color-circle.color-g { background-color: #00733e; color: #ffffff; }
+.color-circle.color-c { background-color: #ccc2c0; color: #000000; }
+
+/* Quantity controls */
+.quantity-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.quantity-display {
+  font-weight: bold;
+  color: #ffffff;
+  min-width: 20px;
+  text-align: center;
+}
+
+.quantity-buttons {
+  display: none;
+  gap: 2px;
+}
+
+.list-view-row:hover .quantity-buttons {
+  display: flex;
+}
+
+.quantity-btn {
+  width: 20px;
+  height: 20px;
+  border: 1px solid #555555;
+  background-color: #404040;
+  color: #ffffff;
+  cursor: pointer;
+  border-radius: 3px;
+  font-size: 12px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.quantity-btn:hover:not(:disabled) {
+  background-color: #4a4a4a;
+  transform: scale(1.1);
+}
+
+.quantity-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.quantity-btn.minus:hover:not(:disabled) {
+  background-color: #ef4444;
+}
+
+.quantity-btn.plus:hover:not(:disabled) {
+  background-color: #10b981;
+}
+
+/* Empty state */
+.list-view-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  color: #888888;
+  font-style: italic;
+  border: 2px dashed #404040;
+  border-radius: 8px;
+  margin: 20px;
+}
+
+.empty-message {
+  font-size: 16px;
+}
+
+/* Scrollbar styling for list view */
+.list-view-container::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.list-view-container::-webkit-scrollbar-track {
+  background-color: #1a1a1a;
+  border-radius: 4px;
+}
+
+.list-view-container::-webkit-scrollbar-thumb {
+  background-color: #404040;
+  border-radius: 4px;
+}
+
+.list-view-container::-webkit-scrollbar-thumb:hover {
+  background-color: #555555;
+}
+
+.list-view-container::-webkit-scrollbar-corner {
+  background-color: #1a1a1a;
+}
+
+/* ===== ADAPTIVE HEADER STYLES ===== */
+
+.adaptive-header {
+  position: relative;
+}
+
+.header-control {
+  display: flex;
+  align-items: center;
+}
+
+.header-control.in-dropdown {
+  width: 100%;
+}
+
+.header-dropdown-toggle:hover {
+  background-color: #4a4a4a !important;
+}
+
+.dropdown-item:last-child {
+  border-bottom: none !important;
+}
+
+/* Header control specific styles */
+.header-control-button button {
+  background-color: #404040;
+  color: #ffffff;
+  border: 1px solid #555555;
+  padding: 4px 8px;
+  border-radius: 3px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.header-control-button button:hover {
+  background-color: #4a4a4a;
+}
+
+.header-control-button button.active {
+  background-color: #3b82f6;
+  border-color: #2563eb;
+}
+
+.header-control-slider input[type="range"] {
+  width: 120px;
+  height: 16px;
+  background: linear-gradient(to right, #404040, #666666);
+  border-radius: 8px;
+  outline: none;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.header-control-slider input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  background: #3b82f6;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid #ffffff;
+}
+
+/* Smooth transitions */
+.adaptive-header * {
+  transition: all 0.2s ease;
+}
+
+/* ===== END LIST VIEW & ADAPTIVE HEADER STYLES ===== */
+
+
+
+/* ===== EXTENDED PANEL RESIZING - CONTENT HIDING ===== */
+
+/* Hide filter panel content when very narrow */
+.mtgo-filter-panel {
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.mtgo-filter-panel[style*="width: 20px"],
+.mtgo-filter-panel[style*="width: 21px"],
+.mtgo-filter-panel[style*="width: 22px"],
+.mtgo-filter-panel[style*="width: 23px"],
+.mtgo-filter-panel[style*="width: 24px"],
+.mtgo-filter-panel[style*="width: 25px"],
+.mtgo-filter-panel[style*="width: 26px"],
+.mtgo-filter-panel[style*="width: 27px"],
+.mtgo-filter-panel[style*="width: 28px"],
+.mtgo-filter-panel[style*="width: 29px"],
+.mtgo-filter-panel[style*="width: 30px"],
+.mtgo-filter-panel[style*="width: 31px"],
+.mtgo-filter-panel[style*="width: 32px"],
+.mtgo-filter-panel[style*="width: 33px"],
+.mtgo-filter-panel[style*="width: 34px"],
+.mtgo-filter-panel[style*="width: 35px"],
+.mtgo-filter-panel[style*="width: 36px"],
+.mtgo-filter-panel[style*="width: 37px"],
+.mtgo-filter-panel[style*="width: 38px"],
+.mtgo-filter-panel[style*="width: 39px"],
+.mtgo-filter-panel[style*="width: 40px"] .panel-header h3,
+.mtgo-filter-panel[style*="width: 40px"] .filter-content {
+  display: none !important;
+}
+
+/* Show only resize handle when filter panel is very narrow */
+.mtgo-filter-panel[style*="width: 20px"],
+.mtgo-filter-panel[style*="width: 21px"],
+.mtgo-filter-panel[style*="width: 22px"],
+.mtgo-filter-panel[style*="width: 23px"],
+.mtgo-filter-panel[style*="width: 24px"],
+.mtgo-filter-panel[style*="width: 25px"],
+.mtgo-filter-panel[style*="width: 26px"],
+.mtgo-filter-panel[style*="width: 27px"],
+.mtgo-filter-panel[style*="width: 28px"],
+.mtgo-filter-panel[style*="width: 29px"],
+.mtgo-filter-panel[style*="width: 30px"],
+.mtgo-filter-panel[style*="width: 31px"],
+.mtgo-filter-panel[style*="width: 32px"],
+.mtgo-filter-panel[style*="width: 33px"],
+.mtgo-filter-panel[style*="width: 34px"],
+.mtgo-filter-panel[style*="width: 35px"],
+.mtgo-filter-panel[style*="width: 36px"],
+.mtgo-filter-panel[style*="width: 37px"],
+.mtgo-filter-panel[style*="width: 38px"],
+.mtgo-filter-panel[style*="width: 39px"],
+.mtgo-filter-panel[style*="width: 40px"] {
+  background-color: #404040;
+  border-right: 2px solid #666666;
+}
+
+/* Hide sideboard content when very narrow */
+.mtgo-sideboard-panel[style*="width: 20px"] .panel-header h3,
+.mtgo-sideboard-panel[style*="width: 21px"] .panel-header h3,
+.mtgo-sideboard-panel[style*="width: 22px"] .panel-header h3,
+.mtgo-sideboard-panel[style*="width: 23px"] .panel-header h3,
+.mtgo-sideboard-panel[style*="width: 24px"] .panel-header h3,
+.mtgo-sideboard-panel[style*="width: 25px"] .panel-header h3,
+.mtgo-sideboard-panel[style*="width: 26px"] .panel-header h3,
+.mtgo-sideboard-panel[style*="width: 27px"] .panel-header h3,
+.mtgo-sideboard-panel[style*="width: 28px"] .panel-header h3,
+.mtgo-sideboard-panel[style*="width: 29px"] .panel-header h3,
+.mtgo-sideboard-panel[style*="width: 30px"] .panel-header h3,
+.mtgo-sideboard-panel[style*="width: 31px"] .panel-header h3,
+.mtgo-sideboard-panel[style*="width: 32px"] .panel-header h3,
+.mtgo-sideboard-panel[style*="width: 33px"] .panel-header h3,
+.mtgo-sideboard-panel[style*="width: 34px"] .panel-header h3,
+.mtgo-sideboard-panel[style*="width: 35px"] .panel-header h3,
+.mtgo-sideboard-panel[style*="width: 36px"] .panel-header h3,
+.mtgo-sideboard-panel[style*="width: 37px"] .panel-header h3,
+.mtgo-sideboard-panel[style*="width: 38px"] .panel-header h3,
+.mtgo-sideboard-panel[style*="width: 39px"] .panel-header h3,
+.mtgo-sideboard-panel[style*="width: 40px"] .panel-header h3,
+.mtgo-sideboard-panel[style*="width: 20px"] .sideboard-controls,
+.mtgo-sideboard-panel[style*="width: 21px"] .sideboard-controls,
+.mtgo-sideboard-panel[style*="width: 22px"] .sideboard-controls,
+.mtgo-sideboard-panel[style*="width: 23px"] .sideboard-controls,
+.mtgo-sideboard-panel[style*="width: 24px"] .sideboard-controls,
+.mtgo-sideboard-panel[style*="width: 25px"] .sideboard-controls,
+.mtgo-sideboard-panel[style*="width: 26px"] .sideboard-controls,
+.mtgo-sideboard-panel[style*="width: 27px"] .sideboard-controls,
+.mtgo-sideboard-panel[style*="width: 28px"] .sideboard-controls,
+.mtgo-sideboard-panel[style*="width: 29px"] .sideboard-controls,
+.mtgo-sideboard-panel[style*="width: 30px"] .sideboard-controls,
+.mtgo-sideboard-panel[style*="width: 31px"] .sideboard-controls,
+.mtgo-sideboard-panel[style*="width: 32px"] .sideboard-controls,
+.mtgo-sideboard-panel[style*="width: 33px"] .sideboard-controls,
+.mtgo-sideboard-panel[style*="width: 34px"] .sideboard-controls,
+.mtgo-sideboard-panel[style*="width: 35px"] .sideboard-controls,
+.mtgo-sideboard-panel[style*="width: 36px"] .sideboard-controls,
+.mtgo-sideboard-panel[style*="width: 37px"] .sideboard-controls,
+.mtgo-sideboard-panel[style*="width: 38px"] .sideboard-controls,
+.mtgo-sideboard-panel[style*="width: 39px"] .sideboard-controls,
+.mtgo-sideboard-panel[style*="width: 40px"] .sideboard-controls,
+.mtgo-sideboard-panel[style*="width: 20px"] .sideboard-content,
+.mtgo-sideboard-panel[style*="width: 21px"] .sideboard-content,
+.mtgo-sideboard-panel[style*="width: 22px"] .sideboard-content,
+.mtgo-sideboard-panel[style*="width: 23px"] .sideboard-content,
+.mtgo-sideboard-panel[style*="width: 24px"] .sideboard-content,
+.mtgo-sideboard-panel[style*="width: 25px"] .sideboard-content,
+.mtgo-sideboard-panel[style*="width: 26px"] .sideboard-content,
+.mtgo-sideboard-panel[style*="width: 27px"] .sideboard-content,
+.mtgo-sideboard-panel[style*="width: 28px"] .sideboard-content,
+.mtgo-sideboard-panel[style*="width: 29px"] .sideboard-content,
+.mtgo-sideboard-panel[style*="width: 30px"] .sideboard-content,
+.mtgo-sideboard-panel[style*="width: 31px"] .sideboard-content,
+.mtgo-sideboard-panel[style*="width: 32px"] .sideboard-content,
+.mtgo-sideboard-panel[style*="width: 33px"] .sideboard-content,
+.mtgo-sideboard-panel[style*="width: 34px"] .sideboard-content,
+.mtgo-sideboard-panel[style*="width: 35px"] .sideboard-content,
+.mtgo-sideboard-panel[style*="width: 36px"] .sideboard-content,
+.mtgo-sideboard-panel[style*="width: 37px"] .sideboard-content,
+.mtgo-sideboard-panel[style*="width: 38px"] .sideboard-content,
+.mtgo-sideboard-panel[style*="width: 39px"] .sideboard-content,
+.mtgo-sideboard-panel[style*="width: 40px"] .sideboard-content {
+  display: none !important;
+}
+
+/* Show only resize handle when sideboard is very narrow */
+.mtgo-sideboard-panel[style*="width: 20px"],
+.mtgo-sideboard-panel[style*="width: 21px"],
+.mtgo-sideboard-panel[style*="width: 22px"],
+.mtgo-sideboard-panel[style*="width: 23px"],
+.mtgo-sideboard-panel[style*="width: 24px"],
+.mtgo-sideboard-panel[style*="width: 25px"],
+.mtgo-sideboard-panel[style*="width: 26px"],
+.mtgo-sideboard-panel[style*="width: 27px"],
+.mtgo-sideboard-panel[style*="width: 28px"],
+.mtgo-sideboard-panel[style*="width: 29px"],
+.mtgo-sideboard-panel[style*="width: 30px"],
+.mtgo-sideboard-panel[style*="width: 31px"],
+.mtgo-sideboard-panel[style*="width: 32px"],
+.mtgo-sideboard-panel[style*="width: 33px"],
+.mtgo-sideboard-panel[style*="width: 34px"],
+.mtgo-sideboard-panel[style*="width: 35px"],
+.mtgo-sideboard-panel[style*="width: 36px"],
+.mtgo-sideboard-panel[style*="width: 37px"],
+.mtgo-sideboard-panel[style*="width: 38px"],
+.mtgo-sideboard-panel[style*="width: 39px"],
+.mtgo-sideboard-panel[style*="width: 40px"] {
+  background-color: #404040;
+  border-left: 2px solid #666666;
+  border-right: none;
+}
+
+/* Hide deck area content when very short (using CSS custom property) */
+html[style*="--deck-area-height-percent: 8%"] .mtgo-bottom-area .panel-header h3,
+html[style*="--deck-area-height-percent: 9%"] .mtgo-bottom-area .panel-header h3,
+html[style*="--deck-area-height-percent: 10%"] .mtgo-bottom-area .panel-header h3,
+html[style*="--deck-area-height-percent: 11%"] .mtgo-bottom-area .panel-header h3,
+html[style*="--deck-area-height-percent: 12%"] .mtgo-bottom-area .panel-header h3,
+html[style*="--deck-area-height-percent: 8%"] .mtgo-bottom-area .deck-controls,
+html[style*="--deck-area-height-percent: 9%"] .mtgo-bottom-area .deck-controls,
+html[style*="--deck-area-height-percent: 10%"] .mtgo-bottom-area .deck-controls,
+html[style*="--deck-area-height-percent: 11%"] .mtgo-bottom-area .deck-controls,
+html[style*="--deck-area-height-percent: 12%"] .mtgo-bottom-area .deck-controls,
+html[style*="--deck-area-height-percent: 8%"] .mtgo-bottom-area .sideboard-controls,
+html[style*="--deck-area-height-percent: 9%"] .mtgo-bottom-area .sideboard-controls,
+html[style*="--deck-area-height-percent: 10%"] .mtgo-bottom-area .sideboard-controls,
+html[style*="--deck-area-height-percent: 11%"] .mtgo-bottom-area .sideboard-controls,
+html[style*="--deck-area-height-percent: 12%"] .mtgo-bottom-area .sideboard-controls,
+html[style*="--deck-area-height-percent: 8%"] .deck-content,
+html[style*="--deck-area-height-percent: 9%"] .deck-content,
+html[style*="--deck-area-height-percent: 10%"] .deck-content,
+html[style*="--deck-area-height-percent: 11%"] .deck-content,
+html[style*="--deck-area-height-percent: 12%"] .deck-content,
+html[style*="--deck-area-height-percent: 8%"] .sideboard-content,
+html[style*="--deck-area-height-percent: 9%"] .sideboard-content,
+html[style*="--deck-area-height-percent: 10%"] .sideboard-content,
+html[style*="--deck-area-height-percent: 11%"] .sideboard-content,
+html[style*="--deck-area-height-percent: 12%"] .sideboard-content {
+  display: none !important;
+}
+
+/* Show thin border when deck area is very short */
+html[style*="--deck-area-height-percent: 8%"] .mtgo-bottom-area,
+html[style*="--deck-area-height-percent: 9%"] .mtgo-bottom-area,
+html[style*="--deck-area-height-percent: 10%"] .mtgo-bottom-area,
+html[style*="--deck-area-height-percent: 11%"] .mtgo-bottom-area,
+html[style*="--deck-area-height-percent: 12%"] .mtgo-bottom-area {
+  background-color: #404040;
+  border-top: 2px solid #666666;
+}
+
+/* Enhanced resize handle visibility when panels are very small */
+.mtgo-filter-panel[style*="width: 20px"] .resize-handle-right,
+.mtgo-filter-panel[style*="width: 21px"] .resize-handle-right,
+.mtgo-filter-panel[style*="width: 22px"] .resize-handle-right,
+.mtgo-filter-panel[style*="width: 23px"] .resize-handle-right,
+.mtgo-filter-panel[style*="width: 24px"] .resize-handle-right,
+.mtgo-filter-panel[style*="width: 25px"] .resize-handle-right,
+.mtgo-filter-panel[style*="width: 26px"] .resize-handle-right,
+.mtgo-filter-panel[style*="width: 27px"] .resize-handle-right,
+.mtgo-filter-panel[style*="width: 28px"] .resize-handle-right,
+.mtgo-filter-panel[style*="width: 29px"] .resize-handle-right,
+.mtgo-filter-panel[style*="width: 30px"] .resize-handle-right,
+.mtgo-filter-panel[style*="width: 31px"] .resize-handle-right,
+.mtgo-filter-panel[style*="width: 32px"] .resize-handle-right,
+.mtgo-filter-panel[style*="width: 33px"] .resize-handle-right,
+.mtgo-filter-panel[style*="width: 34px"] .resize-handle-right,
+.mtgo-filter-panel[style*="width: 35px"] .resize-handle-right,
+.mtgo-filter-panel[style*="width: 36px"] .resize-handle-right,
+.mtgo-filter-panel[style*="width: 37px"] .resize-handle-right,
+.mtgo-filter-panel[style*="width: 38px"] .resize-handle-right,
+.mtgo-filter-panel[style*="width: 39px"] .resize-handle-right,
+.mtgo-filter-panel[style*="width: 40px"] .resize-handle-right,
+.mtgo-sideboard-panel[style*="width: 20px"] .resize-handle-left,
+.mtgo-sideboard-panel[style*="width: 21px"] .resize-handle-left,
+.mtgo-sideboard-panel[style*="width: 22px"] .resize-handle-left,
+.mtgo-sideboard-panel[style*="width: 23px"] .resize-handle-left,
+.mtgo-sideboard-panel[style*="width: 24px"] .resize-handle-left,
+.mtgo-sideboard-panel[style*="width: 25px"] .resize-handle-left,
+.mtgo-sideboard-panel[style*="width: 26px"] .resize-handle-left,
+.mtgo-sideboard-panel[style*="width: 27px"] .resize-handle-left,
+.mtgo-sideboard-panel[style*="width: 28px"] .resize-handle-left,
+.mtgo-sideboard-panel[style*="width: 29px"] .resize-handle-left,
+.mtgo-sideboard-panel[style*="width: 30px"] .resize-handle-left,
+.mtgo-sideboard-panel[style*="width: 31px"] .resize-handle-left,
+.mtgo-sideboard-panel[style*="width: 32px"] .resize-handle-left,
+.mtgo-sideboard-panel[style*="width: 33px"] .resize-handle-left,
+.mtgo-sideboard-panel[style*="width: 34px"] .resize-handle-left,
+.mtgo-sideboard-panel[style*="width: 35px"] .resize-handle-left,
+.mtgo-sideboard-panel[style*="width: 36px"] .resize-handle-left,
+.mtgo-sideboard-panel[style*="width: 37px"] .resize-handle-left,
+.mtgo-sideboard-panel[style*="width: 38px"] .resize-handle-left,
+.mtgo-sideboard-panel[style*="width: 39px"] .resize-handle-left,
+.mtgo-sideboard-panel[style*="width: 40px"] .resize-handle-left {
+  background-color: rgba(59, 130, 246, 0.6) !important;
+}
+
+/* ===== END EXTENDED PANEL RESIZING ===== */
+
+
+/* ===== LOAD MORE RESULTS FUNCTIONALITY ===== */
+
+/* Load More Results Functionality */
+.load-more-section {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+  border-top: 1px solid #3a3a3a;
+  background-color: #1e1e1e;
+  margin-top: 8px;
+}
+
+.load-more-results-btn {
+  background: linear-gradient(135deg, #2d5aa0 0%, #1e3d72 100%);
+  color: white;
+  border: 1px solid #4a7bc8;
+  padding: 12px 24px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.load-more-results-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #3d6ab0 0%, #2e4d82 100%);
+  border-color: #5a8bd8;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+  transform: translateY(-1px);
+}
+
+.load-more-results-btn:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.load-more-results-btn:disabled {
+  background: #444;
+  border-color: #555;
+  color: #888;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.loading-progress {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: 300px;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 8px;
+  background-color: #333;
+  border-radius: 4px;
+  overflow: hidden;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #2d5aa0 0%, #4a7bc8 50%, #2d5aa0 100%);
+  background-size: 200% 100%;
+  animation: progressPulse 2s ease-in-out infinite;
+  transition: width 0.3s ease;
+}
+
+@keyframes progressPulse {
+  0%, 100% { background-position: 200% 0; }
+  50% { background-position: 0% 0; }
+}
+
+.progress-text {
+  color: #ccc;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.pagination-info {
+  color: #888;
+  font-weight: normal;
+  font-size: 0.9em;
+}
+
+/* ===== END LOAD MORE RESULTS STYLES ===== */
+
+/* ===== VIEWMODE DROPDOWN STYLES ===== */
+
+/* ViewModeDropdown container - ensure relative positioning */
+.view-mode-dropdown {
+  position: relative !important;
+  display: inline-block;
+  z-index: 10;
+}
+
+/* ViewModeDropdown button - ensure proper styling */
+.view-dropdown-button {
+  background: #333333 !important;
+  border: 1px solid #555555 !important;
+  color: #ffffff !important;
+  font-size: 12px !important;
+  cursor: pointer !important;
+  border-radius: 2px !important;
+  min-width: 85px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 4px !important;
+  padding: 4px 8px !important;
+  position: relative !important;
+  z-index: 10 !important;
+}
+
+.view-dropdown-button:hover {
+  background: #4a4a4a !important;
+}
+
+/* ViewModeDropdown menu - HIGH Z-INDEX AND ESCAPE CLIPPING */
+.view-dropdown-menu {
+  position: fixed !important; /* Use fixed instead of absolute to escape all containers */
+  background: #2a2a2a !important;
+  border: 1px solid #555555 !important;
+  border-radius: 2px !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.5) !important;
+  z-index: 10001 !important; /* Higher than resize handles (1001) and context menu (1000) */
+  min-width: 100px !important;
+  margin-top: 1px !important;
+  overflow: visible !important;
+}
+
+/* ViewModeDropdown options */
+.view-dropdown-option {
+  display: block !important;
+  width: 100% !important;
+  padding: 6px 10px !important;
+  background: transparent !important;
+  border: none !important;
+  color: #ffffff !important;
+  font-size: 12px !important;
+  text-align: left !important;
+  cursor: pointer !important;
+  white-space: nowrap !important;
+}
+
+.view-dropdown-option:hover {
+  background: #3a3a3a !important;
+}
+
+.view-dropdown-option.active {
+  background: #4a4a4a !important;
+}
+
+/* CRITICAL: Ensure parent containers don't clip dropdown */
+.mtgo-header {
+  overflow: visible !important;
+}
+
+.deck-controls {
+  overflow: visible !important;
+  position: relative !important;
+}
+
+/* Ensure dropdown arrow rotates properly */
+.view-dropdown-button svg {
+  transition: transform 0.15s ease !important;
+}
+
+/* ===== END VIEWMODE DROPDOWN STYLES ===== */
+
+
+/* ===== DROPDOWN Z-INDEX FIX ===== */
+
+/* Ensure ViewModeDropdown appears above sticky table headers */
+.view-dropdown-menu {
+  z-index: 10001 !important; /* Higher than sticky headers (z-index: 10) */
+}
+
+/* Ensure list view headers don't interfere with dropdowns */
+.list-view-header-row {
+  z-index: 9 !important; /* Lower than dropdown menu */
+}
+
+/* Ensure no other elements interfere */
+.mtgo-layout .view-mode-dropdown {
+  z-index: 10002 !important; /* Container even higher */
+}
+
+/* ===== END DROPDOWN Z-INDEX FIX ===== */
+
+
+/* ===== SEGMENT 3: ENHANCED CONTROL GROUPING + RESPONSIVE FEATURES ===== */
+
+/* Enhanced Control Groups with MTGO Visual Hierarchy */
+.control-group-1,
+.control-group-2,
+.control-group-3 {
+  position: relative;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.control-group-1:hover,
+.control-group-2:hover,
+.control-group-3:hover {
+  background: rgba(255,255,255,0.08) !important;
+  border-color: rgba(255,255,255,0.2) !important;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+/* Enhanced MTGO Button Styling with Micro-Animations */
+.mtgo-button-enhanced {
+  position: relative;
+  overflow: hidden;
+}
+
+.mtgo-button-enhanced::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+  transition: left 0.5s ease;
+}
+
+.mtgo-button-enhanced:hover::before {
+  left: 100%;
+}
+
+/* Enhanced Slider Styling with Professional Polish */
+.mtgo-slider-enhanced {
+  -webkit-appearance: none;
+  appearance: none;
+  background: linear-gradient(to right, #555555, #777777);
+  outline: none;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.mtgo-slider-enhanced:hover {
+  background: linear-gradient(to right, #666666, #888888);
+  transform: scaleY(1.2);
+}
+
+.mtgo-slider-enhanced::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  background: radial-gradient(circle, #3b82f6, #2563eb);
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid #ffffff;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+  transition: all 0.2s ease;
+}
+
+.mtgo-slider-enhanced::-webkit-slider-thumb:hover {
+  background: radial-gradient(circle, #2563eb, #1d4ed8);
+  transform: scale(1.15);
+  box-shadow: 0 4px 8px rgba(59,130,246,0.4);
+}
+
+.mtgo-slider-enhanced::-webkit-slider-thumb:active {
+  transform: scale(1.05);
+  box-shadow: 0 2px 6px rgba(59,130,246,0.6);
+}
+
+.mtgo-slider-enhanced::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  background: radial-gradient(circle, #3b82f6, #2563eb);
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+  transition: all 0.2s ease;
+}
+
+.mtgo-slider-enhanced::-moz-range-thumb:hover {
+  background: radial-gradient(circle, #2563eb, #1d4ed8);
+  transform: scale(1.15);
+  box-shadow: 0 4px 8px rgba(59,130,246,0.4);
+}
+
+/* Responsive Overflow Menu Styling */
+.overflow-menu-container {
+  z-index: 10003 !important;
+}
+
+.overflow-menu-toggle {
+  position: relative;
+  overflow: hidden;
+}
+
+.overflow-menu-toggle::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  background: rgba(255,255,255,0.2);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  transition: width 0.3s ease, height 0.3s ease;
+}
+
+.overflow-menu-toggle:hover::after {
+  width: 200%;
+  height: 200%;
+}
+
+.overflow-menu {
+  animation: menuSlideIn 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255,255,255,0.1) !important;
+}
+
+@keyframes menuSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.overflow-menu-item {
+  transition: background-color 0.2s ease, transform 0.1s ease;
+  border-bottom: 1px solid rgba(255,255,255,0.1) !important;
+}
+
+.overflow-menu-item:last-child {
+  border-bottom: none !important;
+}
+
+.overflow-menu-item:hover {
+  background-color: rgba(255,255,255,0.1) !important;
+  transform: translateX(2px);
+}
+
+/* Text Overflow Solutions for Responsive Headers */
+.title-section {
+  position: relative;
+}
+
+.title-section span:first-child {
+  position: relative;
+}
+
+.title-section span:first-child::after {
+  content: attr(title);
+  position: absolute;
+  bottom: 120%;
+  left: 0;
+  background: rgba(0,0,0,0.9);
+  color: #ffffff;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+  z-index: 10005;
+}
+
+.title-section span:first-child:hover::after {
+  opacity: 1;
+}
+
+/* Enhanced Responsive Controls Container */
+.deck-controls-responsive {
+  position: relative;
+  min-height: 32px;
+}
+
+/* Smooth transitions for control hiding/showing */
+.control-group-1,
+.control-group-2,
+.control-group-3 {
+  transition: opacity 0.3s ease, transform 0.3s ease, width 0.3s ease;
+}
+
+.control-group-1[style*="display: none"],
+.control-group-2[style*="display: none"],
+.control-group-3[style*="display: none"] {
+  opacity: 0;
+  transform: scale(0.8);
+  width: 0;
+  overflow: hidden;
+}
+
+/* Enhanced Sort Menu with MTGO Polish */
+.sort-menu {
+  animation: menuSlideIn 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(255,255,255,0.1) !important;
+}
+
+.mtgo-menu-item {
+  position: relative;
+  overflow: hidden;
+}
+
+.mtgo-menu-item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 100%;
+  background: linear-gradient(90deg, #3b82f6, #2563eb);
+  transition: width 0.3s ease;
+  z-index: -1;
+}
+
+.mtgo-menu-item:hover::before {
+  width: 100%;
+}
+
+.mtgo-menu-item.active::before {
+  width: 100%;
+  background: linear-gradient(90deg, #2563eb, #1d4ed8);
+}
+
+/* Professional Focus States */
+.mtgo-button-enhanced:focus,
+.mtgo-slider-enhanced:focus,
+.overflow-menu-toggle:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* Accessibility: High Contrast Mode Support */
+@media (prefers-contrast: high) {
+  .control-group-1,
+  .control-group-2,
+  .control-group-3 {
+    border: 2px solid currentColor !important;
+  }
+  
+  .overflow-menu {
+    border: 2px solid currentColor !important;
+  }
+}
+
+/* Accessibility: Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+  .control-group-1,
+  .control-group-2,
+  .control-group-3,
+  .mtgo-button-enhanced,
+  .mtgo-slider-enhanced,
+  .overflow-menu-toggle,
+  .overflow-menu,
+  .overflow-menu-item {
+    transition: none !important;
+    animation: none !important;
+  }
+  
+  .mtgo-button-enhanced::before,
+  .overflow-menu-toggle::after,
+  .mtgo-menu-item::before {
+    transition: none !important;
+  }
+}
+
+/* Enhanced Header Responsiveness */
+@media (max-width: 1200px) {
+  .mtgo-header {
+    padding: 10px 12px !important;
+    gap: 12px !important;
+  }
+  
+  .control-group-1,
+  .control-group-2,
+  .control-group-3 {
+    gap: 6px !important;
+    padding: 3px 6px !important;
+  }
+  
+  .title-section {
+    max-width: 250px !important;
+  }
+}
+
+@media (max-width: 900px) {
+  .mtgo-header {
+    padding: 8px 10px !important;
+    gap: 8px !important;
+  }
+  
+  .title-section {
+    max-width: 200px !important;
+  }
+  
+  .title-section span:first-child {
+    font-size: 14px !important;
+  }
+  
+  .title-section span:last-child {
+    font-size: 12px !important;
+  }
+}
+
+@media (max-width: 600px) {
+  .mtgo-header {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 8px !important;
+  }
+  
+  .title-section {
+    max-width: none !important;
+    justify-content: center !important;
+  }
+  
+  .deck-controls-responsive {
+    justify-content: center !important;
+  }
+}
+
+/* Enhanced Visual Feedback for Interactive Elements */
+.mtgo-button-enhanced:active {
+  transform: translateY(0) scale(0.98) !important;
+}
+
+.overflow-menu-toggle:active {
+  transform: scale(0.95) !important;
+}
+
+/* Subtle Glow Effects for Premium Feel */
+.control-group-1:hover,
+.control-group-2:hover,
+.control-group-3:hover {
+  box-shadow: 
+    0 2px 8px rgba(0,0,0,0.3),
+    inset 0 1px 0 rgba(255,255,255,0.1) !important;
+}
+
+.mtgo-button-enhanced:hover {
+  box-shadow: 
+    0 2px 4px rgba(0,0,0,0.3),
+    0 0 8px rgba(59,130,246,0.2) !important;
+}
+
+.overflow-menu-toggle:hover {
+  box-shadow: 
+    0 2px 8px rgba(59,130,246,0.3),
+    0 0 12px rgba(59,130,246,0.2) !important;
+}
+
+/* Loading States for Async Operations */
+.mtgo-button-enhanced.loading {
+  position: relative;
+  color: transparent !important;
+}
+
+.mtgo-button-enhanced.loading::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 12px;
+  height: 12px;
+  border: 2px solid #ffffff;
+  border-top: 2px solid transparent;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: translate(-50%, -50%) rotate(0deg); }
+  100% { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+/* Enhanced Z-Index Management */
+.mtgo-header {
+  position: relative;
+  z-index: 100;
+}
+
+.sort-menu,
+.overflow-menu {
+  z-index: 10001 !important;
+}
+
+.overflow-menu-container {
+  z-index: 10002 !important;
+}
+
+/* Professional Typography Refinements */
+.mtgo-header * {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-feature-settings: 'tnum', 'liga';
+  text-rendering: optimizeLegibility;
+}
+
+.control-group-1 span,
+.control-group-2 span,
+.control-group-3 span {
+  text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+  letter-spacing: 0.025em;
+}
+
+/* ===== END SEGMENT 3 ENHANCED STYLES ===== */
+
+/* ===== SLIM HEADERS UPDATE: Consistent compact styling ===== */
+
+/* Ensure all MTGO headers have consistent slim height */
+.mtgo-header {
+  min-height: 40px !important;
+  max-height: 40px !important;
+  padding: 8px 12px !important;
+  gap: 10px !important;
+  font-size: 13px !important;
+}
+
+/* Responsive control groups for slim headers */
+.control-group-1,
+.control-group-2,
+.control-group-3 {
+  padding: 3px 6px !important;
+  gap: 6px !important;
+  border-radius: 3px !important;
+}
+
+/* Compact button styling for slim headers */
+.mtgo-button,
+.mtgo-button-enhanced,
+.sort-toggle-btn,
+.overflow-menu-toggle {
+  padding: 3px 6px !important;
+  font-size: 11px !important;
+  border-radius: 2px !important;
+  min-height: 24px !important;
+}
+
+/* Compact slider styling */
+.mtgo-slider,
+.mtgo-slider-enhanced,
+.size-slider {
+  width: 70px !important;
+  height: 4px !important;
+}
+
+.mtgo-slider-enhanced::-webkit-slider-thumb {
+  width: 14px !important;
+  height: 14px !important;
+}
+
+.mtgo-slider-enhanced::-moz-range-thumb {
+  width: 14px !important;
+  height: 14px !important;
+}
+
+/* ViewModeDropdown compact styling */
+.view-dropdown-button {
+  min-width: 75px !important;
+  padding: 3px 6px !important;
+  font-size: 11px !important;
+  min-height: 24px !important;
+}
+
+/* Sort menu compact styling */
+.sort-menu,
+.overflow-menu {
+  min-width: 110px !important;
+}
+
+.sort-menu button,
+.overflow-menu-item {
+  padding: 4px 8px !important;
+  font-size: 11px !important;
+}
+
+/* Title section responsive for slim headers */
+.title-section {
+  min-width: 140px !important;
+  max-width: 280px !important;
+  gap: 6px !important;
+}
+
+.title-section span:first-child {
+  font-size: 15px !important;
+}
+
+.title-section span:last-child {
+  font-size: 13px !important;
+}
+
+/* Responsive adjustments for slim headers */
+@media (max-width: 1200px) {
+  .mtgo-header {
+    padding: 6px 10px !important;
+    gap: 8px !important;
+  }
+  
+  .control-group-1,
+  .control-group-2,
+  .control-group-3 {
+    padding: 2px 4px !important;
+    gap: 4px !important;
+  }
+  
+  .title-section {
+    max-width: 240px !important;
+  }
+}
+
+@media (max-width: 900px) {
+  .mtgo-header {
+    padding: 6px 8px !important;
+    gap: 6px !important;
+  }
+  
+  .title-section {
+    max-width: 200px !important;
+  }
+  
+  .title-section span:first-child {
+    font-size: 14px !important;
+  }
+  
+  .title-section span:last-child {
+    font-size: 12px !important;
+  }
+}
+
+/* Ensure consistent height across all panels */
+.panel-header {
+  height: 40px !important;
+  min-height: 40px !important;
+  max-height: 40px !important;
+  padding: 0 12px !important;
+}
+
+.panel-header h3 {
+  font-size: 15px !important;
+  margin: 0 !important;
+}
+
+/* Collection header specific adjustments */
+.mtgo-collection-area .mtgo-header h3 {
+  font-size: 15px !important;
+  margin: 0 !important;
+}
+
+/* Overflow menu compact styling */
+.overflow-menu-item {
+  padding: 6px 10px !important;
+}
+
+.overflow-menu-item input[type="range"] {
+  width: 60px !important;
+}
+
+.overflow-menu-item select {
+  font-size: 11px !important;
+  padding: 2px 4px !important;
+}
+
+/* ===== END SLIM HEADERS UPDATE ===== */
+
+/* ===== HEADER ISSUES FIXES ===== */
+
+/* Fix 1: Ensure overflow menu appears above sideboard header */
+.overflow-menu {
+  z-index: 10005 !important; /* Higher than any other header element */
+  position: fixed !important; /* Escape all container clipping */
+}
+
+.overflow-menu-container {
+  z-index: 10004 !important; /* Container also needs high z-index */
+  position: relative !important;
+}
+
+/* Ensure sideboard header doesn't interfere with overflow menu */
+.mtgo-sideboard-panel .mtgo-header {
+  z-index: 100 !important; /* Lower than overflow menu */
+  position: relative !important;
+}
+
+/* Ensure deck header has proper z-index but lower than overflow */
+.mtgo-deck-area .mtgo-header {
+  z-index: 101 !important; /* Slightly higher than sideboard but lower than overflow */
+  position: relative !important;
+}
+
+/* Fix 2: ViewModeDropdown positioning in overflow menu */
+.overflow-menu-item .view-mode-dropdown {
+  position: relative !important;
+  z-index: 10006 !important; /* Even higher for nested dropdown */
+}
+
+.overflow-menu-item .view-dropdown-menu {
+  position: fixed !important; /* Use fixed positioning */
+  z-index: 10007 !important; /* Highest priority */
+  left: auto !important; /* Let JavaScript calculate position */
+  top: auto !important; /* Let JavaScript calculate position */
+}
+
+/* Ensure overflow menu items don't clip nested dropdowns */
+.overflow-menu-item {
+  overflow: visible !important;
+  position: relative !important;
+}
+
+.overflow-menu {
+  overflow: visible !important; /* Allow nested dropdowns to escape */
+}
+
+/* Fix 3: Increase resize handle hit area for deck/sideboard divider */
+.mtgo-sideboard-panel .resize-handle-left {
+  width: 12px !important; /* Increase from 6px to 12px */
+  left: -6px !important; /* Center the wider handle */
+  background: linear-gradient(90deg, transparent 0%, #555555 50%, transparent 100%) !important;
+  opacity: 0.6 !important;
+  transition: all 0.2s ease !important;
+}
+
+.mtgo-sideboard-panel .resize-handle-left:hover {
+  width: 16px !important; /* Even wider on hover */
+  left: -8px !important; /* Re-center for wider hover */
+  background: linear-gradient(90deg, transparent 0%, #3b82f6 50%, transparent 100%) !important;
+  opacity: 1 !important;
+}
+
+/* Additional resize handle improvements */
+.resize-handle {
+  z-index: 1002 !important; /* Above content but below menus */
+}
+
+.resize-handle-left,
+.resize-handle-right {
+  cursor: ew-resize !important;
+  user-select: none !important;
+}
+
+/* Fix 4: Ensure proper stacking context for all headers */
+.mtgo-layout {
+  position: relative !important;
+  z-index: 1 !important;
+}
+
+.mtgo-header {
+  position: relative !important;
+  isolation: isolate !important; /* Create new stacking context */
+}
+
+/* Fix 5: Improve overflow menu positioning calculation */
+.deck-controls-responsive {
+  position: relative !important;
+  z-index: 102 !important; /* Higher than header but lower than menus */
+}
+
+/* Fix 6: ViewModeDropdown specific fixes for overflow context */
+.overflow-menu .view-mode-dropdown .view-dropdown-button {
+  position: relative !important;
+  z-index: 10006 !important;
+}
+
+/* Ensure the dropdown menu appears in the right place when in overflow */
+.overflow-menu .view-dropdown-menu {
+  position: fixed !important;
+  transform: none !important; /* Remove any transforms that might interfere */
+  margin-top: 2px !important; /* Small gap from button */
+}
+
+/* ===== END HEADER ISSUES FIXES ===== */

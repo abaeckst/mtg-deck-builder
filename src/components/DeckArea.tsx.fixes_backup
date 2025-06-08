@@ -93,77 +93,29 @@ const DeckArea: React.FC<DeckAreaProps> = ({
   const [showSortMenu, setShowSortMenu] = useState(false);
   const sortRef = useRef<HTMLDivElement>(null);
 
+  // Responsive overflow menu state
   const [showOverflowMenu, setShowOverflowMenu] = useState(false);
-  
-  // Debug logging for overflow menu state
-  useEffect(() => {
-    console.log('🔧 Overflow menu state changed:', showOverflowMenu);
-  }, [showOverflowMenu]);
   const [hiddenControls, setHiddenControls] = useState<string[]>([]);
   const headerRef = useRef<HTMLDivElement>(null);
   const controlsRef = useRef<HTMLDivElement>(null);
   const overflowRef = useRef<HTMLDivElement>(null);
 
-  // Z-INDEX NUCLEAR OPTION: Hide resize handles when overflow menu is open
-  useEffect(() => {
-    const hideResizeHandles = () => {
-      const resizeHandles = document.querySelectorAll('.resize-handle, .resize-handle-left, .resize-handle-right, .resize-handle-bottom');
-      resizeHandles.forEach(handle => {
-        if (showOverflowMenu) {
-          (handle as HTMLElement).style.display = 'none';
-        } else {
-          (handle as HTMLElement).style.display = '';
-        }
-      });
-    };
-    
-    hideResizeHandles();
-    
-    // Also hide when sort menu is open for good measure
-    if (showSortMenu) {
-      const resizeHandles = document.querySelectorAll('.resize-handle, .resize-handle-left, .resize-handle-right, .resize-handle-bottom');
-      resizeHandles.forEach(handle => {
-        (handle as HTMLElement).style.display = 'none';
-      });
-    }
-    
-    return () => {
-      // Cleanup: restore resize handles when component unmounts
-      const resizeHandles = document.querySelectorAll('.resize-handle, .resize-handle-left, .resize-handle-right, .resize-handle-bottom');
-      resizeHandles.forEach(handle => {
-        (handle as HTMLElement).style.display = '';
-      });
-    };
-  }, [showOverflowMenu, showSortMenu]);
-
-  // Click-outside effect for sort menu and overflow menu - FIXED TIMING
+  // Click-outside effect for sort menu
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      console.log('🔧 Click outside detected');
-      
       if (sortRef.current && !sortRef.current.contains(event.target as Node)) {
-        console.log('🔧 Closing sort menu');
         setShowSortMenu(false);
       }
-      
       if (overflowRef.current && !overflowRef.current.contains(event.target as Node)) {
-        console.log('🔧 Closing overflow menu');  
         setShowOverflowMenu(false);
       }
     };
 
-    if (showSortMenu || showOverflowMenu) {
-      // CRITICAL FIX: Add delay to prevent immediate closure from same click
-      const timeoutId = setTimeout(() => {
-        document.addEventListener('mousedown', handleClickOutside);
-      }, 10); // Small delay to let the menu render
-      
-      return () => {
-        clearTimeout(timeoutId);
-        document.removeEventListener('mousedown', handleClickOutside);
-      };
-    }
-  }, [showSortMenu, showOverflowMenu]);
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   // Responsive layout detection
   useEffect(() => {
@@ -251,7 +203,7 @@ const DeckArea: React.FC<DeckAreaProps> = ({
     
     return (
       <div className="overflow-menu-item" style={{
-        padding: '6px 12px',
+        padding: '8px 12px',
         borderBottom: '1px solid #555555',
         display: 'flex',
         alignItems: 'center',
@@ -280,7 +232,7 @@ const DeckArea: React.FC<DeckAreaProps> = ({
           border: '1px solid #444',
           borderTop: '1px solid #666',
           boxShadow: '0 2px 4px rgba(0,0,0,0.3)',
-          padding: '6px 12px',
+          padding: '8px 12px',
           color: '#ffffff',
           display: 'flex',
           alignItems: 'center',
@@ -288,7 +240,7 @@ const DeckArea: React.FC<DeckAreaProps> = ({
           gap: '12px',
           fontSize: '13px',
           position: 'relative',
-          minHeight: '32px'
+          minHeight: '40px'
         }}
       >
         {/* Title Section with Text Overflow Handling */}
@@ -339,8 +291,10 @@ const DeckArea: React.FC<DeckAreaProps> = ({
               display: 'flex', 
               alignItems: 'center', 
               gap: '6px',
-              paddingRight: '12px',
-              borderRight: '1px solid #555555'
+              padding: '3px 6px',
+              background: 'rgba(255,255,255,0.05)',
+              borderRadius: '4px',
+              border: '1px solid rgba(255,255,255,0.1)'
             }}>
               {isControlVisible('view') && (
                 <>
@@ -380,13 +334,11 @@ const DeckArea: React.FC<DeckAreaProps> = ({
                   {showSortMenu && (
                     <div className="sort-menu" style={{
                       position: 'fixed',
-                      top: `${sortRef.current?.getBoundingClientRect().bottom || 0}px`,
-                      left: `${sortRef.current?.getBoundingClientRect().left || 0}px`,
                       background: '#2a2a2a',
                       border: '1px solid #555555',
                       borderRadius: '2px',
                       boxShadow: '0 2px 8px rgba(0,0,0,0.5)',
-                      zIndex: 500000, // NUCLEAR Z-INDEX - Sort menu
+                      zIndex: 10001,
                       minWidth: '120px'
                     }}>
                       {['mana', 'color', 'rarity'].map((criteria) => (
@@ -427,7 +379,9 @@ const DeckArea: React.FC<DeckAreaProps> = ({
               gap: '6px',
               borderLeft: '1px solid #555555',
               paddingLeft: '12px',
-              paddingRight: '12px'
+              background: 'rgba(255,255,255,0.03)',
+              padding: '4px 8px 4px 12px',
+              borderRadius: '4px'
             }}>
               <span style={{ 
                 color: '#cccccc',
@@ -466,7 +420,10 @@ const DeckArea: React.FC<DeckAreaProps> = ({
               alignItems: 'center', 
               gap: '6px',
               borderLeft: '1px solid #555555',
-              paddingLeft: '12px'
+              paddingLeft: '12px',
+              background: 'rgba(255,255,255,0.03)',
+              padding: '4px 6px 4px 12px',
+              borderRadius: '4px'
             }}>
               {[
                 { onClick: onTextExport, title: "Export deck as text for MTGO", text: "Export" },
@@ -511,7 +468,7 @@ const DeckArea: React.FC<DeckAreaProps> = ({
             <div className="overflow-menu-container" ref={overflowRef} style={{ position: 'relative' }}>
               <button
                 className="overflow-menu-toggle"
-                onClick={(e) => { e.stopPropagation(); console.log("🔧 Overflow menu button clicked"); setShowOverflowMenu(!showOverflowMenu); }}
+                onClick={() => setShowOverflowMenu(!showOverflowMenu)}
                 title="More controls"
                 style={{
                   padding: '3px 6px',
@@ -539,29 +496,25 @@ const DeckArea: React.FC<DeckAreaProps> = ({
               {showOverflowMenu && (
                 <div className="overflow-menu" style={{
                   position: 'fixed',
-                  top: `${overflowRef.current?.getBoundingClientRect().bottom || 0}px`,
-                  left: `${overflowRef.current?.getBoundingClientRect().left || 0}px`,
                   background: '#2a2a2a',
                   border: '1px solid #555555',
                   borderRadius: '4px',
                   boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
-                  zIndex: 1000000, // MAXIMUM NUCLEAR Z-INDEX
+                  zIndex: 10001,
                   minWidth: '200px',
-                  overflow: 'visible'
+                  overflow: 'hidden'
                 }}>
                   {renderOverflowControl('view', (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%' }}>
                       <span style={{ color: '#cccccc', fontSize: '12px' }}>View:</span>
-                      <div style={{ position: 'relative', zIndex: 10008 }}>
-                        <ViewModeDropdown
-                          currentView={viewMode}
-                          onViewChange={(mode) => { 
-                            clearSelection(); 
-                            onViewModeChange(mode); 
-                            setShowOverflowMenu(false);
-                          }}
-                        />
-                      </div>
+                      <ViewModeDropdown
+                        currentView={viewMode}
+                        onViewChange={(mode) => { 
+                          clearSelection(); 
+                          onViewModeChange(mode); 
+                          setShowOverflowMenu(false);
+                        }}
+                      />
                     </div>
                   ))}
 

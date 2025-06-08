@@ -1,4 +1,4 @@
-// src/components/DropZone.tsx - COMPLETE FIX - Properly Positioned Drop Zone Overlays
+// src/components/DropZone.tsx - IMPROVED Drop Zone with Centered Feedback
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { DropZone as DropZoneType, DraggedCard } from '../hooks/useDragAndDrop';
 
@@ -170,7 +170,7 @@ const DropZoneComponent: React.FC<DropZoneProps> = ({
     }
   }, [isDragActive]);
 
-  // Enhanced zone-specific styling with better visual feedback
+  // IMPROVED: Enhanced zone-specific styling - NO RED for origin zone
   const getZoneStyles = (): React.CSSProperties => {
     if (!isDragActive) return {};
 
@@ -180,31 +180,22 @@ const DropZoneComponent: React.FC<DropZoneProps> = ({
       minHeight: '100%', // Ensure full height coverage
     };
 
-    if (isHovered) {
-      if (canDrop) {
-        return {
-          ...baseStyles,
-          backgroundColor: 'rgba(16, 185, 129, 0.15)', // Slightly more visible
-          border: '2px dashed #10b981',
-          boxShadow: 'inset 0 0 25px rgba(16, 185, 129, 0.25)',
-          transform: 'scale(1.002)', // Subtle scale for feedback
-        };
-      } else {
-        return {
-          ...baseStyles,
-          backgroundColor: 'rgba(239, 68, 68, 0.15)',
-          border: '2px dashed #ef4444',
-          boxShadow: 'inset 0 0 25px rgba(239, 68, 68, 0.25)',
-          transform: 'scale(1.002)',
-        };
-      }
+    // IMPROVED: Only show green for valid drop zones, no red styling for origin zones
+    if (isHovered && canDrop) {
+      return {
+        ...baseStyles,
+        backgroundColor: 'rgba(16, 185, 129, 0.15)', // Green for valid drops
+        border: '2px dashed #10b981',
+        boxShadow: 'inset 0 0 25px rgba(16, 185, 129, 0.25)',
+        transform: 'scale(1.002)', // Subtle scale for feedback
+      };
     }
 
-    // Default drag active styling - more subtle
+    // REMOVED: Red styling for invalid zones - just use subtle neutral styling
     return {
       ...baseStyles,
-      border: '1px dashed rgba(156, 163, 175, 0.4)',
-      backgroundColor: 'rgba(156, 163, 175, 0.02)',
+      border: '1px dashed rgba(156, 163, 175, 0.2)', // Very subtle
+      backgroundColor: 'rgba(156, 163, 175, 0.01)', // Nearly transparent
     };
   };
 
@@ -234,45 +225,41 @@ const DropZoneComponent: React.FC<DropZoneProps> = ({
     >
       {children}
       
-      {/* FIXED: Drop indicator overlay - Properly constrained to zone bounds */}
-      {isDragActive && isHovered && (
+      {/* IMPROVED: Drop indicator overlay - CENTERED and only for valid drops */}
+      {isDragActive && isHovered && canDrop && (
         <div
           style={{
-            // CRITICAL: Position within drop zone bounds, not viewport
+            // IMPROVED: Centered both horizontally and vertically
             position: 'absolute',
-            top: '20px', // Fixed position from top of zone
+            top: '50%',
             left: '50%',
-            transform: 'translateX(-50%)', // Only center horizontally
-            backgroundColor: canDrop ? '#10b981' : '#ef4444',
+            transform: 'translate(-50%, -50%)',
+            backgroundColor: '#10b981', // Always green for valid drops
             color: 'white',
-            padding: '8px 16px',
-            borderRadius: '6px',
-            fontSize: '14px',
+            padding: '12px 20px',
+            borderRadius: '8px',
+            fontSize: '16px',
             fontWeight: 'bold',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
             zIndex: 1000,
             pointerEvents: 'none',
-            border: '1px solid rgba(255,255,255,0.2)',
-            // CRITICAL: Fixed size that doesn't expand
-            width: 'auto',
-            maxWidth: '200px',
-            height: 'auto',
-            maxHeight: '40px',
-            // CRITICAL: Prevent overlay from breaking zone bounds
+            border: '2px solid rgba(255,255,255,0.3)',
             whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            // Remove problematic animations
-            animation: 'none',
+            // IMPROVED: Subtle animation
+            animation: 'subtle-pulse 1.5s ease-in-out infinite',
           }}
         >
-          {canDrop ? (
-            <>✓ Drop here</>
-          ) : (
-            <>✗ Cannot drop</>
-          )}
+          ✓ Drop here
         </div>
       )}
+      
+      {/* Add CSS animation for subtle pulse */}
+      <style>{`
+        @keyframes subtle-pulse {
+          0%, 100% { transform: translate(-50%, -50%) scale(1); }
+          50% { transform: translate(-50%, -50%) scale(1.05); }
+        }
+      `}</style>
     </div>
   );
 };

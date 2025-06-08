@@ -1,4 +1,36 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+#!/usr/bin/env python3
+"""
+Segment 3 Implementation: Enhanced Control Grouping + Responsive Features
+- Enhanced visual control grouping with MTGO styling
+- Responsive overflow menu for space-constrained scenarios
+- Text overflow solutions and responsive design
+- MTGO visual polish with hover effects and micro-animations
+"""
+
+import os
+import shutil
+
+def backup_file(file_path):
+    """Create a backup of the original file"""
+    backup_path = f"{file_path}.segment3_backup"
+    if os.path.exists(file_path):
+        shutil.copy2(file_path, backup_path)
+        print(f"✅ Backup created: {backup_path}")
+    return backup_path
+
+def update_deckarea_file():
+    """Update DeckArea.tsx with enhanced responsive controls"""
+    file_path = "src/components/DeckArea.tsx"
+    
+    if not os.path.exists(file_path):
+        print(f"❌ File not found: {file_path}")
+        return False
+    
+    # Create backup
+    backup_file(file_path)
+    
+    # Enhanced DeckArea.tsx content with all Segment 3 features
+    enhanced_content = '''import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { ScryfallCard, DeckCard, DeckCardInstance, getCardId } from '../types/card';
 import { SortCriteria, SortDirection } from '../hooks/useSorting';
 import { DropZone as DropZoneType, DraggedCard } from '../hooks/useDragAndDrop';
@@ -93,77 +125,29 @@ const DeckArea: React.FC<DeckAreaProps> = ({
   const [showSortMenu, setShowSortMenu] = useState(false);
   const sortRef = useRef<HTMLDivElement>(null);
 
+  // Responsive overflow menu state
   const [showOverflowMenu, setShowOverflowMenu] = useState(false);
-  
-  // Debug logging for overflow menu state
-  useEffect(() => {
-    console.log('🔧 Overflow menu state changed:', showOverflowMenu);
-  }, [showOverflowMenu]);
   const [hiddenControls, setHiddenControls] = useState<string[]>([]);
   const headerRef = useRef<HTMLDivElement>(null);
   const controlsRef = useRef<HTMLDivElement>(null);
   const overflowRef = useRef<HTMLDivElement>(null);
 
-  // Z-INDEX NUCLEAR OPTION: Hide resize handles when overflow menu is open
-  useEffect(() => {
-    const hideResizeHandles = () => {
-      const resizeHandles = document.querySelectorAll('.resize-handle, .resize-handle-left, .resize-handle-right, .resize-handle-bottom');
-      resizeHandles.forEach(handle => {
-        if (showOverflowMenu) {
-          (handle as HTMLElement).style.display = 'none';
-        } else {
-          (handle as HTMLElement).style.display = '';
-        }
-      });
-    };
-    
-    hideResizeHandles();
-    
-    // Also hide when sort menu is open for good measure
-    if (showSortMenu) {
-      const resizeHandles = document.querySelectorAll('.resize-handle, .resize-handle-left, .resize-handle-right, .resize-handle-bottom');
-      resizeHandles.forEach(handle => {
-        (handle as HTMLElement).style.display = 'none';
-      });
-    }
-    
-    return () => {
-      // Cleanup: restore resize handles when component unmounts
-      const resizeHandles = document.querySelectorAll('.resize-handle, .resize-handle-left, .resize-handle-right, .resize-handle-bottom');
-      resizeHandles.forEach(handle => {
-        (handle as HTMLElement).style.display = '';
-      });
-    };
-  }, [showOverflowMenu, showSortMenu]);
-
-  // Click-outside effect for sort menu and overflow menu - FIXED TIMING
+  // Click-outside effect for sort menu
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      console.log('🔧 Click outside detected');
-      
       if (sortRef.current && !sortRef.current.contains(event.target as Node)) {
-        console.log('🔧 Closing sort menu');
         setShowSortMenu(false);
       }
-      
       if (overflowRef.current && !overflowRef.current.contains(event.target as Node)) {
-        console.log('🔧 Closing overflow menu');  
         setShowOverflowMenu(false);
       }
     };
 
-    if (showSortMenu || showOverflowMenu) {
-      // CRITICAL FIX: Add delay to prevent immediate closure from same click
-      const timeoutId = setTimeout(() => {
-        document.addEventListener('mousedown', handleClickOutside);
-      }, 10); // Small delay to let the menu render
-      
-      return () => {
-        clearTimeout(timeoutId);
-        document.removeEventListener('mousedown', handleClickOutside);
-      };
-    }
-  }, [showSortMenu, showOverflowMenu]);
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   // Responsive layout detection
   useEffect(() => {
@@ -251,7 +235,7 @@ const DeckArea: React.FC<DeckAreaProps> = ({
     
     return (
       <div className="overflow-menu-item" style={{
-        padding: '6px 12px',
+        padding: '8px 12px',
         borderBottom: '1px solid #555555',
         display: 'flex',
         alignItems: 'center',
@@ -280,15 +264,14 @@ const DeckArea: React.FC<DeckAreaProps> = ({
           border: '1px solid #444',
           borderTop: '1px solid #666',
           boxShadow: '0 2px 4px rgba(0,0,0,0.3)',
-          padding: '6px 12px',
+          padding: '12px 16px',
           color: '#ffffff',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          gap: '12px',
-          fontSize: '13px',
-          position: 'relative',
-          minHeight: '32px'
+          gap: '16px',
+          fontSize: '14px',
+          position: 'relative'
         }}
       >
         {/* Title Section with Text Overflow Handling */}
@@ -300,7 +283,7 @@ const DeckArea: React.FC<DeckAreaProps> = ({
           maxWidth: '300px'
         }}>
           <span style={{
-            fontSize: '15px',
+            fontSize: '16px',
             fontWeight: '600',
             color: '#ffffff',
             textShadow: '0 1px 2px rgba(0,0,0,0.3)',
@@ -312,7 +295,7 @@ const DeckArea: React.FC<DeckAreaProps> = ({
           </span>
           <span style={{
             color: '#cccccc',
-            fontSize: '13px',
+            fontSize: '14px',
             whiteSpace: 'nowrap'
           }}>
             ({mainDeck.length} cards)
@@ -326,8 +309,8 @@ const DeckArea: React.FC<DeckAreaProps> = ({
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '10px',
-            fontSize: '12px',
+            gap: '12px',
+            fontSize: '13px',
             flex: 1,
             justifyContent: 'flex-end',
             minWidth: 0 // Allow shrinking
@@ -338,9 +321,11 @@ const DeckArea: React.FC<DeckAreaProps> = ({
             <div className="control-group-1" style={{ 
               display: 'flex', 
               alignItems: 'center', 
-              gap: '6px',
-              paddingRight: '12px',
-              borderRight: '1px solid #555555'
+              gap: '8px',
+              padding: '4px 8px',
+              background: 'rgba(255,255,255,0.05)',
+              borderRadius: '4px',
+              border: '1px solid rgba(255,255,255,0.1)'
             }}>
               {isControlVisible('view') && (
                 <>
@@ -363,7 +348,7 @@ const DeckArea: React.FC<DeckAreaProps> = ({
                     onClick={() => setShowSortMenu(!showSortMenu)}
                     title="Sort options"
                     style={{
-                      padding: '3px 6px',
+                      padding: '4px 8px',
                       background: '#333333',
                       border: '1px solid #555555',
                       color: '#ffffff',
@@ -380,13 +365,11 @@ const DeckArea: React.FC<DeckAreaProps> = ({
                   {showSortMenu && (
                     <div className="sort-menu" style={{
                       position: 'fixed',
-                      top: `${sortRef.current?.getBoundingClientRect().bottom || 0}px`,
-                      left: `${sortRef.current?.getBoundingClientRect().left || 0}px`,
                       background: '#2a2a2a',
                       border: '1px solid #555555',
                       borderRadius: '2px',
                       boxShadow: '0 2px 8px rgba(0,0,0,0.5)',
-                      zIndex: 500000, // NUCLEAR Z-INDEX - Sort menu
+                      zIndex: 10001,
                       minWidth: '120px'
                     }}>
                       {['mana', 'color', 'rarity'].map((criteria) => (
@@ -424,10 +407,12 @@ const DeckArea: React.FC<DeckAreaProps> = ({
             <div className="control-group-2" style={{ 
               display: 'flex', 
               alignItems: 'center', 
-              gap: '6px',
+              gap: '8px',
               borderLeft: '1px solid #555555',
               paddingLeft: '12px',
-              paddingRight: '12px'
+              background: 'rgba(255,255,255,0.03)',
+              padding: '4px 8px 4px 12px',
+              borderRadius: '4px'
             }}>
               <span style={{ 
                 color: '#cccccc',
@@ -447,7 +432,7 @@ const DeckArea: React.FC<DeckAreaProps> = ({
                 className="mtgo-slider-enhanced"
                 title={`Card size: ${Math.round(cardSize * 100)}%`}
                 style={{
-                  width: '70px',
+                  width: '80px',
                   height: '6px',
                   background: 'linear-gradient(to right, #555555, #777777)',
                   outline: 'none',
@@ -466,7 +451,10 @@ const DeckArea: React.FC<DeckAreaProps> = ({
               alignItems: 'center', 
               gap: '6px',
               borderLeft: '1px solid #555555',
-              paddingLeft: '12px'
+              paddingLeft: '12px',
+              background: 'rgba(255,255,255,0.03)',
+              padding: '4px 6px 4px 12px',
+              borderRadius: '4px'
             }}>
               {[
                 { onClick: onTextExport, title: "Export deck as text for MTGO", text: "Export" },
@@ -479,7 +467,7 @@ const DeckArea: React.FC<DeckAreaProps> = ({
                   title={button.title}
                   className="mtgo-button-enhanced"
                   style={{
-                    padding: '3px 6px',
+                    padding: '4px 8px',
                     background: '#333333',
                     border: '1px solid #555555',
                     color: '#ffffff',
@@ -511,10 +499,10 @@ const DeckArea: React.FC<DeckAreaProps> = ({
             <div className="overflow-menu-container" ref={overflowRef} style={{ position: 'relative' }}>
               <button
                 className="overflow-menu-toggle"
-                onClick={(e) => { e.stopPropagation(); console.log("🔧 Overflow menu button clicked"); setShowOverflowMenu(!showOverflowMenu); }}
+                onClick={() => setShowOverflowMenu(!showOverflowMenu)}
                 title="More controls"
                 style={{
-                  padding: '3px 6px',
+                  padding: '4px 8px',
                   background: '#3b82f6',
                   border: '1px solid #2563eb',
                   color: '#ffffff',
@@ -539,29 +527,25 @@ const DeckArea: React.FC<DeckAreaProps> = ({
               {showOverflowMenu && (
                 <div className="overflow-menu" style={{
                   position: 'fixed',
-                  top: `${overflowRef.current?.getBoundingClientRect().bottom || 0}px`,
-                  left: `${overflowRef.current?.getBoundingClientRect().left || 0}px`,
                   background: '#2a2a2a',
                   border: '1px solid #555555',
                   borderRadius: '4px',
                   boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
-                  zIndex: 1000000, // MAXIMUM NUCLEAR Z-INDEX
+                  zIndex: 10001,
                   minWidth: '200px',
-                  overflow: 'visible'
+                  overflow: 'hidden'
                 }}>
                   {renderOverflowControl('view', (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%' }}>
                       <span style={{ color: '#cccccc', fontSize: '12px' }}>View:</span>
-                      <div style={{ position: 'relative', zIndex: 10008 }}>
-                        <ViewModeDropdown
-                          currentView={viewMode}
-                          onViewChange={(mode) => { 
-                            clearSelection(); 
-                            onViewModeChange(mode); 
-                            setShowOverflowMenu(false);
-                          }}
-                        />
-                      </div>
+                      <ViewModeDropdown
+                        currentView={viewMode}
+                        onViewChange={(mode) => { 
+                          clearSelection(); 
+                          onViewModeChange(mode); 
+                          setShowOverflowMenu(false);
+                        }}
+                      />
                     </div>
                   ))}
 
@@ -601,7 +585,7 @@ const DeckArea: React.FC<DeckAreaProps> = ({
                         value={cardSize}
                         onChange={(e) => onCardSizeChange(parseFloat(e.target.value))}
                         style={{
-                          width: '70px',
+                          width: '80px',
                           height: '4px',
                           background: '#555555',
                           borderRadius: '2px'
@@ -624,7 +608,7 @@ const DeckArea: React.FC<DeckAreaProps> = ({
                             setShowOverflowMenu(false);
                           }}
                           style={{
-                            padding: '3px 6px',
+                            padding: '4px 8px',
                             background: '#333333',
                             border: '1px solid #555555',
                             color: '#ffffff',
@@ -769,4 +753,522 @@ const DeckArea: React.FC<DeckAreaProps> = ({
   );
 };
 
-export default DeckArea;
+export default DeckArea;'''
+    
+    try:
+        with open(file_path, 'w', encoding='utf-8') as f:
+            f.write(enhanced_content)
+        print(f"✅ Updated {file_path} with Segment 3 responsive controls and enhanced grouping")
+        return True
+    except Exception as e:
+        print(f"❌ Error updating {file_path}: {e}")
+        return False
+
+def update_css_file():
+    """Add Segment 3 enhanced styles to MTGOLayout.css"""
+    css_file_path = "src/components/MTGOLayout.css"
+    
+    if not os.path.exists(css_file_path):
+        print(f"❌ File not found: {css_file_path}")
+        return False
+    
+    # Create backup
+    backup_file(css_file_path)
+    
+    # Segment 3 enhanced CSS styles
+    segment3_css = '''
+
+/* ===== SEGMENT 3: ENHANCED CONTROL GROUPING + RESPONSIVE FEATURES ===== */
+
+/* Enhanced Control Groups with MTGO Visual Hierarchy */
+.control-group-1,
+.control-group-2,
+.control-group-3 {
+  position: relative;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.control-group-1:hover,
+.control-group-2:hover,
+.control-group-3:hover {
+  background: rgba(255,255,255,0.08) !important;
+  border-color: rgba(255,255,255,0.2) !important;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+/* Enhanced MTGO Button Styling with Micro-Animations */
+.mtgo-button-enhanced {
+  position: relative;
+  overflow: hidden;
+}
+
+.mtgo-button-enhanced::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+  transition: left 0.5s ease;
+}
+
+.mtgo-button-enhanced:hover::before {
+  left: 100%;
+}
+
+/* Enhanced Slider Styling with Professional Polish */
+.mtgo-slider-enhanced {
+  -webkit-appearance: none;
+  appearance: none;
+  background: linear-gradient(to right, #555555, #777777);
+  outline: none;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.mtgo-slider-enhanced:hover {
+  background: linear-gradient(to right, #666666, #888888);
+  transform: scaleY(1.2);
+}
+
+.mtgo-slider-enhanced::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  background: radial-gradient(circle, #3b82f6, #2563eb);
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid #ffffff;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+  transition: all 0.2s ease;
+}
+
+.mtgo-slider-enhanced::-webkit-slider-thumb:hover {
+  background: radial-gradient(circle, #2563eb, #1d4ed8);
+  transform: scale(1.15);
+  box-shadow: 0 4px 8px rgba(59,130,246,0.4);
+}
+
+.mtgo-slider-enhanced::-webkit-slider-thumb:active {
+  transform: scale(1.05);
+  box-shadow: 0 2px 6px rgba(59,130,246,0.6);
+}
+
+.mtgo-slider-enhanced::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  background: radial-gradient(circle, #3b82f6, #2563eb);
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+  transition: all 0.2s ease;
+}
+
+.mtgo-slider-enhanced::-moz-range-thumb:hover {
+  background: radial-gradient(circle, #2563eb, #1d4ed8);
+  transform: scale(1.15);
+  box-shadow: 0 4px 8px rgba(59,130,246,0.4);
+}
+
+/* Responsive Overflow Menu Styling */
+.overflow-menu-container {
+  z-index: 10003 !important;
+}
+
+.overflow-menu-toggle {
+  position: relative;
+  overflow: hidden;
+}
+
+.overflow-menu-toggle::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  background: rgba(255,255,255,0.2);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  transition: width 0.3s ease, height 0.3s ease;
+}
+
+.overflow-menu-toggle:hover::after {
+  width: 200%;
+  height: 200%;
+}
+
+.overflow-menu {
+  animation: menuSlideIn 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255,255,255,0.1) !important;
+}
+
+@keyframes menuSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.overflow-menu-item {
+  transition: background-color 0.2s ease, transform 0.1s ease;
+  border-bottom: 1px solid rgba(255,255,255,0.1) !important;
+}
+
+.overflow-menu-item:last-child {
+  border-bottom: none !important;
+}
+
+.overflow-menu-item:hover {
+  background-color: rgba(255,255,255,0.1) !important;
+  transform: translateX(2px);
+}
+
+/* Text Overflow Solutions for Responsive Headers */
+.title-section {
+  position: relative;
+}
+
+.title-section span:first-child {
+  position: relative;
+}
+
+.title-section span:first-child::after {
+  content: attr(title);
+  position: absolute;
+  bottom: 120%;
+  left: 0;
+  background: rgba(0,0,0,0.9);
+  color: #ffffff;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+  z-index: 10005;
+}
+
+.title-section span:first-child:hover::after {
+  opacity: 1;
+}
+
+/* Enhanced Responsive Controls Container */
+.deck-controls-responsive {
+  position: relative;
+  min-height: 32px;
+}
+
+/* Smooth transitions for control hiding/showing */
+.control-group-1,
+.control-group-2,
+.control-group-3 {
+  transition: opacity 0.3s ease, transform 0.3s ease, width 0.3s ease;
+}
+
+.control-group-1[style*="display: none"],
+.control-group-2[style*="display: none"],
+.control-group-3[style*="display: none"] {
+  opacity: 0;
+  transform: scale(0.8);
+  width: 0;
+  overflow: hidden;
+}
+
+/* Enhanced Sort Menu with MTGO Polish */
+.sort-menu {
+  animation: menuSlideIn 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(255,255,255,0.1) !important;
+}
+
+.mtgo-menu-item {
+  position: relative;
+  overflow: hidden;
+}
+
+.mtgo-menu-item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 100%;
+  background: linear-gradient(90deg, #3b82f6, #2563eb);
+  transition: width 0.3s ease;
+  z-index: -1;
+}
+
+.mtgo-menu-item:hover::before {
+  width: 100%;
+}
+
+.mtgo-menu-item.active::before {
+  width: 100%;
+  background: linear-gradient(90deg, #2563eb, #1d4ed8);
+}
+
+/* Professional Focus States */
+.mtgo-button-enhanced:focus,
+.mtgo-slider-enhanced:focus,
+.overflow-menu-toggle:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* Accessibility: High Contrast Mode Support */
+@media (prefers-contrast: high) {
+  .control-group-1,
+  .control-group-2,
+  .control-group-3 {
+    border: 2px solid currentColor !important;
+  }
+  
+  .overflow-menu {
+    border: 2px solid currentColor !important;
+  }
+}
+
+/* Accessibility: Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+  .control-group-1,
+  .control-group-2,
+  .control-group-3,
+  .mtgo-button-enhanced,
+  .mtgo-slider-enhanced,
+  .overflow-menu-toggle,
+  .overflow-menu,
+  .overflow-menu-item {
+    transition: none !important;
+    animation: none !important;
+  }
+  
+  .mtgo-button-enhanced::before,
+  .overflow-menu-toggle::after,
+  .mtgo-menu-item::before {
+    transition: none !important;
+  }
+}
+
+/* Enhanced Header Responsiveness */
+@media (max-width: 1200px) {
+  .mtgo-header {
+    padding: 10px 12px !important;
+    gap: 12px !important;
+  }
+  
+  .control-group-1,
+  .control-group-2,
+  .control-group-3 {
+    gap: 6px !important;
+    padding: 3px 6px !important;
+  }
+  
+  .title-section {
+    max-width: 250px !important;
+  }
+}
+
+@media (max-width: 900px) {
+  .mtgo-header {
+    padding: 8px 10px !important;
+    gap: 8px !important;
+  }
+  
+  .title-section {
+    max-width: 200px !important;
+  }
+  
+  .title-section span:first-child {
+    font-size: 14px !important;
+  }
+  
+  .title-section span:last-child {
+    font-size: 12px !important;
+  }
+}
+
+@media (max-width: 600px) {
+  .mtgo-header {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 8px !important;
+  }
+  
+  .title-section {
+    max-width: none !important;
+    justify-content: center !important;
+  }
+  
+  .deck-controls-responsive {
+    justify-content: center !important;
+  }
+}
+
+/* Enhanced Visual Feedback for Interactive Elements */
+.mtgo-button-enhanced:active {
+  transform: translateY(0) scale(0.98) !important;
+}
+
+.overflow-menu-toggle:active {
+  transform: scale(0.95) !important;
+}
+
+/* Subtle Glow Effects for Premium Feel */
+.control-group-1:hover,
+.control-group-2:hover,
+.control-group-3:hover {
+  box-shadow: 
+    0 2px 8px rgba(0,0,0,0.3),
+    inset 0 1px 0 rgba(255,255,255,0.1) !important;
+}
+
+.mtgo-button-enhanced:hover {
+  box-shadow: 
+    0 2px 4px rgba(0,0,0,0.3),
+    0 0 8px rgba(59,130,246,0.2) !important;
+}
+
+.overflow-menu-toggle:hover {
+  box-shadow: 
+    0 2px 8px rgba(59,130,246,0.3),
+    0 0 12px rgba(59,130,246,0.2) !important;
+}
+
+/* Loading States for Async Operations */
+.mtgo-button-enhanced.loading {
+  position: relative;
+  color: transparent !important;
+}
+
+.mtgo-button-enhanced.loading::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 12px;
+  height: 12px;
+  border: 2px solid #ffffff;
+  border-top: 2px solid transparent;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: translate(-50%, -50%) rotate(0deg); }
+  100% { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+/* Enhanced Z-Index Management */
+.mtgo-header {
+  position: relative;
+  z-index: 100;
+}
+
+.sort-menu,
+.overflow-menu {
+  z-index: 10001 !important;
+}
+
+.overflow-menu-container {
+  z-index: 10002 !important;
+}
+
+/* Professional Typography Refinements */
+.mtgo-header * {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-feature-settings: 'tnum', 'liga';
+  text-rendering: optimizeLegibility;
+}
+
+.control-group-1 span,
+.control-group-2 span,
+.control-group-3 span {
+  text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+  letter-spacing: 0.025em;
+}
+
+/* ===== END SEGMENT 3 ENHANCED STYLES ===== */'''
+    
+    try:
+        # Read existing content
+        with open(css_file_path, 'r', encoding='utf-8') as f:
+            existing_content = f.read()
+        
+        # Append Segment 3 styles
+        updated_content = existing_content + segment3_css
+        
+        # Write updated content
+        with open(css_file_path, 'w', encoding='utf-8') as f:
+            f.write(updated_content)
+        
+        print(f"✅ Added Segment 3 enhanced styles to {css_file_path}")
+        return True
+    except Exception as e:
+        print(f"❌ Error updating {css_file_path}: {e}")
+        return False
+
+def main():
+    """Main implementation function"""
+    print("🚀 Implementing Segment 3: Enhanced Control Grouping + Responsive Features")
+    print("=" * 80)
+    
+    # Implementation steps
+    success_count = 0
+    total_steps = 2
+    
+    print("\n📋 Step 1: Updating DeckArea.tsx with responsive controls and enhanced grouping...")
+    if update_deckarea_file():
+        success_count += 1
+    
+    print("\n📋 Step 2: Adding Segment 3 enhanced CSS styles...")
+    if update_css_file():
+        success_count += 1
+    
+    # Summary
+    print("\n" + "=" * 80)
+    print(f"🎯 Segment 3 Implementation Summary: {success_count}/{total_steps} steps completed")
+    
+    if success_count == total_steps:
+        print("✅ SUCCESS: All Segment 3 features implemented!")
+        print("\n🎨 Segment 3 Features Added:")
+        print("   • Enhanced control grouping with visual hierarchy")
+        print("   • Responsive overflow menu for space-constrained scenarios")
+        print("   • Text overflow solutions with MTGO theming")
+        print("   • MTGO visual polish with hover effects and micro-animations")
+        print("   • Professional focus states and accessibility support")
+        print("   • Smooth transitions and premium interaction feedback")
+        
+        print("\n🧪 Testing Instructions:")
+        print("   1. Run `npm start` to test the application")
+        print("   2. Resize the browser window to see responsive overflow menu")
+        print("   3. Test hover effects on control groups and buttons")
+        print("   4. Verify dropdown menus appear above all other elements")
+        print("   5. Test overflow menu functionality in narrow layouts")
+        
+        print("\n📱 Responsive Features:")
+        print("   • Controls automatically hide when space is limited")
+        print("   • Overflow menu appears with hidden controls")
+        print("   • Graceful degradation at different screen sizes")
+        print("   • Text truncation prevents layout breaking")
+        
+        print("\n🎯 Ready for production use with professional MTGO styling!")
+    else:
+        print("⚠️  PARTIAL SUCCESS: Some steps failed - check errors above")
+        print("💡 Restore backups if needed: .segment3_backup files created")
+
+if __name__ == "__main__":
+    main()

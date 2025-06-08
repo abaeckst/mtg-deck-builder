@@ -1,4 +1,4 @@
-// src/components/DraggableCard.tsx - Phase 3A: Perfect Click/Drag Separation
+// src/components/DraggableCard.tsx - IMPROVED: Prevent Other Instances from Changing
 import React, { useCallback, useRef } from 'react';
 import MagicCard from './MagicCard';
 import { ScryfallCard, DeckCard, DeckCardInstance, getCardId, getSelectionId, isCardInstance } from '../types/card';
@@ -222,8 +222,9 @@ const DraggableCard: React.FC<DraggableCardProps> = ({
     interactionRef.current.isDoubleClick = false;
   }, [card, isDragActive]);
 
-  // Enhanced drag styles with smooth transitions
+  // IMPROVED: Enhanced drag styles - prevent other instances from changing
   const getDragStyles = (): React.CSSProperties => {
+    // ONLY apply drag styles if THIS specific card is being dragged
     if (isBeingDragged) {
       return {
         opacity: 0.4,
@@ -234,12 +235,8 @@ const DraggableCard: React.FC<DraggableCardProps> = ({
       };
     }
 
-    if (isDragActive && !selected) {
-      return {
-        opacity: 0.7,
-        transition: 'opacity 0.2s ease',
-      };
-    }
+    // REMOVED: Global isDragActive styling that affected other instances
+    // This prevents other cards of the same name from changing appearance
 
     return {
       transition: 'all 0.2s ease',
@@ -250,7 +247,7 @@ const DraggableCard: React.FC<DraggableCardProps> = ({
   // Enhanced cursor management
   const getCursor = (): string => {
     if (disabled) return 'default';
-    if (isDragActive) return 'grabbing';
+    if (isDragActive && isBeingDragged) return 'grabbing'; // Only for THIS card being dragged
     if (isBeingDragged) return 'grabbing';
     return 'grab';
   };
