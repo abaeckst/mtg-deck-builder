@@ -36,7 +36,7 @@ export interface SearchActions {
   loadMoreCards: () => Promise<ScryfallCard[]>;
 }
 
-const POPULAR_CARDS_QUERY = 'type:creature legal:standard';
+const POPULAR_CARDS_QUERY = 'legal:standard t:creature cmc>=7';
 
 interface UseSearchProps {
   activeFilters: FilterState;
@@ -51,6 +51,8 @@ interface UseSearchProps {
   }>) => void;
   resetPagination: () => void;
   addToSearchHistory: (query: string) => void;
+  // ADDED: Get default sort parameters from useSorting
+  getCollectionSortParams: () => { order: string; dir: 'asc' | 'desc' };
 }
 
 export const useSearch = ({
@@ -59,7 +61,8 @@ export const useSearch = ({
   onPaginationStateChange,
   onPaginationUpdate,
   resetPagination,
-  addToSearchHistory
+  addToSearchHistory,
+  getCollectionSortParams
 }: UseSearchProps): SearchState & SearchActions => {
   const [state, setState] = useState<SearchState>({
     cards: [],
@@ -85,10 +88,14 @@ export const useSearch = ({
   const searchWithPagination = useCallback(async (
     query: string, 
     filters: SearchFilters = {},
-    sortOrder = 'name',
-    sortDirection: 'asc' | 'desc' = 'asc'
+    sortOrder?: string,
+    sortDirection?: 'asc' | 'desc'
   ) => {
-    console.log('🔍 SIMPLIFIED SEARCH:', { query, filters, sort: { sortOrder, sortDirection } });
+    // Get default sort parameters from useSorting if not provided
+    const defaultSortParams = getCollectionSortParams();
+    const actualSortOrder = sortOrder || defaultSortParams.order;
+    const actualSortDirection = sortDirection || defaultSortParams.dir;
+    console.log('🔍 SIMPLIFIED SEARCH:', { query, filters, sort: { actualSortOrder, actualSortDirection } });
 
     try {
       clearError();
@@ -107,19 +114,14 @@ export const useSearch = ({
       (window as any).lastSearchTime = Date.now();
 
       // Execute paginated search
-      console.log('🔍 Calling searchCardsWithPagination with sort:', { sortOrder, sortDirection });
-      const paginationResult = await searchCardsWithPagination(
-        query, 
-        filters, 
-        sortOrder, 
-        sortDirection
-      );
+      console.log('🔍 Calling searchCardsWithPagination with sort:', { actualSortOrder, actualSortDirection });
+      const paginationResult = await searchCardsWithPagination(query, filters, actualSortOrder, actualSortDirection);
 
       console.log('✅ SEARCH SUCCESS:', {
         initialResultCount: paginationResult.initialResults.length,
         totalAvailable: paginationResult.totalCards,
         hasMore: paginationResult.hasMore,
-        sortApplied: { sortOrder, sortDirection }
+        sortApplied: { actualSortOrder, actualSortDirection }
       });
 
       // Update state with new results
@@ -293,10 +295,12 @@ export const useSearch = ({
     console.log('🎯 Loading popular cards...');
     
     try {
-      await searchWithPagination(POPULAR_CARDS_QUERY, {});
+      // Use descending CMC sort to show expensive creatures first
+    const defaultSortParams = getCollectionSortParams();
+    await searchWithPagination(POPULAR_CARDS_QUERY, {}, defaultSortParams.order, 'desc');
       setState(prev => ({
         ...prev,
-        searchQuery: 'Popular Cards',
+        searchQuery: 'Standard Cards',
       }));
       console.log('✅ Popular cards loaded successfully');
     } catch (error) {
@@ -308,7 +312,7 @@ export const useSearch = ({
         await searchWithPagination('creature', {});
         setState(prev => ({
           ...prev,
-          searchQuery: 'Popular Cards',
+          searchQuery: 'Standard Cards',
         }));
         console.log('✅ Fallback popular cards loaded');
       } catch (fallbackError) {
@@ -427,7 +431,9 @@ export const useSearch = ({
       return;
     }
     
-    await searchWithPagination(actualQuery, searchFilters);
+    // Get default sort parameters for consistent sorting
+    const defaultSortParams = getCollectionSortParams();
+    await searchWithPagination(actualQuery, searchFilters, defaultSortParams.order, defaultSortParams.dir);
   }, [activeFilters, searchWithPagination, loadPopularCards]);
 
   // Enhanced search function with full-text capabilities
@@ -446,7 +452,9 @@ export const useSearch = ({
       }
     }
 
-    await searchWithPagination(query, filters as SearchFilters);
+    // Get default sort parameters for consistent sorting
+    const defaultSortParams = getCollectionSortParams();
+    await searchWithPagination(query, filters as SearchFilters, defaultSortParams.order, defaultSortParams.dir);
     addToSearchHistory(query);
   }, [activeFilters, searchWithPagination, loadPopularCards, hasActiveFilters, addToSearchHistory]);
 

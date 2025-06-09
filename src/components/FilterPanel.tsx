@@ -19,7 +19,7 @@ interface FilterPanelProps {
   // Filter state
   activeFilters: any;
   isFiltersCollapsed: boolean;
-  hasActiveFilters: boolean;
+  hasActiveFilters: () => boolean;
   
   // Filter actions
   onFilterChange: (filterType: string, value: any) => void;
@@ -194,7 +194,7 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
       <div className="panel-header">
         <h3>Filters</h3>
         <div className="filter-controls">
-          {hasActiveFilters && (
+          {hasActiveFilters() && (
             <button onClick={onClearAllFilters} className="clear-filters-btn" title="Clear all filters">
               Clear
             </button>

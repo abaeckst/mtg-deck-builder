@@ -567,7 +567,7 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
         onSuggestionsClear={clearSearchSuggestions}
         activeFilters={activeFilters}
         isFiltersCollapsed={isFiltersCollapsed}
-        hasActiveFilters={hasActiveFilters()}
+        hasActiveFilters={hasActiveFilters}
         onFilterChange={handleFilterChange}
         onClearAllFilters={clearAllFilters}
         onToggleFiltersCollapsed={toggleFiltersCollapsed}

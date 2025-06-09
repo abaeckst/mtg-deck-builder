@@ -302,7 +302,8 @@ export const MagicCard: React.FC<MagicCardProps> = ({
           </>
         )}
 
-        {/* Selection Indicator */}
+        {/* Selection Indicator - REMOVED: Checkmark no longer displayed on selected cards */}
+        {/* 
         {selected && (
           <div style={{
             position: 'absolute',
@@ -322,6 +323,7 @@ export const MagicCard: React.FC<MagicCardProps> = ({
             ✓
           </div>
         )}
+        */}
 
         {/* Hover Effect */}
         {(selectable || onClick) && !disabled && (

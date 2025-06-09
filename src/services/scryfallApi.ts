@@ -17,6 +17,7 @@ const delay = (ms: number): Promise<void> => {
 let lastRequestTime = 0;
 
 const rateLimitedFetch = async (url: string): Promise<Response> => {
+  console.time("⏱️ API_REQUEST_TIME");
   const now = Date.now();
   const timeSinceLastRequest = now - lastRequestTime;
   
@@ -36,6 +37,9 @@ const rateLimitedFetch = async (url: string): Promise<Response> => {
   if (!response.ok) {
     throw new Error(`HTTP error! status: ${response.status}`);
   }
+  
+  console.timeEnd("⏱️ API_REQUEST_TIME");
+
   
   return response;
 };
@@ -67,6 +71,7 @@ export interface SearchFilters {
  * Build enhanced search query with operator support
  */
 function buildEnhancedSearchQuery(query: string): string {
+  console.time("⏱️ QUERY_BUILDING_TIME");
   // FIXED: Scryfall-compatible multi-word search syntax
   console.log('🔍 Building enhanced query for:', query);
   console.log('🔍 INPUT ANALYSIS:', {
@@ -155,6 +160,7 @@ function buildEnhancedSearchQuery(query: string): string {
     isMultiWord: query.trim().split(/\s+/).length > 1,
     hasOperators: query.includes('"') || query.includes('-') || query.includes(':')
   });
+  console.timeEnd("⏱️ QUERY_BUILDING_TIME");
   return result;
 }
 
@@ -169,6 +175,8 @@ export const searchCards = async (
   dir: 'asc' | 'desc' = 'asc'
 ): Promise<ScryfallSearchResponse> => {
   try {
+    console.time("⏱️ TOTAL_SEARCH_TIME");
+    console.log("🔍 Search started:", { query, order, dir });
     // Handle empty queries - Scryfall doesn't accept empty q parameter
     if (!query || query.trim() === '') {
       throw new Error('Search query cannot be empty');
@@ -204,7 +212,11 @@ export const searchCards = async (
     });
     
     const response = await rateLimitedFetch(url);
+    console.time("⏱️ JSON_PARSING_TIME");
+
     const data = await response.json();
+
+    console.timeEnd("⏱️ JSON_PARSING_TIME");
     
     console.log('🌐 ===== SCRYFALL API RESPONSE ANALYSIS =====');
     console.log('🌐 RESPONSE STATUS:', response.status);
@@ -240,6 +252,12 @@ export const searchCards = async (
       console.log('🌐 NO CARDS IN RESPONSE');
     }
     console.log('🌐 ===== API RESPONSE COMPLETE =====');
+    
+    console.timeEnd("⏱️ TOTAL_SEARCH_TIME");
+
+    
+    console.log("✅ Search completed successfully");
+
     
     return data as ScryfallSearchResponse;
   } catch (error) {
@@ -474,7 +492,7 @@ export const searchCardsWithFilters = async (
 export const searchCardsWithPagination = async (
   query: string,
   filters: SearchFilters = {},
-  order = 'name',
+  order = 'cmc',
   dir: 'asc' | 'desc' = 'asc'
 ): Promise<PaginatedSearchState> => {
   try {
@@ -623,7 +641,11 @@ export const getRandomCard = async (): Promise<ScryfallCard> => {
   try {
     const url = `${SCRYFALL_API_BASE}/cards/random`;
     const response = await rateLimitedFetch(url);
+    console.time("⏱️ JSON_PARSING_TIME");
+
     const data = await response.json();
+
+    console.timeEnd("⏱️ JSON_PARSING_TIME");
     
     return data as ScryfallCard;
   } catch (error) {
@@ -642,7 +664,11 @@ export const getCardById = async (id: string): Promise<ScryfallCard> => {
   try {
     const url = `${SCRYFALL_API_BASE}/cards/${id}`;
     const response = await rateLimitedFetch(url);
+    console.time("⏱️ JSON_PARSING_TIME");
+
     const data = await response.json();
+
+    console.timeEnd("⏱️ JSON_PARSING_TIME");
     
     return data as ScryfallCard;
   } catch (error) {
@@ -665,7 +691,11 @@ export const getCardByName = async (name: string): Promise<ScryfallCard> => {
     
     const url = `${SCRYFALL_API_BASE}/cards/named?${params.toString()}`;
     const response = await rateLimitedFetch(url);
+    console.time("⏱️ JSON_PARSING_TIME");
+
     const data = await response.json();
+
+    console.timeEnd("⏱️ JSON_PARSING_TIME");
     
     return data as ScryfallCard;
   } catch (error) {
@@ -688,7 +718,11 @@ export const autocompleteCardNames = async (query: string): Promise<string[]> =>
     
     const url = `${SCRYFALL_API_BASE}/cards/autocomplete?${params.toString()}`;
     const response = await rateLimitedFetch(url);
+    console.time("⏱️ JSON_PARSING_TIME");
+
     const data = await response.json();
+
+    console.timeEnd("⏱️ JSON_PARSING_TIME");
     
     return data.data || [];
   } catch (error) {
@@ -707,7 +741,11 @@ export const getSets = async (): Promise<any[]> => {
   try {
     const url = `${SCRYFALL_API_BASE}/sets`;
     const response = await rateLimitedFetch(url);
+    console.time("⏱️ JSON_PARSING_TIME");
+
     const data = await response.json();
+
+    console.timeEnd("⏱️ JSON_PARSING_TIME");
     
     return data.data || [];
   } catch (error) {
@@ -726,7 +764,7 @@ export const enhancedSearchCards = async (
   query: string,
   filters: SearchFilters = {},
   page = 1,
-  order = 'name',
+  order = 'cmc',
   dir: 'asc' | 'desc' = 'asc'
 ): Promise<ScryfallSearchResponse> => {
   // Handle empty queries

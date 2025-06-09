@@ -41,7 +41,7 @@ export interface UseFiltersActions {
 }
 
 const DEFAULT_FILTER_STATE: FilterState = {
-  format: 'custom-standard',
+  format: 'standard', // CHANGED: Default format to standard instead of custom-standard
   colors: [],
   colorIdentity: 'subset',
   types: [],
@@ -107,7 +107,7 @@ export const useFilters = (): UseFiltersState & UseFiltersActions => {
     const filters = state.activeFilters;
     return (
       filters.format !== '' &&
-      filters.format !== 'custom-standard' || // Don't count default format as active
+      filters.format !== 'standard' || // CHANGED: Updated to match new default format
       filters.colors.length > 0 ||
       filters.types.length > 0 ||
       filters.rarity.length > 0 ||

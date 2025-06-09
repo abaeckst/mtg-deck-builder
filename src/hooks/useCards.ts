@@ -7,6 +7,7 @@ import { useSearch } from './useSearch';
 import { usePagination } from './usePagination';
 import { useCardSelection } from './useCardSelection';
 import { useSearchSuggestions } from './useSearchSuggestions';
+import { useSorting } from './useSorting';
 
 export interface UseCardsState {
   cards: ScryfallCard[];
@@ -113,6 +114,14 @@ export const useCards = (): UseCardsState & UseCardsActions => {
     addToSearchHistory,
   } = useSearchSuggestions();
 
+  // Sort coordination hook
+  const { getScryfallSortParams } = useSorting();
+  
+  // Get collection sort parameters for coordination with useSearch
+  const getCollectionSortParams = useCallback(() => {
+    return getScryfallSortParams('collection');
+  }, [getScryfallSortParams]);
+
   // Pagination hook with proper coordination
   const {
     pagination,
@@ -145,6 +154,7 @@ export const useCards = (): UseCardsState & UseCardsActions => {
     onPaginationUpdate: updatePagination,
     resetPagination,
     addToSearchHistory,
+    getCollectionSortParams, // ADDED: Sort coordination
   });
   // Coordinated Load More function
   const coordinatedLoadMore = useCallback(async () => {
