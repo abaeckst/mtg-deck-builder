@@ -2,6 +2,7 @@
 // React component for displaying Magic: The Gathering cards
 
 import React, { useState, useCallback } from 'react';
+import LazyImage from './LazyImage';
 import { ScryfallCard, DeckCard, getCardImageUri, isBasicLand } from '../types/card';
 
 /**

@@ -1,5 +1,5 @@
 // src/hooks/useCards.ts - Refactored coordinator with clean separation of concerns
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import { ScryfallCard } from '../types/card';
 import { SortCriteria, SortDirection } from './useSorting';
 import { useFilters, FilterState } from './useFilters';
@@ -209,6 +209,33 @@ export const useCards = (): UseCardsState & UseCardsActions => {
   useEffect(() => {
     loadPopularCards();
   }, [loadPopularCards]);
+
+  // FILTER CHANGE REACTIVITY: Trigger fresh search when filters change
+  // Skip on initial mount to prevent interference with loadPopularCards
+  const isInitialMount = useRef(true);
+  
+  useEffect(() => {
+    // Skip filter reactivity on initial mount
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+    
+    // Skip if no active filters (user cleared filters - handled by clearAllFilters)
+    if (!hasActiveFilters()) {
+      return;
+    }
+    
+    console.log('🎯 Filter change detected, triggering fresh search');
+    
+    // Trigger fresh search with current filters
+    // Use '*' as base query to get all cards matching filters
+    searchWithAllFilters('*');
+    
+  }, [activeFilters, hasActiveFilters, searchWithAllFilters]);
+  
+  // SORT CHANGE REACTIVITY: Currently handled by useSorting hook coordination
+  // No additional effect needed as handleCollectionSortChange is already wired up
 
   return {
     // Search state

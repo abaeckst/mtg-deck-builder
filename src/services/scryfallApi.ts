@@ -82,6 +82,14 @@ function buildEnhancedSearchQuery(query: string): string {
     wordCount: query.trim().split(/\s+/).length
   });
   
+  // WILDCARD OPTIMIZATION: Early return for simple wildcard queries
+  // Prevents expensive (name:* OR o:* OR type:*) queries that cause 80+ second response times
+  if (query.trim() === '*') {
+    console.log('🔍 WILDCARD OPTIMIZATION: Returning simple wildcard to leverage Scryfall optimizations');
+    console.timeEnd("⏱️ QUERY_BUILDING_TIME");
+    return '*';
+  }
+  
   // For simple queries without operators, enable full-text search
   if (!query.includes('"') && !query.includes('-') && !query.includes(':')) {
     const words = query.trim().split(/\s+/);
@@ -175,6 +183,8 @@ export const searchCards = async (
   dir: 'asc' | 'desc' = 'asc'
 ): Promise<ScryfallSearchResponse> => {
   try {
+    // Start timer (clear any existing timer first)
+    console.timeEnd("⏱️ TOTAL_SEARCH_TIME"); // Clear existing timer if any
     console.time("⏱️ TOTAL_SEARCH_TIME");
     console.log("🔍 Search started:", { query, order, dir });
     // Handle empty queries - Scryfall doesn't accept empty q parameter
@@ -212,6 +222,8 @@ export const searchCards = async (
     });
     
     const response = await rateLimitedFetch(url);
+    // Start JSON parsing timer (clear any existing timer first)
+    try { console.timeEnd("⏱️ JSON_PARSING_TIME"); } catch(e) {} // Clear existing timer if any
     console.time("⏱️ JSON_PARSING_TIME");
 
     const data = await response.json();
@@ -522,10 +534,10 @@ export const searchCardsWithPagination = async (
       lastQuery: query,
       lastFilters: filters,
       lastSort: { order, dir },
-      // Partial page consumption tracking
+      // Partial page consumption tracking - FIXED
       currentScryfallPage: 1,
-      cardsConsumedFromCurrentPage: initialResults.length,
-      currentPageCards: response.data,
+      cardsConsumedFromCurrentPage: initialResults.length, // 75 out of 175
+      currentPageCards: response.data, // Store ALL cards from Scryfall page (up to 175)
       scryfallPageSize: 175,
       displayBatchSize: 75,
     };
@@ -537,6 +549,7 @@ export const searchCardsWithPagination = async (
 
 /**
  * Load more results progressively (next 175 cards)
+ * FIXED: Prevents 422 errors when all results fit on current page
  */
 export const loadMoreResults = async (
   paginationState: PaginatedSearchState,
@@ -563,20 +576,51 @@ export const loadMoreResults = async (
     const cardsConsumed = paginationState.cardsConsumedFromCurrentPage || 0;
     const currentPageCards = paginationState.currentPageCards || [];
     
-    // Check if current Scryfall page has remaining cards
-    const remainingInCurrentPage = currentPageCards.length - cardsConsumed;
-    
-    console.log('📊 Partial page analysis:', {
+    // ENHANCED DEBUG: Show all critical values
+    console.log('📊 ENHANCED DEBUG - Load More Decision Analysis:', {
+      totalCardsFromSearch: paginationState.totalCards,
       currentPageTotalCards: currentPageCards.length,
-      cardsAlreadyConsumed: cardsConsumed,
+      cardsAlreadyDisplayed: paginationState.loadedCards,
+      cardsConsumedFromCurrentPage: cardsConsumed,
+      calculation1: `${paginationState.totalCards} <= ${currentPageCards.length}`,
+      calculation2: `${currentPageCards.length} - ${cardsConsumed} = ${currentPageCards.length - cardsConsumed}`,
+      // CRITICAL INSIGHT: If totalCards (97) <= currentPageCards.length (97), 
+      // AND there are remaining cards, we should use them instead of fetching page 2
+      shouldUseRemainingCards: paginationState.totalCards <= currentPageCards.length && (currentPageCards.length - cardsConsumed) > 0
+    });
+    
+    // SIMPLIFIED LOGIC: If all results fit on current page and we have remaining cards, use them
+    const allResultsFitOnCurrentPage = paginationState.totalCards <= currentPageCards.length;
+    const remainingInCurrentPage = currentPageCards.length - cardsConsumed;
+    const hasRemainingCards = remainingInCurrentPage > 0;
+    
+    console.log('📊 DECISION LOGIC:', {
+      allResultsFitOnCurrentPage,
+      hasRemainingCards,
       remainingInCurrentPage,
-      needsNewPage: remainingInCurrentPage <= 0
+      finalDecision: allResultsFitOnCurrentPage && hasRemainingCards ? 'USE_REMAINING_CARDS' : 'FETCH_NEW_PAGE',
+      reasonIfNotUsing: !allResultsFitOnCurrentPage ? 'Results dont fit on current page' : 
+                       !hasRemainingCards ? 'No remaining cards on current page' : 'Unknown'
     });
     
     let newCards: ScryfallCard[];
     
-    if (remainingInCurrentPage > 0) {
-      // Return remaining cards from current page
+    // CRITICAL FIX: Use remaining cards if all results fit on current page
+    if (allResultsFitOnCurrentPage && hasRemainingCards) {
+      console.log('🎯 USING REMAINING CARDS FROM COMPLETE PAGE');
+      const cardsToReturn = Math.min(remainingInCurrentPage, displayBatchSize);
+      newCards = currentPageCards.slice(cardsConsumed, cardsConsumed + cardsToReturn);
+      
+      console.log('📄 SUCCESS: Using remaining cards from complete page:', {
+        cardsToReturn,
+        sliceStart: cardsConsumed,
+        sliceEnd: cardsConsumed + cardsToReturn,
+        remainingAfterThis: remainingInCurrentPage - cardsToReturn,
+        reason: 'All 97 results fit on current Scryfall page, using remaining 22 cards'
+      });
+      
+    } else if (hasRemainingCards) {
+      console.log('🎯 USING REMAINING CARDS FROM PARTIAL PAGE');
       const cardsToReturn = Math.min(remainingInCurrentPage, displayBatchSize);
       newCards = currentPageCards.slice(cardsConsumed, cardsConsumed + cardsToReturn);
       
@@ -588,13 +632,14 @@ export const loadMoreResults = async (
       });
       
     } else {
-      // Current page exhausted - fetch next Scryfall page
+      console.log('🎯 FETCHING NEW PAGE (this should not happen for 97-card result set)');
       const nextScryfallPage = paginationState.currentScryfallPage + 1;
       
       console.log('🌐 Fetching next Scryfall page:', {
         currentPage: paginationState.currentScryfallPage,
         nextPage: nextScryfallPage,
-        reason: 'Current page exhausted'
+        reason: 'Current page exhausted or no current page cards available',
+        warning: 'This should not happen for 97-card total result set'
       });
       
       const response = await enhancedSearchCards(
@@ -641,6 +686,8 @@ export const getRandomCard = async (): Promise<ScryfallCard> => {
   try {
     const url = `${SCRYFALL_API_BASE}/cards/random`;
     const response = await rateLimitedFetch(url);
+    // Start JSON parsing timer (clear any existing timer first)
+    try { console.timeEnd("⏱️ JSON_PARSING_TIME"); } catch(e) {} // Clear existing timer if any
     console.time("⏱️ JSON_PARSING_TIME");
 
     const data = await response.json();
@@ -664,6 +711,8 @@ export const getCardById = async (id: string): Promise<ScryfallCard> => {
   try {
     const url = `${SCRYFALL_API_BASE}/cards/${id}`;
     const response = await rateLimitedFetch(url);
+    // Start JSON parsing timer (clear any existing timer first)
+    try { console.timeEnd("⏱️ JSON_PARSING_TIME"); } catch(e) {} // Clear existing timer if any
     console.time("⏱️ JSON_PARSING_TIME");
 
     const data = await response.json();
@@ -691,6 +740,8 @@ export const getCardByName = async (name: string): Promise<ScryfallCard> => {
     
     const url = `${SCRYFALL_API_BASE}/cards/named?${params.toString()}`;
     const response = await rateLimitedFetch(url);
+    // Start JSON parsing timer (clear any existing timer first)
+    try { console.timeEnd("⏱️ JSON_PARSING_TIME"); } catch(e) {} // Clear existing timer if any
     console.time("⏱️ JSON_PARSING_TIME");
 
     const data = await response.json();
@@ -718,6 +769,8 @@ export const autocompleteCardNames = async (query: string): Promise<string[]> =>
     
     const url = `${SCRYFALL_API_BASE}/cards/autocomplete?${params.toString()}`;
     const response = await rateLimitedFetch(url);
+    // Start JSON parsing timer (clear any existing timer first)
+    try { console.timeEnd("⏱️ JSON_PARSING_TIME"); } catch(e) {} // Clear existing timer if any
     console.time("⏱️ JSON_PARSING_TIME");
 
     const data = await response.json();
@@ -741,6 +794,8 @@ export const getSets = async (): Promise<any[]> => {
   try {
     const url = `${SCRYFALL_API_BASE}/sets`;
     const response = await rateLimitedFetch(url);
+    // Start JSON parsing timer (clear any existing timer first)
+    try { console.timeEnd("⏱️ JSON_PARSING_TIME"); } catch(e) {} // Clear existing timer if any
     console.time("⏱️ JSON_PARSING_TIME");
 
     const data = await response.json();

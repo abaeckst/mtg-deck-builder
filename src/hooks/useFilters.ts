@@ -102,24 +102,28 @@ export const useFilters = (): UseFiltersState & UseFiltersActions => {
     }));
   }, []);
 
-  // Check if any filters are active
+  // Check if any filters are active (excluding standard format as it's default)
   const hasActiveFilters = useCallback((): boolean => {
     const filters = state.activeFilters;
     return (
-      filters.format !== '' &&
-      filters.format !== 'standard' || // CHANGED: Updated to match new default format
+      // Format filter: only active if NOT standard (since standard is default)
+      (filters.format !== '' && filters.format !== 'standard') ||
+      // Color filters
       filters.colors.length > 0 ||
+      filters.isGoldMode ||
+      // Type filters  
       filters.types.length > 0 ||
+      filters.subtypes.length > 0 ||
+      // Property filters
       filters.rarity.length > 0 ||
       filters.sets.length > 0 ||
+      // Range filters
       filters.cmc.min !== null ||
       filters.cmc.max !== null ||
       filters.power.min !== null ||
       filters.power.max !== null ||
       filters.toughness.min !== null ||
-      filters.toughness.max !== null ||
-      filters.subtypes.length > 0 ||
-      filters.isGoldMode
+      filters.toughness.max !== null
     );
   }, [state.activeFilters]);
 

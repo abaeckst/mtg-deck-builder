@@ -20,8 +20,13 @@ export interface SearchState {
     filters: FilterState;
     totalCards: number;
     loadedCards: number;
+    // ADDED: Actual sort parameters used in search
+    actualSortOrder: string;
+    actualSortDirection: 'asc' | 'desc';
   } | null;
   isResorting: boolean;
+  // FIXED: Store pagination state for Load More
+  storedPaginationState: PaginatedSearchState | null;
 }
 
 export interface SearchActions {
@@ -72,6 +77,7 @@ export const useSearch = ({
     totalCards: 0,
     lastSearchMetadata: null,
     isResorting: false,
+    storedPaginationState: null,
   });
 
   // Clear error when starting new operations
@@ -135,7 +141,12 @@ export const useSearch = ({
           filters: filters as FilterState,
           totalCards: paginationResult.totalCards,
           loadedCards: paginationResult.loadedCards,
+          // ADDED: Store actual sort parameters used in this search
+          actualSortOrder,
+          actualSortDirection,
         },
+        // FIXED: Store complete pagination state for Load More
+        storedPaginationState: paginationResult,
       }));
 
       // Update pagination through callback
@@ -148,7 +159,13 @@ export const useSearch = ({
       });
 
       // Store pagination state for load more functionality
-      onPaginationStateChange(paginationResult);
+      // CRITICAL: Store enhanced pagination result with full page data
+      const enhancedPaginationResult = {
+        ...paginationResult,
+        currentPageCards: paginationResult.currentPageCards || [], // Ensure array exists
+        cardsConsumedFromCurrentPage: paginationResult.loadedCards
+      };
+      onPaginationStateChange(enhancedPaginationResult);
 
     } catch (error) {
       let errorMessage = error instanceof Error ? error.message : 'Failed to search cards';
@@ -168,6 +185,7 @@ export const useSearch = ({
         cards: [],
         totalCards: 0,
         searchQuery: isNoResults ? 'No results found' : prev.searchQuery,
+        storedPaginationState: null,
       }));
       
       onPaginationUpdate({
@@ -194,7 +212,7 @@ export const useSearch = ({
       return;
     }
 
-    // Simple decision logic: complete dataset (≤75 total) = client sort
+// Simple decision logic: complete dataset (≤75 total) = client sort
     const isCompleteDataset = metadata.totalCards <= 75;
     
     console.log('🤔 Sort decision:', {
@@ -270,6 +288,7 @@ export const useSearch = ({
           cards: [], 
           searchQuery: '', 
           totalCards: 0,
+          storedPaginationState: null,
         }));
         onPaginationUpdate({
           totalCards: 0,
@@ -339,6 +358,7 @@ export const useSearch = ({
         cards: [card],
         searchQuery: 'Random Card',
         totalCards: 1,
+        storedPaginationState: null,
       }));
       
       onPaginationUpdate({
@@ -373,27 +393,54 @@ export const useSearch = ({
   const searchWithAllFilters = useCallback(async (query: string, filtersOverride?: any) => {
     const filters = filtersOverride || activeFilters;
     
-    console.log('🚀 searchWithAllFilters called:', { query, filters, usingOverride: !!filtersOverride });
+    console.log('🚀 CLEAN SEARCH - searchWithAllFilters called:', { 
+      query, 
+      filters: Object.keys(filters).filter(key => {
+        const value = filters[key];
+        return value !== '' && value !== null && value !== undefined && 
+               (Array.isArray(value) ? value.length > 0 : true);
+      }), 
+      usingOverride: !!filtersOverride 
+    });
     
-    // Build comprehensive filter object for SearchFilters interface
+    // CLEAN SEARCH PRINCIPLE: Build filter object from scratch
+    // Never inherit from previous searches - only use explicitly selected filters
     const searchFilters: SearchFilters = {};
     
-    if (filters.format && filters.format !== '') {
+    // Format filter: Preserve standard as default, only add if different
+    if (filters.format && filters.format !== '' && filters.format !== 'standard') {
       searchFilters.format = filters.format;
+    } else {
+      // Always include standard format as base
+      searchFilters.format = 'standard';
     }
+    
+    // Color filters: Only add if explicitly selected
     if (filters.colors && filters.colors.length > 0) {
       searchFilters.colors = filters.colors;
       searchFilters.colorIdentity = filters.colorIdentity;
     }
+    if (filters.isGoldMode) {
+      searchFilters.isGoldMode = filters.isGoldMode;
+    }
+    
+    // Type filters: Only add if explicitly selected
     if (filters.types && filters.types.length > 0) {
       searchFilters.types = filters.types;
     }
+    if (filters.subtypes && filters.subtypes.length > 0) {
+      searchFilters.subtypes = filters.subtypes;
+    }
+    
+    // Property filters: Only add if explicitly set
     if (filters.rarity && filters.rarity.length > 0) {
       searchFilters.rarity = filters.rarity;
     }
     if (filters.sets && filters.sets.length > 0) {
       searchFilters.sets = filters.sets;
     }
+    
+    // Range filters: Only add if explicitly set
     if (filters.cmc && (filters.cmc.min !== null || filters.cmc.max !== null)) {
       searchFilters.cmc = {};
       if (filters.cmc.min !== null) searchFilters.cmc.min = filters.cmc.min;
@@ -409,32 +456,34 @@ export const useSearch = ({
       if (filters.toughness.min !== null) searchFilters.toughness.min = filters.toughness.min;
       if (filters.toughness.max !== null) searchFilters.toughness.max = filters.toughness.max;
     }
-    if (filters.subtypes && filters.subtypes.length > 0) {
-      searchFilters.subtypes = filters.subtypes;
-    }
-    if (filters.isGoldMode) {
-      searchFilters.isGoldMode = filters.isGoldMode;
-    }
 
-    // Determine query strategy
-    const hasFilters = Object.keys(searchFilters).length > 0;
-    const hasQuery = query && query.trim() !== '';
-    
+    // CLEAN QUERY STRATEGY: Start fresh every time
     let actualQuery: string;
+    const hasQuery = query && query.trim() !== '' && query.trim() !== '*';
+    
     if (hasQuery) {
+      // User provided explicit search query
       actualQuery = query.trim();
-    } else if (hasFilters) {
-      actualQuery = '*';
+      console.log('🎯 Using explicit user query:', actualQuery);
     } else {
-      console.log('❌ No query and no filters - falling back to popular cards');
-      loadPopularCards();
-      return;
+      // No user query - search all cards matching filters
+      actualQuery = '*';
+      console.log('🎯 Using wildcard for filter-only search');
     }
     
-    // Get default sort parameters for consistent sorting
+    // CONSISTENT SORTING: Always use current sort preferences
     const defaultSortParams = getCollectionSortParams();
+    
+    console.log('🚀 EXECUTING CLEAN SEARCH:', {
+      query: actualQuery,
+      appliedFilters: Object.keys(searchFilters),
+      sortOrder: defaultSortParams.order,
+      sortDirection: defaultSortParams.dir
+    });
+    
     await searchWithPagination(actualQuery, searchFilters, defaultSortParams.order, defaultSortParams.dir);
-  }, [activeFilters, searchWithPagination, loadPopularCards]);
+    
+  }, [activeFilters, searchWithPagination, getCollectionSortParams]);
 
   // Enhanced search function with full-text capabilities
   const enhancedSearch = useCallback(async (query: string, filtersOverride?: any) => {
@@ -470,6 +519,7 @@ export const useSearch = ({
       totalCards: 0,
       lastSearchMetadata: null,
       isResorting: false,
+      storedPaginationState: null,
     }));
     
     onPaginationUpdate({
@@ -491,8 +541,21 @@ export const useSearch = ({
       throw new Error('No search metadata available');
     }
 
-    try {
+try {
       console.log('📡 Loading more cards via API...');
+      
+      // DEBUG: Load More sort coordination
+      console.log('🔍 Load More sort coordination:', {
+        preservedSortOrder: metadata.actualSortOrder || 'missing',
+        preservedSortDirection: metadata.actualSortDirection || 'missing',
+        willUsePreservedParams: !!(metadata.actualSortOrder && metadata.actualSortDirection)
+      });
+      
+      // DEBUG: Log sort coordination (after metadata check)
+      console.log('🔍 Load More will use preserved sort params:', {
+        actualSortOrder: metadata.actualSortOrder || 'not-stored',
+        actualSortDirection: metadata.actualSortDirection || 'not-stored'
+      });
       
       // ✅ FIXED: Use actual current cards count instead of metadata
       const actualLoadedCards = state.cards.length;
@@ -503,32 +566,59 @@ export const useSearch = ({
         nextPage: Math.floor(actualLoadedCards / 75) + 1
       });
       
-      // ✅ FIXED: Build corrected pagination state for loadMoreResults API
-      const currentPaginationState: PaginatedSearchState = {
-        totalCards: metadata.totalCards,
-        loadedCards: actualLoadedCards, // ✅ Use actual current cards count
-        hasMore: actualLoadedCards < metadata.totalCards,
-        isLoadingMore: false,
-        currentPage: Math.floor(actualLoadedCards / 175) + 1, // ✅ Fixed: 175 cards per page, not 75
-        initialResults: state.cards,
-        lastQuery: metadata.query,
-        lastFilters: metadata.filters,
-        lastSort: { order: "name", dir: "asc" },
-        // Enhanced partial page consumption tracking
-        currentScryfallPage: Math.floor(actualLoadedCards / 175) + 1,
-        cardsConsumedFromCurrentPage: actualLoadedCards % 175,
-        currentPageCards: [], // Empty since we don't store full page data in useSearch
-        scryfallPageSize: 175,
-        displayBatchSize: 75,
-      };
+      // ✅ CRITICAL FIX: Use stored pagination state with full page data
+      let currentPaginationState: PaginatedSearchState;
       
-      console.log('📄 Using pagination state:', {
+      if (state.storedPaginationState && state.storedPaginationState.currentPageCards && state.storedPaginationState.currentPageCards.length > 0) {
+        // Use stored pagination state that has the full page data
+        console.log('✅ Using stored pagination state with full page data:', {
+          storedCurrentPageCards: state.storedPaginationState.currentPageCards.length,
+          cardsConsumed: actualLoadedCards
+        });
+        
+        currentPaginationState = {
+          ...state.storedPaginationState,
+          loadedCards: actualLoadedCards,
+          hasMore: actualLoadedCards < metadata.totalCards,
+          cardsConsumedFromCurrentPage: actualLoadedCards,
+          lastSort: {
+            order: metadata.actualSortOrder,
+            dir: metadata.actualSortDirection
+          }
+        };
+      } else {
+        // Fallback: Build new pagination state (will likely cause 422 error)
+        console.log('⚠️ No stored pagination state - this may cause 422 error');
+        
+        currentPaginationState = {
+          totalCards: metadata.totalCards,
+          loadedCards: actualLoadedCards,
+          hasMore: actualLoadedCards < metadata.totalCards,
+          isLoadingMore: false,
+          currentPage: 1,
+          initialResults: state.cards,
+          lastQuery: metadata.query,
+          lastFilters: metadata.filters,
+          lastSort: {
+            order: metadata.actualSortOrder,
+            dir: metadata.actualSortDirection
+          },
+          currentScryfallPage: 1,
+          cardsConsumedFromCurrentPage: actualLoadedCards,
+          currentPageCards: [], // This is why 422 error happens
+          scryfallPageSize: 175,
+          displayBatchSize: 75,
+        };
+      }
+      
+      console.log('📄 Using pagination state for Load More:', {
         loadedCards: currentPaginationState.loadedCards,
         currentPage: currentPaginationState.currentPage,
-        hasMore: currentPaginationState.hasMore
+        hasMore: currentPaginationState.hasMore,
+        currentPageCards: currentPaginationState.currentPageCards?.length || 0
       });
 
-      // ✅ FIXED: Use loadMoreResults API instead of searchCardsWithPagination
+      // ✅ Use loadMoreResults API
       const { loadMoreResults } = await import('../services/scryfallApi');
       const newCards = await loadMoreResults(currentPaginationState);
       
@@ -570,10 +660,9 @@ export const useSearch = ({
       console.error('❌ Load more failed in useSearch:', error);
       throw error;
     }
-  }, [state.lastSearchMetadata, state.cards.length, onPaginationUpdate]);
+  }, [state.lastSearchMetadata, state.cards.length, state.storedPaginationState, onPaginationUpdate]);
 
   return {
-
     ...state,
     searchForCards,
     searchWithAllFilters,
