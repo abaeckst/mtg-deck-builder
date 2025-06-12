@@ -1,173 +1,96 @@
 #!/usr/bin/env python3
-"""
-Fix Export Features Compilation Errors
-Addresses specific casing and API issues identified in diagnostic
-"""
 
-import os
 import re
 
-def fix_modal_css_import():
-    """Fix the Modal.css vs modal.css casing issue"""
+def fix_deckarea_compilation_errors():
+    """
+    Fix duplicate variable declarations in DeckArea.tsx
+    """
     
-    modal_file = "src/components/Modal.tsx"
+    file_path = "src/components/DeckArea.tsx"
     
-    if not os.path.exists(modal_file):
-        print(f"❌ {modal_file} not found")
-        return False
-    
-    print("🔧 Fixing Modal.css import casing...")
-    
-    # Read the file
-    with open(modal_file, 'r', encoding='utf-8') as f:
-        content = f.read()
-    
-    # Fix the import statement
-    old_import = "import './Modal.css';"
-    new_import = "import './modal.css';"
-    
-    if old_import in content:
-        content = content.replace(old_import, new_import)
+    try:
+        with open(file_path, 'r', encoding='utf-8') as file:
+            content = file.read()
         
-        # Write back to file
-        with open(modal_file, 'w', encoding='utf-8') as f:
-            f.write(content)
+        print(f"🔧 Fixing compilation errors in {file_path}")
         
-        print(f"  ✅ Fixed import in {modal_file}")
-        print(f"      Changed: {old_import}")
-        print(f"      To:      {new_import}")
+        # Split content into lines for precise editing
+        lines = content.split('\n')
+        
+        # Find and remove duplicate declarations
+        # We'll keep the first occurrence and remove subsequent duplicates
+        seen_declarations = set()
+        filtered_lines = []
+        skip_line = False
+        
+        for i, line in enumerate(lines):
+            stripped = line.strip()
+            
+            # Check for useState declarations we want to deduplicate
+            useState_patterns = [
+                r'const \[showOverflowMenu, setShowOverflowMenu\]',
+                r'const \[hiddenControls, setHiddenControls\]'
+            ]
+            
+            # Check for useRef declarations we want to deduplicate  
+            useRef_patterns = [
+                r'const headerRef = useRef',
+                r'const controlsRef = useRef'
+            ]
+            
+            all_patterns = useState_patterns + useRef_patterns
+            
+            is_duplicate = False
+            for pattern in all_patterns:
+                if re.search(pattern, stripped):
+                    if pattern in seen_declarations:
+                        is_duplicate = True
+                        print(f"🗑️  Removing duplicate line {i+1}: {stripped[:60]}...")
+                        break
+                    else:
+                        seen_declarations.add(pattern)
+                        break
+            
+            # Skip duplicate lines and malformed comment lines that got mixed in
+            if not is_duplicate:
+                # Also clean up any malformed comment lines that might have been created
+                if stripped.startswith('// Responsive overflow menu state') and i > 90:
+                    # Skip redundant comment if it appears after the actual declarations
+                    continue
+                
+                filtered_lines.append(line)
+        
+        # Rejoin the content
+        fixed_content = '\n'.join(filtered_lines)
+        
+        # Write the fixed content back to file
+        with open(file_path, 'w', encoding='utf-8') as file:
+            file.write(fixed_content)
+        
+        print(f"✅ Fixed compilation errors in {file_path}")
+        print("🔧 Removed duplicate variable declarations")
+        
         return True
-    else:
-        print(f"  ℹ️  Import statement not found or already correct in {modal_file}")
-        return True
-
-def fix_html2canvas_options():
-    """Fix html2canvas API options to remove unsupported properties"""
-    
-    screenshot_utils_file = "src/utils/screenshotUtils.ts"
-    
-    if not os.path.exists(screenshot_utils_file):
-        print(f"❌ {screenshot_utils_file} not found")
+        
+    except FileNotFoundError:
+        print(f"❌ File not found: {file_path}")
         return False
-    
-    print("🔧 Fixing html2canvas API options...")
-    
-    # Read the file
-    with open(screenshot_utils_file, 'r', encoding='utf-8') as f:
-        content = f.read()
-    
-    # Find and fix the html2canvas options
-    # Look for the problematic options object
-    pattern = r'const canvas = await html2canvas\(element, \{([^}]+)\}\);'
-    match = re.search(pattern, content, re.DOTALL)
-    
-    if match:
-        old_options = match.group(1)
-        
-        # Create corrected options - remove 'scale' and fix property names
-        new_options = """
-    backgroundColor: '#1a1a1a', // MTGO dark background
-    useCORS: true, // Allow cross-origin images
-    allowTaint: true, // Allow tainted canvas
-    logging: false, // Disable logging for cleaner output
-    width: element.scrollWidth,
-    height: element.scrollHeight,
-    scrollX: 0,
-    scrollY: 0"""
-        
-        # Replace the entire function call
-        old_call = f"const canvas = await html2canvas(element, {{{old_options}}});"
-        new_call = f"const canvas = await html2canvas(element, {{{new_options}\n  }});"
-        
-        content = content.replace(old_call, new_call)
-        
-        # Write back to file
-        with open(screenshot_utils_file, 'w', encoding='utf-8') as f:
-            f.write(content)
-        
-        print(f"  ✅ Fixed html2canvas options in {screenshot_utils_file}")
-        print("      Removed: 'scale' property (not supported)")
-        print("      Fixed: 'background' → 'backgroundColor'")
-        return True
-    else:
-        print(f"  ℹ️  html2canvas call pattern not found in {screenshot_utils_file}")
+    except Exception as e:
+        print(f"❌ Error fixing compilation errors: {str(e)}")
         return False
-
-def verify_fixes():
-    """Verify that the fixes were applied correctly"""
-    
-    print("\n🔍 VERIFYING FIXES:")
-    print("-" * 20)
-    
-    # Check Modal.tsx import
-    modal_file = "src/components/Modal.tsx"
-    if os.path.exists(modal_file):
-        with open(modal_file, 'r', encoding='utf-8') as f:
-            content = f.read()
-        
-        if "import './modal.css';" in content:
-            print("  ✅ Modal.css import fixed correctly")
-        elif "import './Modal.css';" in content:
-            print("  ⚠️  Modal.css import still has casing issue")
-        else:
-            print("  ℹ️  Modal CSS import not found (might use different pattern)")
-    
-    # Check screenshotUtils.ts options
-    screenshot_file = "src/utils/screenshotUtils.ts"
-    if os.path.exists(screenshot_file):
-        with open(screenshot_file, 'r', encoding='utf-8') as f:
-            content = f.read()
-        
-        if "scale:" in content:
-            print("  ⚠️  'scale' property still present in screenshotUtils.ts")
-        else:
-            print("  ✅ 'scale' property removed from html2canvas options")
-        
-        if "backgroundColor:" in content:
-            print("  ✅ 'backgroundColor' property used correctly")
-        elif "background:" in content:
-            print("  ⚠️  'background' property still present (should be 'backgroundColor')")
-
-def main():
-    """Main fix function"""
-    
-    print("=== EXPORT FEATURES COMPILATION FIXES ===\n")
-    
-    # Check if we're in the right directory
-    if not os.path.exists('src'):
-        print("❌ ERROR: Not in project root directory")
-        print("Please run this script from: C:\\Users\\carol\\mtg-deckbuilder")
-        return False
-    
-    success_count = 0
-    
-    # Fix 1: Modal.css import casing
-    if fix_modal_css_import():
-        success_count += 1
-    
-    # Fix 2: html2canvas API options
-    if fix_html2canvas_options():
-        success_count += 1
-    
-    # Verify fixes
-    verify_fixes()
-    
-    print(f"\n📊 SUMMARY:")
-    print("-" * 12)
-    print(f"  Fixes applied: {success_count}/2")
-    
-    if success_count == 2:
-        print("  🎉 All compilation errors should be resolved!")
-        print("\nNext steps:")
-        print("  1. Run: npm start")
-        print("  2. Test that app compiles without errors")
-        print("  3. Check if export buttons appear in main deck header")
-        print("  4. Test export functionality")
-    else:
-        print("  ⚠️  Some fixes may need manual attention")
-        print("  Please check the file contents and error messages")
-    
-    return success_count == 2
 
 if __name__ == "__main__":
-    main()
+    print("🚀 Starting DeckArea compilation error fix...")
+    
+    success = fix_deckarea_compilation_errors()
+    
+    if success:
+        print("\n✅ Compilation error fix completed!")
+        print("\n📋 Next steps:")
+        print("1. Run 'npm start' to check compilation")
+        print("2. Test sort button and ViewModeDropdown functionality") 
+        print("3. Verify nuclear z-index implementation working")
+        print("4. Test overflow menu context")
+    else:
+        print("\n❌ Fix failed - manual intervention needed")
