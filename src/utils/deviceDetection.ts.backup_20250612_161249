@@ -1,0 +1,164 @@
+// src/utils/deviceDetection.ts
+import { useState, useEffect } from 'react';
+
+export interface DeviceInfo {
+  isMobile: boolean;
+  isTablet: boolean;
+  isDesktop: boolean;
+  isTouchDevice: boolean;
+  hasMouseSupport: boolean;
+  supportsContextMenu: boolean;
+  supportsDragAndDrop: boolean;
+  screenSize: 'small' | 'medium' | 'large' | 'xlarge';
+  orientation: 'portrait' | 'landscape';
+}
+
+/**
+ * Detect if the device is mobile based on user agent and screen size
+ */
+export const isMobileDevice = (): boolean => {
+  // Check user agent for mobile indicators - using string methods instead of regex
+  const userAgent = navigator.userAgent.toLowerCase();
+  const mobileKeywords = ['android', 'webos', 'iphone', 'ipad', 'ipod', 'blackberry', 'iemobile', 'opera mini'];
+  const hasMobileKeyword = mobileKeywords.some(keyword => userAgent.includes(keyword));
+  
+  // Check screen size (mobile typically < 768px width)
+  const isSmallScreen = window.innerWidth < 768;
+  
+  // Check for touch events support
+  const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+  
+  return hasMobileKeyword || (isSmallScreen && isTouchDevice);
+};
+
+/**
+ * Detect if the device is a tablet
+ */
+export const isTabletDevice = (): boolean => {
+  const userAgent = navigator.userAgent.toLowerCase();
+  const hasIpad = userAgent.includes('ipad');
+  const hasTablet = userAgent.includes('tablet');
+  const hasAndroidNoMobile = userAgent.includes('android') && !userAgent.includes('mobile');
+  
+  // Screen size check for tablets (768px - 1024px)
+  const isTabletSize = window.innerWidth >= 768 && window.innerWidth <= 1024;
+  
+  return hasIpad || hasTablet || hasAndroidNoMobile || isTabletSize;
+};
+
+/**
+ * Get comprehensive device information
+ */
+export const getDeviceInfo = (): DeviceInfo => {
+  const isMobile = isMobileDevice();
+  const isTablet = isTabletDevice();
+  const isDesktop = !isMobile && !isTablet;
+  
+  // Touch support detection
+  const isTouchDevice = 'ontouchstart' in window || 
+    navigator.maxTouchPoints > 0 || 
+    (window as any).DocumentTouch && document instanceof (window as any).DocumentTouch;
+  
+  // Mouse support detection (some devices have both)
+  const hasMouseSupport = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+  
+  // Context menu support (right-click)
+  const supportsContextMenu = hasMouseSupport && !isMobile;
+  
+  // Drag and drop support
+  const supportsDragAndDrop = 'draggable' in document.createElement('div') && !isMobile;
+  
+  // Screen size categories
+  let screenSize: DeviceInfo['screenSize'];
+  const width = window.innerWidth;
+  if (width < 640) {
+    screenSize = 'small';
+  } else if (width < 1024) {
+    screenSize = 'medium';
+  } else if (width < 1280) {
+    screenSize = 'large';
+  } else {
+    screenSize = 'xlarge';
+  }
+  
+  // Orientation
+  const orientation: DeviceInfo['orientation'] = window.innerHeight > window.innerWidth ? 'portrait' : 'landscape';
+  
+  return {
+    isMobile,
+    isTablet,
+    isDesktop,
+    isTouchDevice,
+    hasMouseSupport,
+    supportsContextMenu,
+    supportsDragAndDrop,
+    screenSize,
+    orientation,
+  };
+};
+
+/**
+ * Hook for reactive device detection
+ */
+export const useDeviceDetection = () => {
+  const [deviceInfo, setDeviceInfo] = useState<DeviceInfo>(getDeviceInfo);
+  
+  useEffect(() => {
+    const handleResize = () => {
+      setDeviceInfo(getDeviceInfo());
+    };
+    
+    const handleOrientationChange = () => {
+      // Small delay to allow orientation change to complete
+      setTimeout(() => {
+        setDeviceInfo(getDeviceInfo());
+      }, 100);
+    };
+    
+    window.addEventListener('resize', handleResize);
+    window.addEventListener('orientationchange', handleOrientationChange);
+    
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('orientationchange', handleOrientationChange);
+    };
+  }, []);
+  
+  return deviceInfo;
+};
+
+/**
+ * Utility functions for feature detection
+ */
+export const DeviceCapabilities = {
+  // Check if device supports specific features needed for MTGO interface
+  canUseAdvancedInterface: (): boolean => {
+    const device = getDeviceInfo();
+    return device.supportsContextMenu && device.supportsDragAndDrop && device.screenSize !== 'small';
+  },
+  
+  // Check if device should show simplified interface
+  shouldShowSimplifiedInterface: (): boolean => {
+    const device = getDeviceInfo();
+    return device.isMobile || device.screenSize === 'small';
+  },
+  
+  // Check if device should show mobile warning
+  shouldShowMobileWarning: (): boolean => {
+    const device = getDeviceInfo();
+    return device.isMobile || (!device.supportsContextMenu && !device.supportsDragAndDrop);
+  },
+  
+  // Get recommended interaction mode
+  getRecommendedInteractionMode: (): 'desktop' | 'touch' | 'hybrid' => {
+    const device = getDeviceInfo();
+    
+    if (device.isDesktop && device.hasMouseSupport && !device.isTouchDevice) {
+      return 'desktop';
+    } else if (device.isMobile || (device.isTouchDevice && !device.hasMouseSupport)) {
+      return 'touch';
+    } else {
+      return 'hybrid';
+    }
+  },
+};

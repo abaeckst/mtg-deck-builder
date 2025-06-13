@@ -1,0 +1,109 @@
+/* Responsive Design Media Queries */
+/* Extracted from MTGOLayout.css - Phase 1 */
+
+@media (max-width: 1200px) {
+  .multi-select-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .rarity-filter-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .range-filter {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+  }
+  
+  .range-input {
+    width: 100%;
+  }
+}
+
+@media (max-width: 768px) {
+  .drag-preview {
+    transform: scale(0.8) rotate(-5deg);
+  }
+  
+  .drop-zone-overlay {
+    font-size: 12px;
+    padding: 6px 12px;
+  }
+}
+
+@media (prefers-contrast: high) {
+  .drop-zone.drag-over {
+    border-width: 3px;
+  }
+  
+  .drag-preview .card-count,
+  .drop-zone-overlay {
+    border: 2px solid currentColor;
+  }
+}
+
+@media (max-width: 1200px) {
+  .mtgo-filter-panel {
+    min-width: 180px;
+  }
+  
+  .mtgo-sideboard-panel {
+    min-width: 180px;
+  }
+  
+  /* Collection grid sizing controlled by JavaScript */
+}
+
+@media (max-width: 900px) {
+  .panel-header h3 {
+    font-size: 13px;
+  }
+  
+  .view-controls,
+  .deck-controls {
+    display: none;
+  }
+  
+  /* Collection grid sizing controlled by JavaScript */
+}
+
+@media (max-width: 1200px) {
+
+}
+
+@media (max-width: 900px) {
+  
+}
+
+@media (max-width: 1200px) {
+
+}
+
+@media (max-width: 900px) {
+  
+}
+
+@media (max-width: 1200px) {
+  .pile-column {
+  min-width: 120px;
+  background-color: transparent;
+  border: none;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  height: fit-content;
+  position: relative;
+  margin: 0 !important; /* CRITICAL: No margin to not interfere with gap */
+}
+  
+  .pile-column-number {
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 900px) {
+  .pile-view {
+    display: none;
+  }
+}

@@ -580,28 +580,6 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
         width={isFiltersCollapsed ? 40 : layout.panels.filterPanelWidth}
       />
       
-      {/* Enhanced Resize Handle */}
-      {!isFiltersCollapsed && (
-        <div 
-          className="resize-handle resize-handle-right"
-          onMouseDown={resizeHandlers.onFilterPanelResize}
-          title="Drag to resize filter panel"
-          style={{
-            position: 'absolute',
-            top: 0,
-            right: -3,
-            width: 6,
-            height: '100%',
-            cursor: 'ew-resize',
-            background: 'linear-gradient(90deg, transparent 0%, #555555 50%, transparent 100%)',
-            zIndex: 1001,
-            opacity: 0.7,
-            transition: 'opacity 0.2s ease'
-          }}
-          onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
-          onMouseLeave={(e) => e.currentTarget.style.opacity = '0.7'}
-        />
-      )}
       
       {/* Main Content Area */}
       <div className="mtgo-main-content">

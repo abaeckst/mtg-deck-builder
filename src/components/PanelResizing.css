@@ -1,0 +1,133 @@
+/* Panel Resizing Styles - Matching Actual Working Implementation */
+/* Fixed to match inline styles from MTGOLayout.tsx */
+
+/* Base resize handle styling - matches inline styles */
+.resize-handle {
+  position: absolute;
+  z-index: 1001;
+  opacity: 0.7;
+  transition: opacity 0.2s ease;
+}
+
+.resize-handle:hover {
+  opacity: 1;
+}
+
+/* Filter panel resize handle - right edge */
+.resize-handle-right {
+  position: absolute;
+  top: 0;
+  right: -3px;
+  width: 6px;
+  height: 100%;
+  cursor: ew-resize;
+  background: linear-gradient(90deg, transparent 0%, #555555 50%, transparent 100%);
+  z-index: 1001;
+  opacity: 0.7;
+  transition: opacity 0.2s ease;
+}
+
+.resize-handle-right:hover {
+  opacity: 1;
+}
+
+.resize-handle-right:active {
+  opacity: 1;
+  background: linear-gradient(90deg, transparent 0%, #666666 50%, transparent 100%);
+}
+
+/* Vertical resize handle - between collection and deck areas */
+.resize-handle-vertical {
+  position: absolute;
+  top: -3px;
+  left: 0;
+  width: 100%;
+  height: 6px;
+  cursor: ns-resize;
+  background: linear-gradient(0deg, transparent 0%, #555555 50%, transparent 100%);
+  z-index: 1001;
+  opacity: 0.7;
+  transition: opacity 0.2s ease;
+}
+
+.resize-handle-vertical:hover {
+  opacity: 1;
+}
+
+.resize-handle-vertical:active {
+  opacity: 1;
+  background: linear-gradient(0deg, transparent 0%, #666666 50%, transparent 100%);
+}
+
+/* Sideboard resize handle - left edge */
+.resize-handle-left {
+  position: absolute;
+  top: 0;
+  left: -3px;
+  width: 6px;
+  height: 100%;
+  cursor: ew-resize;
+  background: linear-gradient(90deg, transparent 0%, #555555 50%, transparent 100%);
+  z-index: 1001;
+  opacity: 0.7;
+  transition: opacity 0.2s ease;
+}
+
+.resize-handle-left:hover {
+  opacity: 1;
+}
+
+.resize-handle-left:active {
+  opacity: 1;
+  background: linear-gradient(90deg, transparent 0%, #666666 50%, transparent 100%);
+}
+
+/* Resizing state classes */
+.resizing-horizontal {
+  cursor: ew-resize !important;
+}
+
+.resizing-vertical {
+  cursor: ns-resize !important;
+}
+
+.resizing-horizontal *,
+.resizing-vertical * {
+  user-select: none !important;
+  pointer-events: none !important;
+}
+
+/* Layout constraints during resize */
+.mtgo-layout.resizing {
+  transition: none !important;
+}
+
+.mtgo-layout.resizing * {
+  transition: none !important;
+}
+
+/* Enhanced visual feedback */
+.resize-handle {
+  will-change: opacity, background;
+}
+
+/* Accessibility and touch support */
+.resize-handle[title] {
+  position: relative;
+}
+
+/* Panel boundaries */
+.mtgo-filter-panel {
+  min-width: 200px;
+  max-width: 500px;
+}
+
+.mtgo-sideboard-panel {
+  min-width: 200px;
+  max-width: 1000px;
+}
+
+.mtgo-deck-area,
+.mtgo-bottom-area {
+  min-height: 200px;
+}

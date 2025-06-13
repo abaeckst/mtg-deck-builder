@@ -1,5 +1,6 @@
-// src/components/DraggableCard.tsx - IMPROVED: Prevent Other Instances from Changing
+// src/components/DraggableCard.tsx - ENHANCED: FlipCard Integration
 import React, { useCallback, useRef } from 'react';
+import FlipCard from './FlipCard';
 import MagicCard from './MagicCard';
 import { ScryfallCard, DeckCard, DeckCardInstance, getCardId, getSelectionId, isCardInstance } from '../types/card';
 import { DropZone } from '../hooks/useDragAndDrop';
@@ -222,7 +223,7 @@ const DraggableCard: React.FC<DraggableCardProps> = ({
     interactionRef.current.isDoubleClick = false;
   }, [card, isDragActive]);
 
-  // IMPROVED: Enhanced drag styles - prevent other instances from changing
+  // Enhanced drag styles - prevent other instances from changing
   const getDragStyles = (): React.CSSProperties => {
     // ONLY apply drag styles if THIS specific card is being dragged
     if (isBeingDragged) {
@@ -234,9 +235,6 @@ const DraggableCard: React.FC<DraggableCardProps> = ({
         filter: 'brightness(1.1)',
       };
     }
-
-    // REMOVED: Global isDragActive styling that affected other instances
-    // This prevents other cards of the same name from changing appearance
 
     return {
       transition: 'all 0.2s ease',
@@ -252,16 +250,15 @@ const DraggableCard: React.FC<DraggableCardProps> = ({
     return 'grab';
   };
 
-  // Create a card-compatible object for MagicCard component
-  const cardForMagicCard = React.useMemo(() => {
+  // Create a card-compatible object for FlipCard component
+  const cardForFlipCard = React.useMemo(() => {
     if (isCardInstance(card)) {
-      // Convert DeckCardInstance to card-like object for MagicCard
-      // Include all required ScryfallCard properties with sensible defaults
+      // Convert DeckCardInstance to card-like object for FlipCard
       return {
-        id: card.cardId, // Use original card ID for MagicCard
-        oracle_id: card.cardId, // Use cardId as fallback for oracle_id
+        id: card.cardId,
+        oracle_id: card.cardId,
         name: card.name,
-        image_uris: undefined, // Will be handled by image_uri
+        image_uris: undefined,
         image_uri: card.image_uri,
         mana_cost: card.mana_cost,
         cmc: card.cmc,
@@ -269,7 +266,7 @@ const DraggableCard: React.FC<DraggableCardProps> = ({
         colors: card.colors,
         color_identity: card.color_identity,
         set: card.set,
-        set_name: card.set, // Use set as fallback for set_name
+        set_name: card.set,
         rarity: card.rarity,
         oracle_text: card.oracle_text,
         power: card.power,
@@ -289,7 +286,8 @@ const DraggableCard: React.FC<DraggableCardProps> = ({
         },
         keywords: [],
         layout: 'normal',
-        card_faces: undefined,
+        // CRITICAL: Preserve card_faces for double-faced card support
+        card_faces: card.card_faces,
       } as ScryfallCard;
     }
     return card as ScryfallCard | DeckCard;
@@ -303,7 +301,7 @@ const DraggableCard: React.FC<DraggableCardProps> = ({
         ...getDragStyles(),
         cursor: getCursor(),
         position: 'relative',
-        userSelect: 'none', // Prevent text selection during interactions
+        userSelect: 'none',
       }}
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
@@ -312,17 +310,50 @@ const DraggableCard: React.FC<DraggableCardProps> = ({
       onDoubleClick={handleDoubleClick}
       onContextMenu={handleContextMenu}
     >
-      <MagicCard
-        card={cardForMagicCard}
-        size={size}
-        scaleFactor={scaleFactor}
-        showQuantity={showQuantity}
-        quantity={quantity}
-        availableQuantity={availableQuantity}
-        selected={selected}
-        selectable={selectable}
-        disabled={disabled}
-      />
+      {/* CONDITIONAL: FlipCard only for double-faced cards, MagicCard for others */}
+      {(() => {
+        // Check if this is actually a double-faced card
+        const isActuallyDoubleFaced = 'card_faces' in cardForFlipCard && 
+                                     cardForFlipCard.card_faces && 
+                                     Array.isArray(cardForFlipCard.card_faces) && 
+                                     cardForFlipCard.card_faces.length >= 2;
+        
+        if (isActuallyDoubleFaced) {
+          // Use FlipCard for actual double-faced cards
+          return (
+            <FlipCard
+              card={cardForFlipCard}
+              size={size}
+              scaleFactor={scaleFactor}
+              showQuantity={showQuantity}
+              quantity={quantity}
+              availableQuantity={availableQuantity}
+              selected={selected}
+              selectable={selectable}
+              disabled={disabled}
+              onClick={onClick}
+              onDoubleClick={onDoubleClick}
+            />
+          );
+        } else {
+          // Use MagicCard directly for single-faced cards
+          return (
+            <MagicCard
+              card={cardForFlipCard}
+              size={size}
+              scaleFactor={scaleFactor}
+              showQuantity={showQuantity}
+              quantity={quantity}
+              availableQuantity={availableQuantity}
+              selected={selected}
+              selectable={selectable}
+              disabled={disabled}
+              onClick={onClick}
+              onDoubleClick={onDoubleClick}
+            />
+          );
+        }
+      })()}
       
       {/* Enhanced multi-selection indicator with animation */}
       {selected && selectedCards.length > 1 && (
@@ -351,8 +382,6 @@ const DraggableCard: React.FC<DraggableCardProps> = ({
           {selectedCards.length}
         </div>
       )}
-      
-
     </div>
   );
 };

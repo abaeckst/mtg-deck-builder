@@ -1,0 +1,52 @@
+/* Panel Resizing and Resize Handle Styles */
+/* Extracted from MTGOLayout.css - Phase 2 */
+
+/* Enhanced Resize Handles - Larger hit zones */
+.resize-handle {
+  position: absolute;
+  background-color: transparent;
+  transition: background-color 0.2s ease;
+  z-index: 1001;
+}
+
+.resize-handle:hover {
+  background-color: rgba(59, 130, 246, 0.2);
+}
+
+.resize-handle:active {
+  background-color: rgba(59, 130, 246, 0.4);
+}
+
+.resize-handle-right {
+  top: 0;
+  right: -15px;
+  width: 30px;
+  height: 100%;
+  cursor: ew-resize;
+}
+
+.resize-handle-left {
+  top: 0;
+  left: -15px;
+  width: 30px;
+  height: 100%;
+  cursor: ew-resize;
+}
+
+.resize-handle-bottom {
+  bottom: -15px;
+  left: 0;
+  right: 0;
+  height: 30px;
+  cursor: ns-resize;
+}
+
+.resize-handle-vertical {
+  top: -15px;
+  left: 0;
+  right: 0;
+  height: 30px;
+  cursor: ns-resize;
+}
+
+/* ===== EXTENDED PANEL RESIZING - CONTENT HIDING ===== */

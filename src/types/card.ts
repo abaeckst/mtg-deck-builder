@@ -178,6 +178,9 @@ export interface DeckCardInstance {
   toughness?: string;
   loyalty?: string;
   
+  // Double-faced card support (NEW)
+  card_faces?: CardFace[];     // Preserve card faces for flip functionality
+  
   // Format legality (inherited from original card)
   legal_in_format?: boolean;
 }
@@ -306,6 +309,8 @@ export const scryfallToDeckInstance = (
     power: scryfallCard.power,
     toughness: scryfallCard.toughness,
     loyalty: scryfallCard.loyalty,
+    // NEW: Preserve card faces for double-faced card support
+    card_faces: scryfallCard.card_faces,
   };
 };
 
@@ -336,6 +341,8 @@ export const deckCardToDeckInstance = (
     toughness: deckCard.toughness,
     loyalty: deckCard.loyalty,
     legal_in_format: deckCard.legal_in_format,
+    // NEW: DeckCard doesn't have card_faces, so this will be undefined
+    card_faces: undefined,
   };
 };
 

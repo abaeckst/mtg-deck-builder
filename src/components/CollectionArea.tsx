@@ -412,9 +412,8 @@ const CollectionArea: React.FC<CollectionAreaProps> = ({
                 onEnhancedDoubleClick={onCardDoubleClick}
                 onRightClick={onCardRightClick}
                 onDragStart={onDragStart}
-                showQuantity={true}
-                availableQuantity={4}
-                quantity={getTotalCopies(getCardId(card))}
+                showQuantity={false}
+                // No quantity display for collection - each card is individual
                 selected={isSelected(getCardId(card))}
                 selectable={true}
                 isDragActive={dragState.isDragging}

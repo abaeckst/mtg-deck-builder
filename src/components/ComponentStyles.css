@@ -1,0 +1,159 @@
+/* Component Styles - Buttons, Headers, Controls */
+/* Extracted from MTGOLayout.css - Phase 2 */
+
+/* Panel Headers - Consistent across all panels */
+.panel-header {
+  height: 40px;
+  background-color: #333333;
+  border-bottom: 1px solid #555555;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  flex-shrink: 0;
+}
+
+.panel-header h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+/* View Controls */
+.view-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.view-controls span {
+  color: #cccccc;
+}
+
+.view-controls button {
+  background-color: #404040;
+  color: #ffffff;
+  border: 1px solid #555555;
+  padding: 4px 8px;
+  border-radius: 3px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.view-controls button:hover {
+  background-color: #4a4a4a;
+}
+
+.view-controls button.active {
+  background-color: #3b82f6;
+  border-color: #2563eb;
+}
+
+/* PHASE 3B-1: Size slider styles - Professional larger sliders */
+.size-slider {
+  width: 180px;  /* Triple the original size for better precision */
+  height: 20px;
+  margin: 0 12px 0 6px;
+  background: linear-gradient(to right, #404040, #666666);
+  border-radius: 10px;
+  outline: none;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+  transition: all 0.2s ease;
+}
+
+.size-slider:hover {
+  background: linear-gradient(to right, #4a4a4a, #707070);
+}
+
+.size-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  background: #3b82f6;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid #ffffff;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+  transition: all 0.2s ease;
+}
+
+.size-slider::-webkit-slider-thumb:hover {
+  background: #2563eb;
+  transform: scale(1.15);
+  box-shadow: 0 3px 6px rgba(0,0,0,0.5);
+}
+
+.size-slider::-webkit-slider-thumb:active {
+  background: #1d4ed8;
+  transform: scale(1.1);
+}
+
+.size-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  background: #3b82f6;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+  transition: all 0.2s ease;
+}
+
+.size-slider::-moz-range-thumb:hover {
+  background: #2563eb;
+  transform: scale(1.15);
+  box-shadow: 0 3px 6px rgba(0,0,0,0.5);
+}
+
+.size-slider::-moz-range-thumb:active {
+  background: #1d4ed8;
+  transform: scale(1.1);
+}
+
+/* Deck Controls */
+.deck-controls {
+  display: flex;
+  gap: 6px;
+}
+
+.deck-controls button {
+  background-color: #404040;
+  color: #ffffff;
+  border: 1px solid #555555;
+  padding: 4px 12px;
+  border-radius: 3px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.deck-controls button:hover {
+  background-color: #4a4a4a;
+}
+
+/* Sideboard Controls */
+.sideboard-controls {
+  display: flex;
+  gap: 6px;
+}
+
+.sideboard-controls button {
+  background-color: #404040;
+  color: #ffffff;
+  border: 1px solid #555555;
+  padding: 4px 8px;
+  border-radius: 3px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.sideboard-controls button:hover {
+  background-color: #4a4a4a;
+}

@@ -3,7 +3,6 @@ import { useCallback, useRef, useEffect } from 'react';
 import { PanelDimensions } from './useLayout';
 
 interface ResizeHandlers {
-  onFilterPanelResize: (event: React.MouseEvent) => void;
   onDeckAreaResize: (event: React.MouseEvent) => void;
   onSideboardResize: (event: React.MouseEvent) => void;
   onVerticalResize: (event: React.MouseEvent) => void;
@@ -30,7 +29,7 @@ export const useResize = ({
 }: UseResizeProps) => {
   const resizeStateRef = useRef<{
     isResizing: boolean;
-    resizeType: 'filterPanel' | 'deckArea' | 'sideboard' | 'vertical' | null;
+    resizeType: 'deckArea' | 'sideboard' | 'vertical' | null;
     startPosition: { x: number; y: number };
     startDimensions: PanelDimensions;
     startViewportHeight: number; // Track viewport height for percentage calculations
@@ -61,15 +60,6 @@ export const useResize = ({
       const deltaY = event.clientY - state.startPosition.y;
 
       switch (state.resizeType) {
-        case 'filterPanel': {
-          const newWidth = state.startDimensions.filterPanelWidth + deltaX;
-          const constrainedWidth = Math.max(
-            constraints.filterPanelWidth.min,
-            Math.min(constraints.filterPanelWidth.max, newWidth)
-          );
-          updatePanelDimensions({ filterPanelWidth: constrainedWidth });
-          break;
-        }
         
         case 'deckArea':
         case 'vertical': {
@@ -154,7 +144,7 @@ export const useResize = ({
   }, [layout.panels.deckAreaHeightPercent, updateCSSVariables]);
 
   // Enhanced resize handler with better user feedback
-  const createResizeHandler = useCallback((resizeType: 'filterPanel' | 'deckArea' | 'sideboard' | 'vertical', cursorType: string) => {
+  const createResizeHandler = useCallback((resizeType: 'deckArea' | 'sideboard' | 'vertical', cursorType: string) => {
     return (event: React.MouseEvent) => {
       event.preventDefault();
       event.stopPropagation();
@@ -177,13 +167,11 @@ export const useResize = ({
   }, [layout.panels]);
 
   // Create resize handlers
-  const onFilterPanelResize = useCallback(createResizeHandler('filterPanel', 'ew-resize'), [createResizeHandler]);
   const onDeckAreaResize = useCallback(createResizeHandler('deckArea', 'ns-resize'), [createResizeHandler]);
   const onSideboardResize = useCallback(createResizeHandler('sideboard', 'ew-resize'), [createResizeHandler]);
   const onVerticalResize = useCallback(createResizeHandler('vertical', 'ns-resize'), [createResizeHandler]);
 
   const handlers: ResizeHandlers = {
-    onFilterPanelResize,
     onDeckAreaResize,
     onSideboardResize,
     onVerticalResize,

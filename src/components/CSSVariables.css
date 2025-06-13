@@ -1,0 +1,9 @@
+/* CSS Custom Properties for Dynamic Resizing */
+/* Extracted from MTGOLayout.css - Phase 1 */
+
+/* CSS Custom Properties for Dynamic Resizing */
+:root {
+  --deck-area-height-percent: 30%; /* Percentage of viewport height */
+  --deck-area-height: 300px; /* Calculated pixel value (fallback) */
+  --collection-area-height: 700px; /* Calculated pixel value (fallback) */
+}

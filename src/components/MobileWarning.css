@@ -1,0 +1,25 @@
+/* Mobile Warning Styles */
+/* Extracted from MTGOLayout.css - Phase 1 */
+
+/* Mobile Warning */
+.mtgo-mobile-warning {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  background-color: #1a1a1a;
+  color: #ffffff;
+  text-align: center;
+  padding: 2rem;
+}
+
+.mtgo-mobile-warning h2 {
+  color: #ef4444;
+  margin-bottom: 1rem;
+}
+
+.mtgo-mobile-warning p {
+  margin-bottom: 1rem;
+  line-height: 1.6;
+}

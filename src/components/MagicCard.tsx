@@ -1,5 +1,6 @@
 // src/components/MagicCard.tsx
 // React component for displaying Magic: The Gathering cards
+// SIMPLIFIED: Flip logic moved to FlipCard wrapper
 
 import React, { useState, useCallback } from 'react';
 import LazyImage from './LazyImage';
@@ -61,6 +62,7 @@ const getSizeStyles = (size: 'small' | 'normal' | 'large', scaleFactor: number =
 
 /**
  * Magic card component with realistic appearance
+ * SIMPLIFIED: No flip logic - handled by FlipCard wrapper
  */
 export const MagicCard: React.FC<MagicCardProps> = ({
   card,
@@ -81,6 +83,8 @@ export const MagicCard: React.FC<MagicCardProps> = ({
   const [imageError, setImageError] = useState(false);
 
   const sizeStyles = getSizeStyles(size, scaleFactor);
+  
+  // Simplified image URI resolution - FlipCard handles face selection
   const imageUri = 'image_uri' in card 
     ? card.image_uri 
     : getCardImageUri(card as ScryfallCard, size === 'small' ? 'small' : 'normal');
@@ -303,29 +307,6 @@ export const MagicCard: React.FC<MagicCardProps> = ({
           </>
         )}
 
-        {/* Selection Indicator - REMOVED: Checkmark no longer displayed on selected cards */}
-        {/* 
-        {selected && (
-          <div style={{
-            position: 'absolute',
-            top: '4px',
-            left: '4px',
-            backgroundColor: '#3b82f6',
-            color: 'white',
-            borderRadius: '50%',
-            width: size === 'small' ? '16px' : '20px',
-            height: size === 'small' ? '16px' : '20px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: size === 'small' ? '10px' : '12px',
-            fontWeight: 'bold',
-          }}>
-            ✓
-          </div>
-        )}
-        */}
-
         {/* Hover Effect */}
         {(selectable || onClick) && !disabled && (
           <div
@@ -425,17 +406,15 @@ export const CardGrid: React.FC<{
     const clampedScale = Math.max(0.7, Math.min(2.5, scaleFactor));
     const scaledSize = Math.round(baseSize * clampedScale);
     
-    // Smooth proportional gap scaling - no artificial bounds
-    const baseGap = 4;  // Base gap size
+    // Smooth proportional gap scaling
+    const baseGap = 4;
     const scaledGap = Math.round(baseGap * clampedScale);
     
     // Area-specific grid template behavior
     let gridTemplate;
     if (area === 'collection') {
-      // Collection: Use max-content to prevent cards from expanding
       gridTemplate = `repeat(auto-fill, minmax(${scaledSize}px, max-content))`;
     } else {
-      // Deck/Sideboard: Use 1fr for flexible sizing
       gridTemplate = `repeat(auto-fill, minmax(${scaledSize}px, 1fr))`;
     }
     
@@ -468,7 +447,7 @@ export const CardGrid: React.FC<{
           onDoubleClick={onCardDoubleClick}
           showQuantity={showQuantities}
           quantity={'quantity' in card ? card.quantity : undefined}
-          availableQuantity={showQuantities ? 4 : undefined} // Simulate full collection
+          availableQuantity={showQuantities ? 4 : undefined}
           selected={selectedCards.has(card.id)}
           selectable={true}
         />
