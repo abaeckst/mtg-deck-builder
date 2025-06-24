@@ -1,10 +1,12 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { ScryfallCard, DeckCard, DeckCardInstance, getCardId } from '../types/card';
+import { ScryfallCard, DeckCard, DeckCardInstance, getCardId, CardSizeMode, getSizeConfig } from '../types/card';
 import { SortCriteria, SortDirection } from '../hooks/useSorting';
 import { DropZone as DropZoneType, DraggedCard } from '../hooks/useDragAndDrop';
 import DraggableCard from './DraggableCard';
 import DropZoneComponent from './DropZone';
 import ListView from './ListView';
+import CardSizeButtons from './CardSizeButtons';
+import './FilterPanel.css'; // For card size button styles
 
 interface CollectionAreaProps {
   cards: ScryfallCard[];
@@ -30,8 +32,8 @@ interface CollectionAreaProps {
   // View and sizing
   viewMode: 'grid' | 'list';
   onViewModeChange: (mode: 'grid' | 'list') => void;
-  cardSize: number;
-  onCardSizeChange: (size: number) => void;
+  cardSizeMode: CardSizeMode;
+  onCardSizeChange: (mode: CardSizeMode) => void;
   
   // Card interactions
   onCardClick: (card: ScryfallCard | DeckCard | DeckCardInstance, event?: React.MouseEvent) => void;
@@ -68,7 +70,7 @@ const CollectionArea: React.FC<CollectionAreaProps> = ({
   onSortChange,
   viewMode,
   onViewModeChange,
-  cardSize,
+  cardSizeMode,
   onCardSizeChange,
   onCardClick,
   onCardRightClick,
@@ -158,22 +160,9 @@ const CollectionArea: React.FC<CollectionAreaProps> = ({
           fontSize: '13px'
         }}>
           <span style={{color: '#cccccc'}}>Size: </span>
-          <input
-            type="range"
-            min="1.3"
-            max="2.5"
-            step="0.1"
-            value={cardSize}
-            onChange={(e) => onCardSizeChange(parseFloat(e.target.value))}
-            className="size-slider"
-            style={{
-              width: '70px',
-              height: '4px',
-              background: '#555555',
-              outline: 'none',
-              borderRadius: '2px'
-            }}
-            title={`Card size: ${Math.round(cardSize * 100)}%`}
+          <CardSizeButtons
+            currentMode={cardSizeMode}
+            onModeChange={onCardSizeChange}
           />
           
           <div className="sort-button-container" ref={sortRef}>
@@ -337,7 +326,7 @@ const CollectionArea: React.FC<CollectionAreaProps> = ({
             <ListView
               cards={sortedCards}
               area="collection"
-              scaleFactor={cardSize}
+              scaleFactor={getSizeConfig(cardSizeMode).scale}
               sortCriteria={sortState.criteria}
               sortDirection={sortState.direction}
               onSortChange={onSortChange}
@@ -393,8 +382,8 @@ const CollectionArea: React.FC<CollectionAreaProps> = ({
             className="collection-grid"
             style={{
               display: 'grid',
-              gridTemplateColumns: `repeat(auto-fill, minmax(${Math.round(130 * cardSize)}px, max-content))`,
-              gap: `${Math.round(4 * cardSize)}px`,
+              gridTemplateColumns: `repeat(auto-fill, minmax(${Math.round(130 * getSizeConfig(cardSizeMode).scale)}px, max-content))`,
+              gap: `${Math.round(4 * getSizeConfig(cardSizeMode).scale)}px`,
               alignContent: 'start',
               padding: '8px'
             }}
@@ -405,7 +394,7 @@ const CollectionArea: React.FC<CollectionAreaProps> = ({
                 card={card}
                 zone="collection"
                 size="normal"
-                scaleFactor={cardSize}
+                scaleFactor={getSizeConfig(cardSizeMode).scale}
                 onClick={(card, event) => onCardClick(card, event)}
                 onEnhancedDoubleClick={onEnhancedDoubleClick}                onRightClick={onCardRightClick}
                 onDragStart={onDragStart}

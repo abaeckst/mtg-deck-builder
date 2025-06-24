@@ -1,5 +1,5 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { ScryfallCard, DeckCard, DeckCardInstance, getCardId } from '../types/card';
+import React from 'react';
+import { ScryfallCard, DeckCard, DeckCardInstance, CardSizeMode, getSizeConfig } from '../types/card';
 import { SortCriteria, SortDirection } from '../hooks/useSorting';
 import { DropZone as DropZoneType, DraggedCard } from '../hooks/useDragAndDrop';
 import DraggableCard from './DraggableCard';
@@ -21,8 +21,8 @@ interface SideboardAreaProps {
   // View and sizing - INHERITED FROM UNIFIED STATE (no controls shown)
   viewMode: 'card' | 'pile' | 'list';
   onViewModeChange: (mode: 'card' | 'pile' | 'list') => void;
-  cardSize: number;
-  onCardSizeChange: (size: number) => void;
+  cardSizeMode: CardSizeMode;
+  onCardSizeChange: (mode: CardSizeMode) => void;
   
   // Card interactions
   onCardClick: (card: ScryfallCard | DeckCard | DeckCardInstance, event?: React.MouseEvent) => void;
@@ -64,7 +64,7 @@ const SideboardArea: React.FC<SideboardAreaProps> = ({
   onSortChange,
   viewMode, // Inherited from unified state
   onViewModeChange,
-  cardSize, // Inherited from unified state
+  cardSizeMode, // Inherited from unified state
   onCardSizeChange,
   onCardClick,
   onInstanceClick,
@@ -144,7 +144,7 @@ const SideboardArea: React.FC<SideboardAreaProps> = ({
           <PileView
             cards={sideboard}
             zone="sideboard"
-            scaleFactor={cardSize} // Inherited from unified state
+            scaleFactor={getSizeConfig(cardSizeMode).scale} // Inherited from unified state
             forcedSortCriteria={sortState.criteria === 'name' || sortState.criteria === 'type' ? 'mana' : sortState.criteria as any}
             onClick={(card, event) => onCardClick(card, event)}
             onInstanceClick={onInstanceClick}
@@ -162,7 +162,7 @@ const SideboardArea: React.FC<SideboardAreaProps> = ({
           <ListView
             cards={sortedSideboard}
             area="sideboard"
-            scaleFactor={cardSize} // Inherited from unified state
+            scaleFactor={getSizeConfig(cardSizeMode).scale} // Inherited from unified state
             sortCriteria={sortState.criteria}
             sortDirection={sortState.direction}
             onSortChange={(criteria, direction) => {
@@ -184,8 +184,8 @@ const SideboardArea: React.FC<SideboardAreaProps> = ({
             className="sideboard-grid"
             style={{
               display: 'grid',
-              gridTemplateColumns: `repeat(auto-fill, minmax(${Math.round(130 * cardSize)}px, max-content))`, // Card size inherited
-              gap: `${Math.round(4 * cardSize)}px`, // Gap scales with unified card size
+              gridTemplateColumns: `repeat(auto-fill, minmax(${Math.round(130 * getSizeConfig(cardSizeMode).scale)}px, max-content))`, // Card size inherited
+              gap: `${Math.round(4 * getSizeConfig(cardSizeMode).scale)}px`, // Gap scales with unified card size
               alignContent: 'start',
               minHeight: '150px',
               paddingBottom: '40px'
@@ -231,7 +231,7 @@ const SideboardArea: React.FC<SideboardAreaProps> = ({
                     card={representativeCard}
                     zone="sideboard"
                     size="normal"
-                    scaleFactor={cardSize} // Inherited from unified state
+                    scaleFactor={getSizeConfig(cardSizeMode).scale} // Inherited from unified state
                     onClick={handleStackClick}
                     instanceId={representativeCard.instanceId}
                     isInstance={true}

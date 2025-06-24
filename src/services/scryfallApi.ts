@@ -695,7 +695,7 @@ export const loadMoreResults = async (
       onProgress(paginationState.loadedCards, paginationState.totalCards);
     }
     
-    const scryfallPageSize = paginationState.scryfallPageSize || 175;
+    // const scryfallPageSize = paginationState.scryfallPageSize || 175; // Unused variable
     const displayBatchSize = paginationState.displayBatchSize || 75;
     const cardsConsumed = paginationState.cardsConsumedFromCurrentPage || 0;
     const currentPageCards = paginationState.currentPageCards || [];

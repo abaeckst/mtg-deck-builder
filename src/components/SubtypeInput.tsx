@@ -1,5 +1,5 @@
 // src/components/SubtypeInput.tsx - Phase 4B: Autocomplete multi-select for subtypes
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import subtypeData from '../data/subtypes.json';
 
 interface SubtypeInputProps {
@@ -188,6 +188,7 @@ const SubtypeInput: React.FC<SubtypeInputProps> = ({
           aria-label="Subtype filter input"
           aria-expanded={showSuggestions}
           aria-haspopup="listbox"
+          aria-controls="subtype-suggestions"
           role="combobox"
         />
         
@@ -195,6 +196,7 @@ const SubtypeInput: React.FC<SubtypeInputProps> = ({
         {showSuggestions && suggestions.length > 0 && (
           <div 
             ref={suggestionsRef}
+            id="subtype-suggestions"
             className="subtype-suggestions"
             role="listbox"
           >

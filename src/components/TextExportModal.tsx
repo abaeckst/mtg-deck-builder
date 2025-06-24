@@ -5,8 +5,8 @@ import {
   formatDeckForMTGO, 
   copyToClipboard, 
   getFormatDisplayName,
-  DeckExportData,
-  calculateCardTypeCounts
+  DeckExportData
+  // calculateCardTypeCounts // Unused import
 } from '../utils/deckFormatting';
 
 interface TextExportModalProps {
@@ -28,13 +28,6 @@ export const TextExportModal: React.FC<TextExportModalProps> = ({
 }) => {
   const [copyStatus, setCopyStatus] = useState<'idle' | 'copying' | 'success' | 'error'>('idle');
   
-  // Auto-copy on modal open
-  useEffect(() => {
-    if (isOpen && copyStatus === 'idle') {
-      handleCopyToClipboard();
-    }
-  }, [isOpen]);
-  
   // Generate formatted deck text
   const deckData: DeckExportData = useMemo(() => ({
     deckName,
@@ -47,7 +40,7 @@ export const TextExportModal: React.FC<TextExportModalProps> = ({
     return formatDeckForMTGO(deckData);
   }, [deckData]);
   
-  const handleCopyToClipboard = async () => {
+  const handleCopyToClipboard = useCallback(async () => {
     setCopyStatus('copying');
     
     try {
@@ -64,7 +57,14 @@ export const TextExportModal: React.FC<TextExportModalProps> = ({
       setCopyStatus('error');
       setTimeout(() => setCopyStatus('idle'), 3000);
     }
-  };
+  }, [formattedText]);
+
+  // Auto-copy on modal open
+  useEffect(() => {
+    if (isOpen && copyStatus === 'idle') {
+      handleCopyToClipboard();
+    }
+  }, [isOpen, copyStatus, handleCopyToClipboard]);
   
   const getCopyButtonText = () => {
     switch (copyStatus) {

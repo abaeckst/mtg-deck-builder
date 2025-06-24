@@ -4,7 +4,7 @@
 
 import React, { useState, useCallback } from 'react';
 import LazyImage from './LazyImage';
-import { ScryfallCard, DeckCard, getCardImageUri, isBasicLand } from '../types/card';
+import { ScryfallCard, DeckCard, getCardImageUri, getOptimizedImageUri, isBasicLand } from '../types/card';
 
 /**
  * Props for the MagicCard component
@@ -84,10 +84,10 @@ export const MagicCard: React.FC<MagicCardProps> = ({
 
   const sizeStyles = getSizeStyles(size, scaleFactor);
   
-  // Simplified image URI resolution - FlipCard handles face selection
+  // Enhanced image URI resolution with optimal sizing
   const imageUri = 'image_uri' in card 
     ? card.image_uri 
-    : getCardImageUri(card as ScryfallCard, size === 'small' ? 'small' : 'normal');
+    : getCardImageUri(card as ScryfallCard, size);
 
   /**
    * Handle image loading

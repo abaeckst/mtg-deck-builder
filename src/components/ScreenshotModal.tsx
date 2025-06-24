@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { Modal } from './Modal';
+// import { Modal } from './Modal'; // Unused import
 import MagicCard from './MagicCard';
 import { DeckCardInstance, groupInstancesByCardId } from '../types/card';
 import { 
@@ -7,7 +7,7 @@ import {
   getCardQuantityInGroup,
   measureAvailableSpace,
   calculateOptimalCardSize,
-  determineScrollingNeeded,
+  // determineScrollingNeeded, // Unused import
   ViewportDimensions,
   CardLayoutCalculation,
   SIZE_OVERRIDES
@@ -28,11 +28,11 @@ export const ScreenshotModal: React.FC<ScreenshotModalProps> = ({
   sideboard,
   deckName = 'Untitled Deck'
 }) => {
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // const [isGenerating, setIsGenerating] = useState(false); // Unused variable
+  const [error] = useState<string | null>(null); // setError unused
   
   // Dynamic sizing state
-  const [sizeMode, setSizeMode] = useState<'auto' | 'small' | 'medium' | 'large'>('auto');
+  const [sizeMode] = useState<'auto' | 'small' | 'medium' | 'large'>('auto'); // setSizeMode unused
   const [viewportDimensions, setViewportDimensions] = useState<ViewportDimensions | null>(null);
   const [cardLayout, setCardLayout] = useState<(CardLayoutCalculation & { 
     mainDeckColumns: number; 
@@ -135,15 +135,15 @@ export const ScreenshotModal: React.FC<ScreenshotModalProps> = ({
   }, [cardLayout, sizeMode]);
   
   const cardProps = getFinalCardProps();
-  const needsScrolling = cardLayout ? determineScrollingNeeded(
-    cardLayout.calculatedScale, 
-    sizeMode !== 'auto' ? SIZE_OVERRIDES[sizeMode] : null
-  ) : false;
+  // const needsScrolling = cardLayout ? determineScrollingNeeded(
+  //   cardLayout.calculatedScale, 
+  //   sizeMode !== 'auto' ? SIZE_OVERRIDES[sizeMode] : null
+  // ) : false; // Unused variable
 
-  const handleSaveImage = async () => {
-    // Removed download functionality - focusing on layout optimization
-    console.log('Screenshot view optimized for full-screen display');
-  };
+  // const handleSaveImage = async () => {
+  //   // Removed download functionality - focusing on layout optimization
+  //   console.log('Screenshot view optimized for full-screen display');
+  // }; // Unused function
   
   // Handle overlay click to prevent closing when clicking inside modal
   const handleOverlayClick = (event: React.MouseEvent) => {

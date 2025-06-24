@@ -1,82 +1,67 @@
 // src/hooks/useCardSizing.ts
-// Hook for managing card sizes with persistence
+// Hook for managing card sizes with button-based controls
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
+import { CardSizeMode, getSizeConfig } from '../types/card';
 
 interface CardSizeState {
-  collection: number;
-  deck: number;
-  sideboard: number;
+  collection: CardSizeMode;
+  deck: CardSizeMode;
+  sideboard: CardSizeMode;
 }
 
 interface CardSizeSettings {
-  sizes: CardSizeState;
-  updateCollectionSize: (size: number) => void;
-  updateDeckSize: (size: number) => void;
-  updateSideboardSize: (size: number) => void;
+  modes: CardSizeState;
+  sizes: {
+    collection: number;
+    deck: number;
+    sideboard: number;
+  };
+  updateCollectionSize: (mode: CardSizeMode) => void;
+  updateDeckSize: (mode: CardSizeMode) => void;
+  updateSideboardSize: (mode: CardSizeMode) => void;
   resetToDefaults: () => void;
 }
 
-const DEFAULT_SIZES: CardSizeState = {
-  collection: 1.6,  // 160% (1.6) default - consistent across all areas
-  deck: 1.6,        // 160% (1.6) default - consistent across all areas  
-  sideboard: 1.6    // 160% (1.6) default - consistent across all areas
+const DEFAULT_MODES: CardSizeState = {
+  collection: 'normal',  // Start with Normal as default
+  deck: 'normal',        // Start with Normal as default
+  sideboard: 'normal'    // Start with Normal as default
 };
-
-const STORAGE_KEY = 'mtg-deck-builder-card-sizes';
 
 /**
  * Hook for managing card sizes across different zones
  */
 export const useCardSizing = (): CardSizeSettings => {
-  // Initialize state from localStorage or defaults - force clear for consistency
-  const [sizes, setSizes] = useState<CardSizeState>(() => {
-    // Clear any existing localStorage to fix loading issues
-    try {
-      localStorage.removeItem(STORAGE_KEY);
-    } catch (error) {
-      console.warn('Failed to clear card sizes from localStorage:', error);
-    }
-    
-    // Always start with clean defaults (160% for all areas)
-    console.log('Initializing card sizes with 160% defaults:', DEFAULT_SIZES);
-    return { 
-      collection: 1.6,
-      deck: 1.6, 
-      sideboard: 1.6
-    };
-  });
+  // No persistence for button-based sizing as specified
+  const [modes, setModes] = useState<CardSizeState>(DEFAULT_MODES);
 
-  // Persist sizes to localStorage whenever they change
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(sizes));
-    } catch (error) {
-      console.warn('Failed to save card sizes to localStorage:', error);
-    }
-  }, [sizes]);
+  // Convert modes to scale values for backward compatibility
+  const sizes = {
+    collection: getSizeConfig(modes.collection).scale,
+    deck: getSizeConfig(modes.deck).scale,
+    sideboard: getSizeConfig(modes.sideboard).scale
+  };
 
   // Update functions
-  const updateCollectionSize = useCallback((size: number) => {
-    const clampedSize = Math.max(1.3, Math.min(2.5, size));
-    setSizes(prev => ({ ...prev, collection: clampedSize }));
+  const updateCollectionSize = useCallback((mode: CardSizeMode) => {
+    setModes(prev => ({ ...prev, collection: mode }));
   }, []);
 
-  const updateDeckSize = useCallback((size: number) => {
-    const clampedSize = Math.max(1.3, Math.min(2.5, size));
-    setSizes(prev => ({ ...prev, deck: clampedSize }));
+  const updateDeckSize = useCallback((mode: CardSizeMode) => {
+    setModes(prev => ({ ...prev, deck: mode }));
   }, []);
 
-  const updateSideboardSize = useCallback((size: number) => {
-    const clampedSize = Math.max(1.3, Math.min(2.5, size));
-    setSizes(prev => ({ ...prev, sideboard: clampedSize }));
+  const updateSideboardSize = useCallback((mode: CardSizeMode) => {
+    setModes(prev => ({ ...prev, sideboard: mode }));
   }, []);
 
   const resetToDefaults = useCallback(() => {
-    setSizes(DEFAULT_SIZES);
+    setModes(DEFAULT_MODES);
   }, []);
 
   return {
+    modes,
     sizes,
     updateCollectionSize,
     updateDeckSize,

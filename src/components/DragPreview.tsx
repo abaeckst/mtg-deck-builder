@@ -1,7 +1,7 @@
 // src/components/DragPreview.tsx
 import React from 'react';
-import { ScryfallCard, DeckCard, DeckCardInstance, getCardId } from '../types/card';
-import { DragState, DraggedCard } from '../hooks/useDragAndDrop';
+import { getCardId } from '../types/card';
+import { DragState } from '../hooks/useDragAndDrop';
 import MagicCard from './MagicCard';
 
 interface DragPreviewProps {

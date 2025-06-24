@@ -197,7 +197,7 @@ const ListView: React.FC<ListViewProps> = ({
     // For instances, quantity is always 1, so we handle add/remove differently
     if ('instanceId' in card) {
       // For deck instances, we use the original card ID for quantity management
-      const currentQuantity = 1; // Each instance represents 1 copy
+      // const currentQuantity = 1; // Each instance represents 1 copy // Unused variable
       const newQuantity = delta > 0 ? 1 : 0; // Adding or removing the instance
       onQuantityChange(card.cardId, newQuantity);
     } else if ('quantity' in card) {

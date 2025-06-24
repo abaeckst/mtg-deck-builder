@@ -11,9 +11,9 @@ import './ContextMenu.css';
 import './FilterPanel.css';
 
 // Card types import
-import { ScryfallCard, DeckCard, DeckCardInstance, scryfallToDeckCard, scryfallToDeckInstance, 
+import { ScryfallCard, DeckCard, DeckCardInstance, scryfallToDeckInstance, 
          deckCardToDeckInstance, isBasicLand, getTotalCardQuantity, getCardQuantityInZone, 
-         removeInstancesForCard, getCardId } from '../types/card';
+         removeInstancesForCard } from '../types/card';
 
 // Import components
 import { useCards } from '../hooks/useCards';
@@ -55,18 +55,18 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
     layout,
     updatePanelDimensions,
     updateDeckAreaHeightByPixels,
-    updatePreviewPane,
+    // updatePreviewPane, // Unused
     updateViewMode,
-    updateCardSize,
+    // updateCardSize, // Unused
     updateDeckSideboardViewMode, // NEW: Unified deck/sideboard view mode
-    updateDeckSideboardCardSize, // NEW: Unified deck/sideboard card size
-    resetLayout,
-    togglePreviewPane,
+    // updateDeckSideboardCardSize, // NEW: Unified deck/sideboard card size // Unused
+    // resetLayout, // Unused
+    // togglePreviewPane, // Unused
     constraints,
-    getCalculatedHeights,
+    // getCalculatedHeights, // Unused
   } = useLayout();
   const { 
-    selectedCards, 
+    // selectedCards, // Unused
     selectCard, 
     clearSelection, 
     isSelected,
@@ -76,8 +76,8 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
     cards, 
     loading, 
     error, 
-    searchForCards,
-    searchWithAllFilters,
+    // searchForCards, // Unused
+    // searchWithAllFilters, // Unused
     enhancedSearch,
     loadPopularCards, 
     loadRandomCard,
@@ -85,11 +85,11 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
     showSuggestions,
     getSearchSuggestions,
     clearSearchSuggestions,
-    addToSearchHistory,
+    // addToSearchHistory, // Unused
     // Progressive loading actions
     pagination,
     loadMoreResultsAction,
-    resetPagination,
+    // resetPagination, // Unused
     // Dual sort system integration
     handleCollectionSortChange,
     // Filter integration (pass-through from useFilters)
@@ -106,12 +106,13 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
     getSearchModeText
   } = useCards();
   
-  // Card sizing system
+  // Card sizing system with new button-based modes
   const { 
-    sizes: cardSizes, 
+    modes: cardModes,
+    // sizes: cardSizes, // Unused
     updateCollectionSize, 
-    updateDeckSize, 
-    updateSideboardSize 
+    // updateDeckSize, // Unused
+    // updateSideboardSize // Unused
   } = useCardSizing();
   
   // Initialize resize functionality
@@ -588,7 +589,7 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
           onSortChange={(criteria, direction) => handleSortChange('collection', criteria, direction)}
           viewMode={layout.viewModes.collection}
           onViewModeChange={(mode) => updateViewMode('collection', mode)}
-          cardSize={cardSizes.collection}
+          cardSizeMode={cardModes.collection}
           onCardSizeChange={updateCollectionSize}
           onCardClick={handleCardClick}
           onEnhancedDoubleClick={handleDoubleClick}
@@ -636,8 +637,8 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
             onSortChange={(criteria, direction) => updateSort('deck', criteria, direction)}
             viewMode={layout.viewModes.deckSideboard}
             onViewModeChange={updateDeckSideboardViewMode}
-            cardSize={layout.cardSizes.deckSideboard}
-            onCardSizeChange={updateDeckSideboardCardSize}
+            cardSizeMode={cardModes.deck}
+            onCardSizeChange={updateDeckSize}
             onCardClick={handleCardClick}
           onEnhancedDoubleClick={handleDoubleClick}
             onInstanceClick={handleInstanceClick}
@@ -665,10 +666,10 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
             sideboardWidth={layout.panels.sideboardWidth}
             sortState={sideboardSort}
             onSortChange={(criteria, direction) => updateSort('sideboard', criteria, direction)}
-            cardSize={layout.cardSizes.deckSideboard}
+            cardSizeMode={cardModes.deck}
             viewMode={layout.viewModes.deckSideboard}
             onViewModeChange={updateDeckSideboardViewMode}
-            onCardSizeChange={updateSideboardSize}
+            onCardSizeChange={updateDeckSize}
             onCardClick={handleCardClick}
           onEnhancedDoubleClick={handleDoubleClick}
             onInstanceClick={handleInstanceClick}

@@ -1,6 +1,6 @@
 // ===== FILE: src/components/PileColumn.tsx - FINAL VERSION =====
 import React, { useCallback } from 'react';
-import { ScryfallCard, DeckCard, DeckCardInstance, getCardId, getSelectionId } from '../types/card';
+import { ScryfallCard, DeckCard, DeckCardInstance, getCardId } from '../types/card';
 import { DropZone } from '../hooks/useDragAndDrop';
 import DraggableCard from './DraggableCard';
 
@@ -143,7 +143,7 @@ const PileColumn: React.FC<PileColumnProps> = ({
       console.error('Error rendering cards in pile column:', error);
       return [<div key="error" className="error-message">Error rendering cards</div>];
     }
-  }, [cards, zone, scaleFactor, onClick, onEnhancedDoubleClick, onRightClick, onDragStart, isSelected, selectedCards, isDragActive]);
+  }, [cards, zone, scaleFactor, onClick, onInstanceClick, onEnhancedDoubleClick, onRightClick, onDragStart, isSelected, selectedCards, isDragActive]);
 
   // Calculate proper column width - ensure cards fit within column bounds
   // Magic cards are ~115px wide - balanced sizing to contain cards while showing gaps

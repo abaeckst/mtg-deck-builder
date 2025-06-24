@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { ScryfallCard, DeckCard, DeckCardInstance, getCardId } from '../types/card';
+import { ScryfallCard, DeckCard, DeckCardInstance, CardSizeMode, getSizeConfig } from '../types/card';
 import { SortCriteria, SortDirection } from '../hooks/useSorting';
 import { DropZone as DropZoneType, DraggedCard } from '../hooks/useDragAndDrop';
 import DraggableCard from './DraggableCard';
@@ -7,6 +7,8 @@ import DropZoneComponent from './DropZone';
 import ListView from './ListView';
 import PileView from './PileView';
 import ViewModeDropdown from './ViewModeDropdown';
+import CardSizeButtons from './CardSizeButtons';
+import './FilterPanel.css'; // For card size button styles
 
 interface DeckAreaProps {
   mainDeck: DeckCardInstance[];
@@ -22,8 +24,8 @@ interface DeckAreaProps {
   // View and sizing - UNIFIED CONTROLS
   viewMode: 'card' | 'pile' | 'list';
   onViewModeChange: (mode: 'card' | 'pile' | 'list') => void; // This will affect both deck and sideboard
-  cardSize: number;
-  onCardSizeChange: (size: number) => void; // This will affect both deck and sideboard
+  cardSizeMode: CardSizeMode;
+  onCardSizeChange: (mode: CardSizeMode) => void; // This will affect both deck and sideboard
   
   // Card interactions
   onCardClick: (card: ScryfallCard | DeckCard | DeckCardInstance, event?: React.MouseEvent) => void;
@@ -65,7 +67,7 @@ const DeckArea: React.FC<DeckAreaProps> = ({
   onSortChange,
   viewMode,
   onViewModeChange,
-  cardSize,
+  cardSizeMode,
   onCardSizeChange,
   onCardClick,
   onInstanceClick,
@@ -432,27 +434,9 @@ const DeckArea: React.FC<DeckAreaProps> = ({
                 fontSize: '12px',
                 fontWeight: '500'
               }}>Size:</span>
-              <input
-                type="range"
-                min="1.3"
-                max="2.5"
-                step="0.1"
-                value={cardSize}
-                onChange={(e) => {
-                  const newSize = parseFloat(e.target.value);
-                  onCardSizeChange(newSize);
-                }}
-                className="mtgo-slider-enhanced"
-                title={`Card size: ${Math.round(cardSize * 100)}%`}
-                style={{
-                  width: '70px',
-                  height: '6px',
-                  background: 'linear-gradient(to right, #555555, #777777)',
-                  outline: 'none',
-                  borderRadius: '3px',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease'
-                }}
+              <CardSizeButtons
+                currentMode={cardSizeMode}
+                onModeChange={onCardSizeChange}
               />
             </div>
           )}
@@ -591,19 +575,9 @@ const DeckArea: React.FC<DeckAreaProps> = ({
                   {renderOverflowControl('size', (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%' }}>
                       <span style={{ color: '#cccccc', fontSize: '12px' }}>Size:</span>
-                      <input
-                        type="range"
-                        min="1.3"
-                        max="2.5"
-                        step="0.1"
-                        value={cardSize}
-                        onChange={(e) => onCardSizeChange(parseFloat(e.target.value))}
-                        style={{
-                          width: '70px',
-                          height: '4px',
-                          background: '#555555',
-                          borderRadius: '2px'
-                        }}
+                      <CardSizeButtons
+                        currentMode={cardSizeMode}
+                        onModeChange={onCardSizeChange}
                       />
                     </div>
                   ))}
@@ -649,7 +623,7 @@ const DeckArea: React.FC<DeckAreaProps> = ({
           <PileView
             cards={mainDeck}
             zone="deck"
-            scaleFactor={cardSize}
+            scaleFactor={getSizeConfig(cardSizeMode).scale}
             forcedSortCriteria={sortState.criteria === 'name' || sortState.criteria === 'type' ? 'mana' : sortState.criteria as any}
             onClick={(card, event) => onCardClick(card, event)}
             onInstanceClick={onInstanceClick}
@@ -667,7 +641,7 @@ const DeckArea: React.FC<DeckAreaProps> = ({
           <ListView
             cards={sortedMainDeck}
             area="deck"
-            scaleFactor={cardSize}
+            scaleFactor={getSizeConfig(cardSizeMode).scale}
             sortCriteria={sortState.criteria}
             sortDirection={sortState.direction}
             onSortChange={(criteria, direction) => {
@@ -689,8 +663,8 @@ const DeckArea: React.FC<DeckAreaProps> = ({
             className="deck-grid"
             style={{
               display: 'grid',
-              gridTemplateColumns: `repeat(auto-fill, minmax(${Math.round(130 * cardSize)}px, max-content))`,
-              gap: `${Math.round(4 * cardSize)}px`,
+              gridTemplateColumns: `repeat(auto-fill, minmax(${Math.round(130 * getSizeConfig(cardSizeMode).scale)}px, max-content))`,
+              gap: `${Math.round(4 * getSizeConfig(cardSizeMode).scale)}px`,
               alignContent: 'start',
               minHeight: '150px',
               paddingBottom: '40px'
@@ -736,7 +710,7 @@ const DeckArea: React.FC<DeckAreaProps> = ({
                     card={representativeCard}
                     zone="deck"
                     size="normal"
-                    scaleFactor={cardSize}
+                    scaleFactor={getSizeConfig(cardSizeMode).scale}
                     onClick={handleStackClick}
                     instanceId={representativeCard.instanceId}
                     isInstance={true}

@@ -1,16 +1,16 @@
 # Search & Filtering System Guide
 
-**Last Updated:** January 14, 2025 
-**Status:** Working with complex multi-hook coordination and performance optimization 
-**Complexity:** High - 6-hook coordination, dual sort system, API integration, stored pagination state management
+**Last Updated:** January 24, 2025 
+**Status:** Production-ready with search mode toggles, performance optimizations (<1s search), timer system fixes 
+**Complexity:** High - 6-hook coordination, search mode toggles, dual sort system, API integration, timer system migration
 
 ## 🎯 System Definition
 
 ### Purpose
 
-**What this system does:** Comprehensive search and filtering with multi-field search (names, oracle text, type lines), progressive loading, sophisticated filter coordination, dual sort system (client vs server-side), and performance optimization 
-**Why it exists:** Provides fast, responsive card search with advanced filtering capabilities, progressive loading for large datasets, and optimized performance through re-render elimination and intelligent sorting decisions 
-**System boundaries:** Handles all search input, filter management, API coordination, pagination state, and results display; integrates with card display system, selection system, and layout system
+**What this system does:** Comprehensive search and filtering with multi-field search (names, oracle text, type lines), search mode toggles (Name/Card Text), progressive loading, sophisticated filter coordination, dual sort system (client vs server-side), and performance optimization achieving <1 second search responses 
+**Why it exists:** Provides fast, responsive card search with advanced filtering capabilities, progressive loading for large datasets, professional search mode controls, and optimized performance through re-render elimination, timer system fixes, and intelligent sorting decisions 
+**System boundaries:** Handles all search input, filter management, search mode coordination, API coordination, pagination state, and results display; integrates with card display system, selection system, and layout system
 
 ### Core Files (Always Work Together)
 
@@ -19,12 +19,12 @@
 - `useCards.ts` (8,678 bytes) - **CRITICAL:** 6-hook coordinator hub with effect-based reactivity, pass-through functions, clean separation of concerns
   
   #### **Search Engine Core:**
-- `useSearch.ts` (23,409 bytes) - **COMPLEX:** Core search logic, API coordination, stored pagination state, dual sort system, clean search principle, performance optimization
+- `useSearch.ts` (23,409 bytes) - **COMPLEX:** Core search logic, API coordination, stored pagination state, dual sort system, clean search principle, performance optimization, search mode integration
 - `usePagination.ts` (1,846 bytes) - **SIMPLE:** Lightweight state management wrapper, callback coordination bridge
 - `useSearchSuggestions.ts` (1,994 bytes) - Autocomplete functionality, search history management
   
   #### **Filter Management:**
-- `useFilters.ts` (5,878 bytes) - **EXCELLENT EXAMPLE:** Clean filter state, section management, auto-expansion logic, standard format defaults
+- `useFilters.ts` (5,878 bytes) - **EXCELLENT EXAMPLE:** Clean filter state, section management, auto-expansion logic, standard format defaults, search mode toggle coordination
   
   #### **Selection & Support:**
 - `useCardSelection.ts` (1,689 bytes) - Card selection state for search results
@@ -33,11 +33,11 @@
   ### Secondary Files
   
   **UI Components (Analyzed - Batch 2):**
-- `SearchAutocomplete.tsx` (4,583 bytes) - **SIMPLE:** Search input with keyboard navigation, suggestion selection, 200ms delay coordination
-- `FilterPanel.css` (large) - Professional MTGO styling foundation, color button gradients, collapsible section animations
+- `SearchAutocomplete.tsx` (4,583 bytes) - **SIMPLE:** Search input with keyboard navigation, suggestion selection, 200ms delay coordination, search mode toggle integration
+- `FilterPanel.css` (large) - Professional MTGO styling foundation, color button gradients, collapsible section animations, search mode chip styling
 - `CollectionArea.tsx` (18,584 bytes) - **COMPLEX:** Search results display integration, sort menu state, view mode switching, Load More UI coordination
   **API Integration (Analyzed - Batch 3):**
-- `scryfallApi.ts` (31,333 bytes) - **EXTREMELY COMPLEX:** API abstraction with wildcard optimization, stored pagination state management, enhanced query building, comprehensive filter coordination, rate limiting, extensive debugging
+- `scryfallApi.ts` (31,333 bytes) - **EXTREMELY COMPLEX:** API abstraction with wildcard optimization, stored pagination state management, enhanced query building with search mode support, comprehensive filter coordination, rate limiting, timer system migration (performance.now), extensive debugging
 - `search.ts` (3,178 bytes) - **SIMPLE:** Type definitions for enhanced search features, search operators, common Magic terms for autocomplete
 - `useSearchSuggestions.ts` (1,994 bytes) - **SIMPLE:** Autocomplete hook with search history management, API suggestion coordination
   
@@ -65,9 +65,27 @@
   ↓
   Filter Change → useCards effect → searchWithAllFilters('*') → useSearch → API coordination
   ↓
-  Search Input → useCards pass-through → useSearch engine → scryfallApi → Results state update
+  Search Input → useCards pass-through → useSearch engine → scryfallApi with search mode → Results state update
+  ↓
+  Search Mode Toggle → Auto-search trigger → buildEnhancedSearchQuery with mode preferences → API coordination
   ↓
   State Synchronization → Callback coordination → UI component updates → Progressive rendering
+  ```
+  
+  ### New Flow: Search Mode Toggle System
+  
+  ```
+  Search Mode Toggle → FilterPanel chip interaction → useFilters state update → Auto-search trigger
+  ↓
+  [Name Mode Only] → Raw query optimization → Direct name matching → Fastest search performance
+  ↓
+  [Card Text Mode Only] → (o:term OR type:term) → Oracle text and type line focus → Content search
+  ↓
+  [Both Modes Active] → (name:term OR o:term OR type:term) → Comprehensive multi-field search
+  ↓
+  [Both Modes Disabled] → Search disabled state → No API calls → User feedback required
+  ↓
+  API Query Building → buildEnhancedSearchQuery with mode preferences → Optimized Scryfall queries
   ```
   
   ### Complex Flow: Dual Sort System (Client vs Server Decision)
@@ -164,14 +182,18 @@
   Grid Layout → Dynamic grid-template-columns → Card size scaling → Responsive card display
   ```
   
-  ### API Integration Flow: Enhanced Query Building & Wildcard Optimization (scryfallApi.ts)
+  ### API Integration Flow: Enhanced Query Building & Search Mode Support (scryfallApi.ts)
   
   ```
-  Raw Query → buildEnhancedSearchQuery → Wildcard optimization detection → Enhanced query building
+  Raw Query + Search Mode → buildEnhancedSearchQuery → Wildcard optimization detection → Mode-aware query building
   ↓
   ['*' query] → Early return (prevents expensive multi-field queries) → Simple wildcard → API efficiency
   ↓
-  [Multi-word query] → Field search building → (name:word1 OR o:word1 OR type:word1) → Enhanced search capability
+  [Name Mode Only] → Raw query (fastest) → Direct name matching or name:"phrase" → Performance optimized
+  ↓
+  [Card Text Mode Only] → (o:term OR type:term) → Oracle text and type line search → Content-focused
+  ↓
+  [Both Modes Active] → (name:term OR o:term OR type:term) → Enhanced multi-field search → Comprehensive results
   ↓
   [Operator query] → Advanced parsing → Quoted phrases, exclusions, field searches → Professional query building
   ```
@@ -200,14 +222,18 @@
   Progressive Loading → 75-card batches → Smart Card Append → Smooth user experience
   ```
   
-  ### API Rate Limiting & Performance Monitoring Flow
+  ### API Rate Limiting & Performance Monitoring Flow with Timer Migration
   
   ```
-  API Call → rateLimitedFetch → 100ms rate limiting → Timing analysis (console.time/timeEnd)
+  API Call → rateLimitedFetch → 100ms rate limiting → Timing analysis (performance.now)
   ↓
   Request Coordination → lastRequestTime tracking → Delay calculation → Performance optimization
   ↓
+  Timer System Migration → console.time/timeEnd REMOVED → performance.now() precision → Millisecond accuracy
+  ↓
   Response Processing → JSON parsing timing → Comprehensive logging → Debug output coordination
+  ↓
+  Performance Achievement → 8-13 second searches ELIMINATED → <1 second consistent response → Production ready
   ↓
   Error Handling → HTTP status validation → Error message enhancement → Failure recovery
   ```
@@ -228,9 +254,13 @@
   ### Search Engine Performance Issues
   
   **"Search taking 2-7+ seconds despite fast API"**
-- **Root Cause:** Re-render loops in useSearch or hook dependency instability (previously fixed)
-- **Check Files:** `useSearch.ts` (rate limiting, memoization) → `useSorting.ts` (stable dependencies) → hook coordination
-- **Debug Pattern:** Apply timing analysis → identify re-render loops → fix dependency stability → verify <1 second response
+- **Root Cause:** Re-render loops in useSearch or hook dependency instability (RESOLVED via timer system migration)
+- **Check Files:** `useSearch.ts` (rate limiting, memoization) → `scryfallApi.ts` (timer system) → `useSorting.ts` (stable dependencies) → hook coordination
+- **Debug Pattern:** Apply timing analysis with performance.now() → identify re-render loops → fix dependency stability → verify <1 second response
+  **"Timer system conflicts causing performance degradation"**
+- **Root Cause:** console.time/timeEnd conflicts resolved via performance.now() migration
+- **Check Files:** `scryfallApi.ts` (rateLimitedFetch, timing analysis functions) → API performance monitoring
+- **Debug Pattern:** Verify performance.now() usage → check timing consistency → validate millisecond precision
   **"Load More causing 422 errors"**
 - **Root Cause:** Stored pagination state missing or incomplete, API continuation failure
 - **Check Files:** `useSearch.ts` (storedPaginationState management) → `scryfallApi.ts` (loadMoreResults coordination) → pagination flow
@@ -258,6 +288,21 @@
 - **Check Files:** `useFilters.ts` (DEFAULT_FILTER_STATE, hasActiveFilters) → `useSearch.ts` (searchWithAllFilters filter building)
 - **Debug Pattern:** Verify standard format default → check hasActiveFilters format logic → validate clean search filter building
   
+  ### Search Mode Toggle Issues
+  
+  **"Search mode toggles not working or not triggering search"**
+- **Root Cause:** Search mode state coordination failure or auto-search trigger not executing
+- **Check Files:** `FilterPanel.tsx` (search mode chip interaction) → `useFilters.ts` (search mode state) → auto-search effect
+- **Debug Pattern:** Check search mode state updates → verify auto-search effect triggers → validate API query building with modes
+  **"Search disabled when both modes are off"**
+- **Root Cause:** Expected behavior - both modes disabled should prevent searches
+- **Check Files:** `SearchAutocomplete.tsx` (disabled state) → `useFilters.ts` (search mode validation) → user feedback
+- **Debug Pattern:** Verify both modes are disabled → check disabled state UI feedback → validate no API calls when disabled
+  **"Search mode not affecting query building"**
+- **Root Cause:** buildEnhancedSearchQuery not receiving or processing search mode preferences
+- **Check Files:** `scryfallApi.ts` (buildEnhancedSearchQuery function) → mode parameter handling → query building logic
+- **Debug Pattern:** Check mode parameter passing → verify query building logic for each mode → validate API query structure
+  
   ### API Integration Issues
   
   **"Search suggestions not working"**
@@ -269,9 +314,9 @@
 - **Check Files:** `usePagination.ts` (state management) → `useSearch.ts` (pagination callbacks) → `scryfallApi.ts` (loadMoreResults stored state logic)
 - **Debug Pattern:** Check pagination state updates → verify callback coordination → validate stored pagination state logic
   **"Search queries not optimized or taking too long"**
-- **Root Cause:** buildEnhancedSearchQuery logic failure or wildcard optimization not working
-- **Check Files:** `scryfallApi.ts` (buildEnhancedSearchQuery function, wildcard optimization) → query building logic → API parameter assembly
-- **Debug Pattern:** Check wildcard optimization logic → verify enhanced query building → validate multi-word query handling → test operator parsing
+- **Root Cause:** buildEnhancedSearchQuery logic failure, wildcard optimization not working, or search mode not optimizing queries
+- **Check Files:** `scryfallApi.ts` (buildEnhancedSearchQuery function, wildcard optimization, search mode logic) → query building logic → API parameter assembly
+- **Debug Pattern:** Check wildcard optimization logic → verify search mode query optimization → validate enhanced query building → test operator parsing → confirm mode-specific optimizations
   **"Filter building not working correctly"**
 - **Root Cause:** searchCardsWithFilters complex filter logic or Scryfall parameter assembly failure
 - **Check Files:** `scryfallApi.ts` (searchCardsWithFilters function, filter building logic) → filter parameter mapping → API query assembly
@@ -544,35 +589,41 @@
 2. **Consider coordination:** `useCards.ts` → pass-through function addition → hook coordination verification
 3. **Test by:** Search functionality verification, performance validation, multi-hook coordination testing
    
+   #### **Adding Search Mode Features:**
+4. **Start with:** `useFilters.ts` → search mode state management → auto-search effect coordination
+5. **Then modify:** `scryfallApi.ts` → buildEnhancedSearchQuery → mode-aware query building → optimization patterns
+6. **UI integration:** `FilterPanel.tsx` → search mode chips → visual feedback → `SearchAutocomplete.tsx` disabled state coordination
+7. **Test by:** Search mode toggle functionality, query optimization validation, UI state coordination, auto-search trigger verification
+   
    #### **Adding Filter Features:**
-4. **Start with:** `useFilters.ts` → filter state management → section management integration
-5. **Then modify:** `useCards.ts` → pass-through coordination → `useSearch.ts` → clean search building
-6. **Test by:** Filter reactivity verification, clean search validation, section management testing
+8. **Start with:** `useFilters.ts` → filter state management → section management integration
+9. **Then modify:** `useCards.ts` → pass-through coordination → `useSearch.ts` → clean search building
+10. **Test by:** Filter reactivity verification, clean search validation, section management testing
    
    #### **Adding Performance Features:**
-7. **Start with:** `useSearch.ts` → timing analysis → re-render detection → optimization implementation
-8. **Consider integration:** Hook dependency stability, memoization patterns, effect coordination
-9. **Test by:** Performance measurement, re-render monitoring, timing analysis validation
+11. **Start with:** `useSearch.ts` → timing analysis → re-render detection → optimization implementation
+12. **Consider integration:** Hook dependency stability, memoization patterns, effect coordination, timer system migration (performance.now)
+13. **Test by:** Performance measurement, re-render monitoring, timing analysis validation, <1 second response verification
    
    #### **Adding API Integration Features:**
-10. **Start with:** `useSearch.ts` → API parameter building → `scryfallApi.ts` integration → response handling
-11. **Consider coordination:** Pagination state management, error handling, state synchronization
-12. **Test by:** API integration testing, error handling validation, state coordination verification
+14. **Start with:** `useSearch.ts` → API parameter building → `scryfallApi.ts` integration → response handling
+15. **Consider coordination:** Search mode parameter passing, pagination state management, error handling, state synchronization
+16. **Test by:** API integration testing, search mode query validation, error handling validation, state coordination verification
     
     #### **Adding UI Coordination Features:**
-13. **Start with:** `SearchAutocomplete.tsx` → input handling and suggestion coordination → 200ms delay timing
-14. **Consider integration:** Hook coordination through useCards pass-through functions → state synchronization validation
-15. **Test by:** Search input responsiveness, suggestion accuracy, keyboard navigation functionality
+17. **Start with:** `SearchAutocomplete.tsx` → input handling and suggestion coordination → 200ms delay timing
+18. **Consider integration:** Hook coordination through useCards pass-through functions → search mode disabled state → state synchronization validation
+19. **Test by:** Search input responsiveness, suggestion accuracy, keyboard navigation functionality, search mode UI feedback
     
     #### **Adding Results Display Features:**
-16. **Start with:** `CollectionArea.tsx` → sort menu, view mode, or Load More integration → UI state management
-17. **Consider coordination:** Hook state synchronization → dynamic layout calculations → performance impact assessment
-18. **Test by:** Sort menu functionality, view mode switching accuracy, Load More UI integration, card sizing responsiveness
+20. **Start with:** `CollectionArea.tsx` → sort menu, view mode, or Load More integration → UI state management
+21. **Consider coordination:** Hook state synchronization → dynamic layout calculations → performance impact assessment
+22. **Test by:** Sort menu functionality, view mode switching accuracy, Load More UI integration, card sizing responsiveness
     
     #### **Adding Professional Styling:**
-19. **Start with:** `FilterPanel.css` → MTGO-authentic styling patterns → animation coordination
-20. **Consider integration:** Section management coordination → visual state feedback → responsive design patterns
-21. **Test by:** Professional appearance validation, animation smoothness, responsive behavior across screen sizes
+23. **Start with:** `FilterPanel.css` → MTGO-authentic styling patterns → search mode chip styling → animation coordination
+24. **Consider integration:** Section management coordination → search mode visual feedback → visual state feedback → responsive design patterns
+25. **Test by:** Professional appearance validation, search mode chip styling, animation smoothness, responsive behavior across screen sizes
     
     #### **Adding API Integration Features:**
 22. **Start with:** `scryfallApi.ts` → query building, filter coordination, or pagination management → API parameter assembly
@@ -624,18 +675,22 @@
 **System Guide Notes:**
 
 - useCards.ts is the central coordination hub managing 6 hooks with clean separation of concerns
-- useSearch.ts is the complex search engine (23,409 bytes) handling API coordination, stored pagination state, and dual sort system
-- useFilters.ts provides excellent example of clean filter state management with section coordination
+- useSearch.ts is the complex search engine (23,409 bytes) handling API coordination, stored pagination state, dual sort system, and search mode integration
+- useFilters.ts provides excellent example of clean filter state management with section coordination and search mode toggle state
 - usePagination.ts serves as lightweight bridge between complex pagination logic and UI components
-- SearchAutocomplete.tsx provides clean search input with 200ms delay coordination and keyboard navigation
+- SearchAutocomplete.tsx provides clean search input with 200ms delay coordination, keyboard navigation, and search mode disabled state handling
 - CollectionArea.tsx is complex results display component (18,584 bytes) with sort menu, view mode switching, Load More UI integration
-- FilterPanel.css provides professional MTGO styling with color gradients, collapsible animations, and responsive design
+- FilterPanel.css provides professional MTGO styling with color gradients, collapsible animations, search mode chip styling, and responsive design
+- Search mode toggle system provides Name/Card Text mode controls with chip-style UI and auto-search coordination
+- Timer system migration from console.time/timeEnd to performance.now() resolved 8-13 second search delays achieving <1 second responses
 - Dual sort system uses ≤75 card threshold to decide between client-side (instant) vs server-side (new search) sorting
 - Clean search principle: searchWithAllFilters builds filter objects from scratch, never inherits previous state
 - Stored pagination state management prevents 422 errors during Load More operations
 - Effect-based reactivity in useCards coordinates filter changes with fresh search triggers
-- Rate limiting (150ms) and timing analysis provide performance optimization
+- Rate limiting (150ms) and performance.now() timing analysis provide performance optimization
 - Multi-hook coordination requires careful dependency management and effect coordination
-- UI coordination patterns include 200ms suggestion delays, dynamic grid template calculations, and professional MTGO styling
+- UI coordination patterns include 200ms suggestion delays, search mode coordination, dynamic grid template calculations, and professional MTGO styling
 - Load More UI integration works seamlessly in both grid and list view modes with progress visualization
 - Real-time card sizing affects dynamic grid template calculations requiring performance consideration
+- Search mode query optimization: Name-only (fastest), Card Text-only (content-focused), Both modes (comprehensive)
+- buildEnhancedSearchQuery provides mode-aware query building with wildcard optimization and performance improvements

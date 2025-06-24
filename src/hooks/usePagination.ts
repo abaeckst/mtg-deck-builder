@@ -19,7 +19,7 @@ export interface PaginationActions {
 }
 
 export const usePagination = (): PaginationState & PaginationActions => {
-  const [paginationState, setPaginationState] = useState<PaginatedSearchState | null>(null);
+  // const [paginationState, setPaginationState] = useState<PaginatedSearchState | null>(null); // Unused variable
   
   const [pagination, setPagination] = useState({
     totalCards: 0,

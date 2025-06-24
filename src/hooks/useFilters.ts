@@ -125,7 +125,7 @@ export const useFilters = (): UseFiltersState & UseFiltersActions => {
         },
       },
     }));
-  }, []);
+  }, [state]);
 
   const getSectionState = useCallback((section: string): boolean => {
     return state.activeFilters.sectionStates[section as keyof typeof state.activeFilters.sectionStates] ?? true;
@@ -168,23 +168,8 @@ export const useFilters = (): UseFiltersState & UseFiltersActions => {
 
   // PERFORMANCE FIX: Memoize activeFilters to prevent unnecessary re-renders
   const memoizedActiveFilters = useMemo(() => state.activeFilters, [
-    state.activeFilters.format,
-    state.activeFilters.colors,
-    state.activeFilters.colorIdentity,
-    state.activeFilters.types,
-    state.activeFilters.rarity,
-    state.activeFilters.sets,
-    state.activeFilters.cmc.min,
-    state.activeFilters.cmc.max,
-    state.activeFilters.power.min,
-    state.activeFilters.power.max,
-    state.activeFilters.toughness.min,
-    state.activeFilters.toughness.max,
-    state.activeFilters.subtypes,
-    state.activeFilters.isGoldMode,
-    state.activeFilters.searchMode.name,
-    state.activeFilters.searchMode.cardText,
-    state.activeFilters.sectionStates,
+    state.activeFilters
+    // Remove individual dependencies as they cause infinite re-renders
   ]);
 
   // PERFORMANCE FIX: Memoize hasActiveFilters function

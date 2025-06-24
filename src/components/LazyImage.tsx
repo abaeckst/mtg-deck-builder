@@ -15,6 +15,7 @@ interface LazyImageProps {
 /**
  * Lazy loading image component using Intersection Observer
  * Only loads images when they're about to become visible
+ * Enhanced with dynamic URL switching for card size changes
  */
 export const LazyImage: React.FC<LazyImageProps> = ({
   src,
@@ -29,8 +30,22 @@ export const LazyImage: React.FC<LazyImageProps> = ({
   const [isLoaded, setIsLoaded] = useState(false);
   const [isError, setIsError] = useState(false);
   const [shouldLoad, setShouldLoad] = useState(false);
+  const [currentSrc, setCurrentSrc] = useState(src);
   const imgRef = useRef<HTMLImageElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Handle URL changes for size switching
+  useEffect(() => {
+    if (src !== currentSrc && shouldLoad) {
+      // URL changed after initial load, trigger reload
+      setIsLoaded(false);
+      setIsError(false);
+      setCurrentSrc(src);
+    } else if (!shouldLoad) {
+      // Update current source for first-time loading
+      setCurrentSrc(src);
+    }
+  }, [src, currentSrc, shouldLoad]);
 
   // Intersection Observer to detect when image should start loading
   useEffect(() => {
@@ -88,7 +103,7 @@ export const LazyImage: React.FC<LazyImageProps> = ({
       {shouldLoad && (
         <img
           ref={imgRef}
-          src={src}
+          src={currentSrc}
           alt={alt}
           style={{
             width: '100%',

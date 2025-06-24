@@ -74,12 +74,12 @@ const getCardFaceImageUri = (
 /**
  * Get card name for a specific face
  */
-const getCardFaceName = (card: ScryfallCard | DeckCard | DeckCardInstance, faceIndex: number = 0): string => {
-  if (isDoubleFacedCard(card) && 'card_faces' in card && card.card_faces?.[faceIndex]) {
-    return card.card_faces[faceIndex].name;
-  }
-  return card.name;
-};
+// const getCardFaceName = (card: ScryfallCard | DeckCard | DeckCardInstance, faceIndex: number = 0): string => {
+//   if (isDoubleFacedCard(card) && 'card_faces' in card && card.card_faces?.[faceIndex]) {
+//     return card.card_faces[faceIndex].name;
+//   }
+//   return card.name;
+// };
 
 /**
  * Create a face-specific card object for MagicCard rendering

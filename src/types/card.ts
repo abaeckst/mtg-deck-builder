@@ -494,26 +494,53 @@ export const isBasicLand = (card: ScryfallCard | DeckCard | DeckCardInstance): b
 
 /**
  * Utility function to get the appropriate image URI from a Scryfall card
- * Updated to use PNG format for highest quality (745×1040)
+ * Updated to support dynamic sizing with optimal quality per size
  */
 export const getCardImageUri = (card: ScryfallCard, size: 'small' | 'normal' | 'large' = 'normal'): string => {
   // Handle double-faced cards
   if (card.card_faces && card.card_faces.length > 0) {
     const face = card.card_faces[0];
     if (face.image_uris) {
-      // Use PNG format for highest quality, fallback to requested size
-      return face.image_uris.png || face.image_uris[size];
+      return face.image_uris[size] || face.image_uris.normal;
     }
   }
   
   // Handle normal cards
   if (card.image_uris) {
-    // Use PNG format for highest quality (745×1040), fallback to requested size
-    return card.image_uris.png || card.image_uris[size];
+    return card.image_uris[size] || card.image_uris.normal;
   }
   
   // Fallback - this shouldn't happen with valid Scryfall data
   return '';
+};
+
+/**
+ * Card size mode type for button-based sizing
+ */
+export type CardSizeMode = 'small' | 'normal' | 'large';
+
+/**
+ * Convert card size mode to Scryfall image size and CSS scale
+ */
+export const getSizeConfig = (mode: CardSizeMode): { imageSize: 'small' | 'normal' | 'large', scale: number } => {
+  switch (mode) {
+    case 'small':
+      return { imageSize: 'small', scale: 1.25 }; // CSS scaling only, smaller than before
+    case 'normal':
+      return { imageSize: 'normal', scale: 1.6 };  // CSS scaling only, perfect baseline
+    case 'large':
+      return { imageSize: 'large', scale: 2.0 };   // CSS scaling only, larger than before
+    default:
+      return { imageSize: 'normal', scale: 1.6 };
+  }
+};
+
+/**
+ * Get optimized image URI for a specific size mode
+ */
+export const getOptimizedImageUri = (card: ScryfallCard, mode: CardSizeMode): string => {
+  const { imageSize } = getSizeConfig(mode);
+  return getCardImageUri(card, imageSize);
 };
 
 /**

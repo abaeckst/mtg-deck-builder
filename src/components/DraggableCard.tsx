@@ -2,7 +2,7 @@
 import React, { useCallback, useRef } from 'react';
 import FlipCard from './FlipCard';
 import MagicCard from './MagicCard';
-import { ScryfallCard, DeckCard, DeckCardInstance, getCardId, getSelectionId, isCardInstance } from '../types/card';
+import { ScryfallCard, DeckCard, DeckCardInstance, getSelectionId, isCardInstance } from '../types/card';
 import { DropZone } from '../hooks/useDragAndDrop';
 
 interface DraggableCardProps {
@@ -74,7 +74,7 @@ const DraggableCard: React.FC<DraggableCardProps> = ({
   // Determine if this is an instance card and get appropriate IDs
   const cardIsInstance = isCardInstance(card) || isInstance;
   const cardInstanceId = isCardInstance(card) ? card.instanceId : instanceId;
-  const cardId = getCardId(card);
+  // const cardId = getCardId(card); // Unused variable
   const selectionId = getSelectionId(card);
 
   // Enhanced mouse down handler - detects all double-clicks

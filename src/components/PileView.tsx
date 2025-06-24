@@ -3,7 +3,7 @@ import React, { useState, useCallback, useMemo } from 'react';
 import { ScryfallCard, DeckCard, DeckCardInstance, getCardId } from '../types/card';
 import { DropZone } from '../hooks/useDragAndDrop';
 import PileColumn from './PileColumn';
-import PileSortControls from './PileSortControls';
+// import PileSortControls from './PileSortControls'; // Unused import
 
 export type PileSortCriteria = 'mana' | 'color' | 'rarity' | 'type';
 export type SortCriteria = 'name' | 'mana' | 'color' | 'rarity' | 'type';
@@ -360,7 +360,7 @@ const PileView: React.FC<PileViewProps> = ({
         onManualMove={handleManualMove}
       />
     ));
-  }, [finalColumns, zone, scaleFactor, onClick, onEnhancedDoubleClick, onRightClick, onDragStart, isSelected, selectedCards, isDragActive, onDragEnter, onDragLeave, canDropInZone, handleManualMove]);
+  }, [finalColumns, zone, scaleFactor, onClick, onInstanceClick, onEnhancedDoubleClick, onRightClick, onDragStart, isSelected, selectedCards, isDragActive, onDragEnter, onDragLeave, canDropInZone, handleManualMove]);
 
   return (
     <div className="pile-view">

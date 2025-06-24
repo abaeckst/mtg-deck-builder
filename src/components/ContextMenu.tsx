@@ -1,7 +1,5 @@
 // src/components/ContextMenu.tsx
 import React, { useEffect, useRef } from 'react';
-import { ScryfallCard, DeckCard } from '../types/card';
-import { DropZone } from '../hooks/useDragAndDrop';
 import './ContextMenu.css';
 
 export interface ContextMenuAction {

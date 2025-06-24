@@ -1,6 +1,6 @@
 // src/components/DropZone.tsx - IMPROVED Drop Zone with Centered Feedback
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { DropZone as DropZoneType, DraggedCard } from '../hooks/useDragAndDrop';
+import { DropZone as DropZoneType } from '../hooks/useDragAndDrop';
 
 interface DropZoneProps {
   zone: DropZoneType;
@@ -200,14 +200,14 @@ const DropZoneComponent: React.FC<DropZoneProps> = ({
   };
 
   // Get zone display name
-  const getZoneName = (zone: DropZoneType): string => {
-    switch (zone) {
-      case 'collection': return 'Collection';
-      case 'deck': return 'Main Deck';
-      case 'sideboard': return 'Sideboard';
-      default: return 'Unknown';
-    }
-  };
+  // const getZoneName = (zone: DropZoneType): string => {
+  //   switch (zone) {
+  //     case 'collection': return 'Collection';
+  //     case 'deck': return 'Main Deck';
+  //     case 'sideboard': return 'Sideboard';
+  //     default: return 'Unknown';
+  //   }
+  // };
 
   return (
     <div

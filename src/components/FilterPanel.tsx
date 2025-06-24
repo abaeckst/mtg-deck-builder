@@ -88,7 +88,7 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
     onToggleSearchMode(mode);
     
     // Auto-search is now handled by useEffect watching searchMode changes
-  }, [onToggleSearchMode]);
+  }, [onToggleSearchMode, searchText]);
 
   // Track previous searchMode to detect changes
   const prevSearchModeRef = useRef(searchMode);

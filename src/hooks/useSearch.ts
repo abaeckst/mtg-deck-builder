@@ -205,7 +205,7 @@ export const useSearch = ({
     } finally {
       setLoading(false);
     }
-  }, [clearError, setLoading, resetPagination, onPaginationUpdate, onPaginationStateChange]);
+  }, [clearError, setLoading, resetPagination, onPaginationUpdate, onPaginationStateChange, getCollectionSortParams]);
 
   // DUAL SORT SYSTEM - Simple and reliable
   const handleCollectionSortChange = useCallback(async (criteria: SortCriteria, direction: SortDirection) => {
@@ -348,7 +348,7 @@ export const useSearch = ({
         }));
       }
     }
-  }, [searchWithPagination]);
+  }, [searchWithPagination, getCollectionSortParams]);
 
   // Load a single random card
   const loadRandomCard = useCallback(async () => {
@@ -707,7 +707,7 @@ try {
       console.error('❌ Load more failed in useSearch:', error);
       throw error;
     }
-  }, [state.lastSearchMetadata, state.cards.length, state.storedPaginationState, onPaginationUpdate]);
+  }, [state.lastSearchMetadata, state.cards, state.storedPaginationState, onPaginationUpdate]);
 
   return {
     ...state,

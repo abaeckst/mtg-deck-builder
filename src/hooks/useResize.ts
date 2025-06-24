@@ -192,9 +192,9 @@ export const useResize = ({
   }, [layout.panels]);
 
   // Create resize handlers
-  const onDeckAreaResize = useCallback(createResizeHandler('deckArea', 'ns-resize'), [createResizeHandler]);
-  const onSideboardResize = useCallback(createResizeHandler('sideboard', 'ew-resize'), [createResizeHandler]);
-  const onVerticalResize = useCallback(createResizeHandler('vertical', 'ns-resize'), [createResizeHandler]);
+  const onDeckAreaResize = useCallback(() => createResizeHandler('deckArea', 'ns-resize'), [createResizeHandler]);
+  const onSideboardResize = useCallback(() => createResizeHandler('sideboard', 'ew-resize'), [createResizeHandler]);
+  const onVerticalResize = useCallback(() => createResizeHandler('vertical', 'ns-resize'), [createResizeHandler]);
 
   const handlers: ResizeHandlers = {
     onDeckAreaResize,
