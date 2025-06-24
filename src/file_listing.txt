@@ -1,0 +1,176 @@
+ Volume in drive C has no label.
+ Volume Serial Number is D4B5-78F4
+
+ Directory of C:\Users\abaec\Development\mtg-deck-builder\src
+
+06/13/2025  06:54 PM    <DIR>          .
+06/13/2025  06:54 PM    <DIR>          ..
+06/05/2025  08:51 AM             6,081 App.css
+06/05/2025  08:51 AM               282 App.test.tsx
+06/05/2025  08:51 AM               223 App.tsx
+06/06/2025  12:54 PM    <DIR>          assets
+06/13/2025  03:35 PM    <DIR>          components
+06/06/2025  12:05 PM    <DIR>          data
+06/13/2025  06:54 PM               177 file_listing.txt
+06/13/2025  03:33 PM    <DIR>          hooks
+06/05/2025  08:51 AM               379 index.css
+06/05/2025  08:51 AM               573 index.tsx
+06/05/2025  08:51 AM             2,632 logo.svg
+06/05/2025  08:51 AM                41 react-app-env.d.ts
+06/05/2025  08:51 AM               440 reportWebVitals.ts
+06/09/2025  08:58 PM    <DIR>          services
+06/05/2025  08:51 AM               246 setupTests.ts
+06/13/2025  03:33 PM    <DIR>          types
+06/12/2025  08:21 PM    <DIR>          utils
+              10 File(s)         11,074 bytes
+
+ Directory of C:\Users\abaec\Development\mtg-deck-builder\src\assets
+
+06/06/2025  12:54 PM    <DIR>          .
+06/06/2025  12:54 PM    <DIR>          ..
+06/06/2025  12:54 PM    <DIR>          fonts
+               0 File(s)              0 bytes
+
+ Directory of C:\Users\abaec\Development\mtg-deck-builder\src\assets\fonts
+
+06/06/2025  12:54 PM    <DIR>          .
+06/06/2025  12:54 PM    <DIR>          ..
+06/06/2025  12:31 PM           233,476 keyrune.ttf
+06/06/2025  12:31 PM           233,552 keyrune.woff
+06/06/2025  12:31 PM           122,892 keyrune.woff2
+               3 File(s)        589,920 bytes
+
+ Directory of C:\Users\abaec\Development\mtg-deck-builder\src\components
+
+06/13/2025  03:35 PM    <DIR>          .
+06/13/2025  03:35 PM    <DIR>          ..
+06/05/2025  08:51 AM             7,486 AdaptiveHeader.tsx
+06/06/2025  01:26 PM             2,052 CollapsibleSection.tsx
+06/13/2025  03:33 PM            18,584 CollectionArea.tsx
+06/13/2025  12:09 PM            18,601 CollectionArea.tsx.backup_individual_cards
+06/07/2025  10:45 PM            18,107 CollectionArea.tsx.slim_backup
+06/12/2025  04:06 PM             3,311 ComponentStyles.css
+06/05/2025  08:51 AM               977 ContextMenu.css
+06/05/2025  08:51 AM             3,135 ContextMenu.tsx
+06/12/2025  04:00 PM               379 CSSVariables.css
+06/12/2025  03:11 PM            72,607 css_analysis_results.json
+06/13/2025  03:33 PM            31,209 DeckArea.tsx
+06/08/2025  08:30 AM            28,996 DeckArea.tsx.fixes_backup
+06/07/2025  10:41 PM            18,541 DeckArea.tsx.segment3_backup
+06/08/2025  08:24 AM            28,967 DeckArea.tsx.slim_backup
+06/12/2025  04:06 PM               507 DragAndDropStyles.css
+06/13/2025  03:33 PM            14,013 DraggableCard.tsx
+06/13/2025  08:31 AM            13,088 DraggableCard.tsx.backup
+06/13/2025  12:13 PM            12,809 DraggableCard.tsx.backup_flipcard_fix
+06/07/2025  06:46 PM             3,613 DragPreview.tsx
+06/07/2025  06:46 PM             8,934 DropZone.tsx
+06/07/2025  11:51 AM            15,106 FilterPanel.css
+06/08/2025  08:50 PM            19,886 FilterPanel.tsx
+06/13/2025  03:33 PM            15,482 FlipCard.tsx
+06/13/2025  11:52 AM            12,704 FlipCard.tsx.backup
+06/13/2025  09:23 AM            13,186 FlipCard.tsx.backup2
+06/13/2025  09:28 AM            14,131 FlipCard.tsx.backup3
+06/13/2025  09:33 AM                 0 FlipCard.tsx.backup4
+06/13/2025  12:24 PM            14,572 FlipCard.tsx.backup_3d_fix
+06/13/2025  01:05 PM            14,134 FlipCard.tsx.backup_container_fix
+06/13/2025  12:30 PM            13,872 FlipCard.tsx.backup_context_fix
+06/13/2025  11:59 AM            13,557 FlipCard.tsx.backup_layout_fix
+06/13/2025  12:58 PM            14,004 FlipCard.tsx.backup_positioning_fix
+06/07/2025  11:35 AM               960 GoldButton.tsx
+06/09/2025  08:08 PM             3,801 LazyImage.tsx
+06/05/2025  08:51 AM            17,648 ListView.tsx
+06/12/2025  03:54 PM             1,996 LoadMoreStyles.css
+06/13/2025  03:33 PM            13,923 MagicCard.tsx
+06/13/2025  08:26 AM            18,061 MagicCard.tsx.backup
+06/13/2025  08:40 AM            19,644 MagicCard.tsx.backup2
+06/12/2025  04:00 PM               483 MobileWarning.css
+06/05/2025  08:51 AM             6,410 modal.css
+06/05/2025  08:51 AM             2,023 Modal.tsx
+06/13/2025  03:33 PM            43,662 MTGOLayout.css
+06/05/2025  02:22 PM            53,436 MTGOLayout.css.backup.20250605_142259
+06/05/2025  02:29 PM            55,434 MTGOLayout.css.backup.20250605_142942
+06/08/2025  08:30 AM            71,022 MTGOLayout.css.fixes_backup
+06/08/2025  08:06 AM            58,260 MTGOLayout.css.segment3_backup
+06/08/2025  08:24 AM            67,751 MTGOLayout.css.slim_backup
+06/08/2025  08:39 AM            74,556 MTGOLayout.css.zindex_backup
+06/13/2025  03:33 PM            28,194 MTGOLayout.tsx
+06/05/2025  02:18 PM            74,363 MTGOLayout.tsx.backup
+06/12/2025  04:06 PM            29,229 MTGOLayout.tsx.backup_20250612_161940
+06/12/2025  04:19 PM             2,783 PanelResizing.css
+06/12/2025  04:06 PM               943 PanelResizing.css.backup_20250612_161940
+06/05/2025  08:51 AM             7,979 PileColumn.tsx
+06/05/2025  08:51 AM             1,999 PileSortControls.tsx
+06/05/2025  08:51 AM            13,787 PileView.tsx
+06/12/2025  07:45 PM             1,912 ResizeHandles.css
+06/12/2025  04:00 PM             1,795 ResponsiveDesign.css
+06/05/2025  08:51 AM            14,386 ScreenshotModal.tsx
+06/06/2025  01:47 PM             1,769 SearchAutocomplete.css
+06/05/2025  08:51 AM             4,583 SearchAutocomplete.tsx
+06/13/2025  03:33 PM            10,789 SideboardArea.tsx
+06/07/2025  10:12 PM            11,298 SideboardArea.tsx.slim_backup
+06/06/2025  12:04 PM             6,774 SubtypeInput.tsx
+06/05/2025  08:51 AM             4,428 TextExportModal.tsx
+06/08/2025  12:29 PM             4,394 ViewModeDropdown.tsx
+06/08/2025  08:06 AM             3,906 ViewModeDropdown.tsx.fixes_backup
+              68 File(s)      1,200,931 bytes
+
+ Directory of C:\Users\abaec\Development\mtg-deck-builder\src\data
+
+06/06/2025  12:05 PM    <DIR>          .
+06/06/2025  12:05 PM    <DIR>          ..
+06/06/2025  12:05 PM             3,925 subtypes.json
+               1 File(s)          3,925 bytes
+
+ Directory of C:\Users\abaec\Development\mtg-deck-builder\src\hooks
+
+06/13/2025  03:33 PM    <DIR>          .
+06/13/2025  03:33 PM    <DIR>          ..
+06/09/2025  07:48 PM             8,678 useCards.ts
+06/07/2025  09:01 AM            22,951 useCards.ts.backup
+06/06/2025  02:35 PM            32,820 useCards.ts.corrupted.backup
+06/07/2025  01:38 PM             1,689 useCardSelection.ts
+06/07/2025  10:50 AM             2,665 useCardSizing.ts
+06/05/2025  08:51 AM             6,938 useContextMenu.ts
+06/05/2025  08:51 AM            18,164 useDragAndDrop.ts
+06/09/2025  07:45 PM             5,878 useFilters.ts
+06/13/2025  03:33 PM            12,867 useLayout.ts
+06/07/2025  01:53 PM             1,846 usePagination.ts
+06/12/2025  07:48 PM             7,313 useResize.ts
+06/09/2025  08:59 PM            23,409 useSearch.ts
+06/07/2025  01:38 PM             1,994 useSearchSuggestions.ts
+06/05/2025  08:51 AM            14,927 useSelection.ts
+06/08/2025  06:39 PM             5,069 useSorting.ts
+              15 File(s)        167,208 bytes
+
+ Directory of C:\Users\abaec\Development\mtg-deck-builder\src\services
+
+06/09/2025  08:58 PM    <DIR>          .
+06/09/2025  08:58 PM    <DIR>          ..
+06/09/2025  08:58 PM            31,333 scryfallApi.ts
+06/05/2025  02:24 PM            19,810 scryfallApi.ts.backup.20250605_142436
+               2 File(s)         51,143 bytes
+
+ Directory of C:\Users\abaec\Development\mtg-deck-builder\src\types
+
+06/13/2025  03:33 PM    <DIR>          .
+06/13/2025  03:33 PM    <DIR>          ..
+06/13/2025  03:33 PM            15,478 card.ts
+06/09/2025  08:07 PM            15,152 card.ts.backup
+06/05/2025  08:51 AM             3,178 search.ts
+               3 File(s)         33,808 bytes
+
+ Directory of C:\Users\abaec\Development\mtg-deck-builder\src\utils
+
+06/12/2025  08:21 PM    <DIR>          .
+06/12/2025  08:21 PM    <DIR>          ..
+06/05/2025  08:51 AM             5,530 deckFormatting.ts
+06/12/2025  08:25 PM             9,680 deviceDetection.ts
+06/12/2025  04:48 PM             6,896 deviceDetection.ts.backup
+06/12/2025  04:45 PM             5,292 deviceDetection.ts.backup.20250612_164841
+06/05/2025  08:51 AM             5,292 deviceDetection.ts.backup_20250612_161249
+06/05/2025  08:51 AM            30,414 screenshotUtils.ts
+               6 File(s)         63,104 bytes
+
+     Total Files Listed:
+             108 File(s)      2,121,113 bytes
+              26 Dir(s)  347,911,032,832 bytes free

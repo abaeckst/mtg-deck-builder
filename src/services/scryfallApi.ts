@@ -16,8 +16,56 @@ const delay = (ms: number): Promise<void> => {
 // Rate limiting implementation
 let lastRequestTime = 0;
 
-const rateLimitedFetch = async (url: string): Promise<Response> => {
-  console.time("⏱️ API_REQUEST_TIME");
+// Request deduplication and cancellation
+const pendingRequests = new Map<string, { promise: Promise<Response>; controller: AbortController }>();
+
+// Response caching with TTL
+interface CacheEntry {
+  response: any;
+  timestamp: number;
+  ttl: number;
+}
+
+const responseCache = new Map<string, CacheEntry>();
+const DEFAULT_CACHE_TTL = 5 * 60 * 1000; // 5 minutes in milliseconds
+
+// Check if cache entry is still valid
+const isCacheValid = (entry: CacheEntry): boolean => {
+  return Date.now() - entry.timestamp < entry.ttl;
+};
+
+// Get cached response if valid
+const getCachedResponse = (cacheKey: string): any | null => {
+  const entry = responseCache.get(cacheKey);
+  if (entry && isCacheValid(entry)) {
+    console.log('💾 CACHE HIT: Returning cached response for:', cacheKey);
+    return entry.response;
+  }
+  if (entry) {
+    // Remove expired entry
+    responseCache.delete(cacheKey);
+  }
+  return null;
+};
+
+// Cache a response
+const setCachedResponse = (cacheKey: string, response: any, ttl: number = DEFAULT_CACHE_TTL): void => {
+  responseCache.set(cacheKey, {
+    response,
+    timestamp: Date.now(),
+    ttl
+  });
+  console.log('💾 CACHED: Stored response for:', cacheKey);
+};
+
+const rateLimitedFetch = async (url: string, signal?: AbortSignal): Promise<Response> => {
+  // Check if this exact request is already in flight
+  if (pendingRequests.has(url)) {
+    console.log('🔄 DEDUPLICATION: Reusing existing request for:', url);
+    return pendingRequests.get(url)!.promise;
+  }
+
+  const apiStartTime = performance.now();
   const now = Date.now();
   const timeSinceLastRequest = now - lastRequestTime;
   
@@ -27,21 +75,50 @@ const rateLimitedFetch = async (url: string): Promise<Response> => {
   
   lastRequestTime = Date.now();
   
-  const response = await fetch(url, {
+  // Create abort controller for this request
+  const controller = new AbortController();
+  
+  // If an external signal is provided, forward its abort to our controller
+  if (signal) {
+    signal.addEventListener('abort', () => {
+      controller.abort();
+    });
+  }
+  
+  // Create the request promise and store it
+  const requestPromise = fetch(url, {
     headers: {
       'Accept': 'application/json',
       'User-Agent': 'MTGDeckBuilder/1.0',
     },
+    signal: controller.signal,
+  }).then(async (response) => {
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const apiEndTime = performance.now();
+    console.log(`⏱️ API_REQUEST_TIME: ${apiEndTime - apiStartTime} ms`);
+    
+    return response;
+  }).finally(() => {
+    // Clean up the pending request after completion
+    pendingRequests.delete(url);
   });
-  
-  if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`);
-  }
-  
-  console.timeEnd("⏱️ API_REQUEST_TIME");
 
+  // Store the promise and controller for deduplication and cancellation
+  pendingRequests.set(url, { promise: requestPromise, controller });
   
-  return response;
+  return requestPromise;
+};
+
+// Cancel all pending requests (useful for cleanup)
+export const cancelAllPendingRequests = (): void => {
+  console.log('🚫 CANCELLATION: Aborting all pending requests');
+  pendingRequests.forEach(({ controller }) => {
+    controller.abort();
+  });
+  pendingRequests.clear();
 };
 
 ;
@@ -65,15 +142,24 @@ export interface SearchFilters {
   // Phase 4B: Enhanced filter types
   subtypes?: string[];
   isGoldMode?: boolean;
+  // Search mode filters
+  searchMode?: {
+    name: boolean;
+    cardText: boolean;
+  };
 }
 
 /**
- * Build enhanced search query with operator support
+ * Build enhanced search query with operator support and search mode handling
  */
-function buildEnhancedSearchQuery(query: string): string {
-  console.time("⏱️ QUERY_BUILDING_TIME");
-  // FIXED: Scryfall-compatible multi-word search syntax
+function buildEnhancedSearchQuery(query: string, searchMode?: { name: boolean; cardText: boolean }): string {
+  const queryStartTime = performance.now();
+  
+  // Default search mode: name=true, cardText=false (name-only search)
+  const mode = searchMode || { name: true, cardText: false };
+  
   console.log('🔍 Building enhanced query for:', query);
+  console.log('🔍 SEARCH MODE:', mode);
   console.log('🔍 INPUT ANALYSIS:', {
     originalQuery: query,
     hasQuotes: query.includes('"'),
@@ -81,32 +167,61 @@ function buildEnhancedSearchQuery(query: string): string {
     hasColons: query.includes(':'),
     wordCount: query.trim().split(/\s+/).length
   });
+
+  // Handle search mode logic
+  if (!mode.name && !mode.cardText) {
+    console.log('🔍 NO SEARCH MODE: Both name and cardText are false');
+    const queryEndTime = performance.now();
+    console.log(`⏱️ QUERY_BUILDING_TIME: ${queryEndTime - queryStartTime} ms`);
+    return ''; // Return empty query - this will be handled by calling code
+  }
   
   // WILDCARD OPTIMIZATION: Early return for simple wildcard queries
   // Prevents expensive (name:* OR o:* OR type:*) queries that cause 80+ second response times
   if (query.trim() === '*') {
     console.log('🔍 WILDCARD OPTIMIZATION: Returning simple wildcard to leverage Scryfall optimizations');
-    console.timeEnd("⏱️ QUERY_BUILDING_TIME");
+    const queryEndTime = performance.now();
+    console.log(`⏱️ QUERY_BUILDING_TIME: ${queryEndTime - queryStartTime} ms`);
     return '*';
   }
   
-  // For simple queries without operators, enable full-text search
+  // For simple queries without operators, apply search mode logic
   if (!query.includes('"') && !query.includes('-') && !query.includes(':')) {
     const words = query.trim().split(/\s+/);
     
-    if (words.length > 1) {
-      // Multi-word query: Each word should match name, oracle text, OR type
-      // Format: (name:word1 OR o:word1 OR type:word1) (name:word2 OR o:word2 OR type:word2)
-      console.log('🔍 Multi-word query detected, using comprehensive field search:', query);
-      const wordQueries = words.map(word => `(name:${word} OR o:${word} OR type:${word})`);
-      const result = wordQueries.join(' ');
-      console.log('🔍 Multi-word result:', result);
-      return result;
-    } else {
-      // Single word: search across multiple fields
-      const result = `(name:${query} OR o:${query} OR type:${query})`;
-      console.log('🔍 Single word query, using field search:', result);
-      return result;
+    // Determine search mode behavior
+    if (mode.name && !mode.cardText) {
+      // Mode 1: Name-only search (raw query to Scryfall - FASTEST)
+      console.log('🔍 NAME-ONLY MODE: Using raw query for maximum performance:', query);
+      const queryEndTime = performance.now();
+      console.log(`⏱️ QUERY_BUILDING_TIME: ${queryEndTime - queryStartTime} ms`);
+      return query.trim(); // Return raw query without enhancement
+    } else if (!mode.name && mode.cardText) {
+      // Mode 3: Text-only search (o: and type: fields only)
+      console.log('🔍 TEXT-ONLY MODE: Searching card text and types only');
+      if (words.length > 1) {
+        const wordQueries = words.map(word => `(o:${word} OR type:${word})`);
+        const result = wordQueries.join(' ');
+        console.log('🔍 Multi-word text-only result:', result);
+        return result;
+      } else {
+        const result = `(o:${query} OR type:${query})`;
+        console.log('🔍 Single word text-only result:', result);
+        return result;
+      }
+    } else if (mode.name && mode.cardText) {
+      // Mode 2: Both modes (enhanced search - CURRENT BEHAVIOR)
+      console.log('🔍 ENHANCED MODE: Searching names, text, and types');
+      if (words.length > 1) {
+        const wordQueries = words.map(word => `(name:${word} OR o:${word} OR type:${word})`);
+        const result = wordQueries.join(' ');
+        console.log('🔍 Multi-word enhanced result:', result);
+        return result;
+      } else {
+        const result = `(name:${query} OR o:${query} OR type:${query})`;
+        console.log('🔍 Single word enhanced result:', result);
+        return result;
+      }
     }
   }
   
@@ -168,7 +283,8 @@ function buildEnhancedSearchQuery(query: string): string {
     isMultiWord: query.trim().split(/\s+/).length > 1,
     hasOperators: query.includes('"') || query.includes('-') || query.includes(':')
   });
-  console.timeEnd("⏱️ QUERY_BUILDING_TIME");
+  const queryEndTime = performance.now();
+  console.log(`⏱️ QUERY_BUILDING_TIME: ${queryEndTime - queryStartTime} ms`);
   return result;
 }
 
@@ -182,10 +298,8 @@ export const searchCards = async (
   order = 'name',
   dir: 'asc' | 'desc' = 'asc'
 ): Promise<ScryfallSearchResponse> => {
+  const searchStartTime = performance.now();
   try {
-    // Start timer (clear any existing timer first)
-    console.timeEnd("⏱️ TOTAL_SEARCH_TIME"); // Clear existing timer if any
-    console.time("⏱️ TOTAL_SEARCH_TIME");
     console.log("🔍 Search started:", { query, order, dir });
     // Handle empty queries - Scryfall doesn't accept empty q parameter
     if (!query || query.trim() === '') {
@@ -201,6 +315,13 @@ export const searchCards = async (
     });
     
     const url = `${SCRYFALL_API_BASE}/cards/search?${params.toString()}`;
+    
+    // Check cache first
+    const cacheKey = url;
+    const cachedResponse = getCachedResponse(cacheKey);
+    if (cachedResponse) {
+      return cachedResponse;
+    }
     
     console.log('🌐 ===== SCRYFALL API REQUEST DETAILED =====');
     console.log('🌐 FULL URL:', url);
@@ -222,13 +343,12 @@ export const searchCards = async (
     });
     
     const response = await rateLimitedFetch(url);
-    // Start JSON parsing timer (clear any existing timer first)
-    try { console.timeEnd("⏱️ JSON_PARSING_TIME"); } catch(e) {} // Clear existing timer if any
-    console.time("⏱️ JSON_PARSING_TIME");
+    const parseStartTime = performance.now();
 
     const data = await response.json();
 
-    console.timeEnd("⏱️ JSON_PARSING_TIME");
+    const parseEndTime = performance.now();
+    console.log(`⏱️ JSON_PARSING_TIME: ${parseEndTime - parseStartTime} ms`);
     
     console.log('🌐 ===== SCRYFALL API RESPONSE ANALYSIS =====');
     console.log('🌐 RESPONSE STATUS:', response.status);
@@ -265,13 +385,17 @@ export const searchCards = async (
     }
     console.log('🌐 ===== API RESPONSE COMPLETE =====');
     
-    console.timeEnd("⏱️ TOTAL_SEARCH_TIME");
+    const searchEndTime = performance.now();
+    console.log(`⏱️ TOTAL_SEARCH_TIME: ${searchEndTime - searchStartTime} ms`);
 
     
     console.log("✅ Search completed successfully");
 
+    // Cache the response before returning
+    const responseData = data as ScryfallSearchResponse;
+    setCachedResponse(cacheKey, responseData);
     
-    return data as ScryfallSearchResponse;
+    return responseData;
   } catch (error) {
     if (error instanceof Error) {
       throw new Error(`Failed to search cards: ${error.message}`);
@@ -686,13 +810,12 @@ export const getRandomCard = async (): Promise<ScryfallCard> => {
   try {
     const url = `${SCRYFALL_API_BASE}/cards/random`;
     const response = await rateLimitedFetch(url);
-    // Start JSON parsing timer (clear any existing timer first)
-    try { console.timeEnd("⏱️ JSON_PARSING_TIME"); } catch(e) {} // Clear existing timer if any
-    console.time("⏱️ JSON_PARSING_TIME");
+    const parseStartTime = performance.now();
 
     const data = await response.json();
 
-    console.timeEnd("⏱️ JSON_PARSING_TIME");
+    const parseEndTime = performance.now();
+    console.log(`⏱️ JSON_PARSING_TIME: ${parseEndTime - parseStartTime} ms`);
     
     return data as ScryfallCard;
   } catch (error) {
@@ -711,13 +834,12 @@ export const getCardById = async (id: string): Promise<ScryfallCard> => {
   try {
     const url = `${SCRYFALL_API_BASE}/cards/${id}`;
     const response = await rateLimitedFetch(url);
-    // Start JSON parsing timer (clear any existing timer first)
-    try { console.timeEnd("⏱️ JSON_PARSING_TIME"); } catch(e) {} // Clear existing timer if any
-    console.time("⏱️ JSON_PARSING_TIME");
+    const parseStartTime = performance.now();
 
     const data = await response.json();
 
-    console.timeEnd("⏱️ JSON_PARSING_TIME");
+    const parseEndTime = performance.now();
+    console.log(`⏱️ JSON_PARSING_TIME: ${parseEndTime - parseStartTime} ms`);
     
     return data as ScryfallCard;
   } catch (error) {
@@ -740,13 +862,12 @@ export const getCardByName = async (name: string): Promise<ScryfallCard> => {
     
     const url = `${SCRYFALL_API_BASE}/cards/named?${params.toString()}`;
     const response = await rateLimitedFetch(url);
-    // Start JSON parsing timer (clear any existing timer first)
-    try { console.timeEnd("⏱️ JSON_PARSING_TIME"); } catch(e) {} // Clear existing timer if any
-    console.time("⏱️ JSON_PARSING_TIME");
+    const parseStartTime = performance.now();
 
     const data = await response.json();
 
-    console.timeEnd("⏱️ JSON_PARSING_TIME");
+    const parseEndTime = performance.now();
+    console.log(`⏱️ JSON_PARSING_TIME: ${parseEndTime - parseStartTime} ms`);
     
     return data as ScryfallCard;
   } catch (error) {
@@ -769,13 +890,12 @@ export const autocompleteCardNames = async (query: string): Promise<string[]> =>
     
     const url = `${SCRYFALL_API_BASE}/cards/autocomplete?${params.toString()}`;
     const response = await rateLimitedFetch(url);
-    // Start JSON parsing timer (clear any existing timer first)
-    try { console.timeEnd("⏱️ JSON_PARSING_TIME"); } catch(e) {} // Clear existing timer if any
-    console.time("⏱️ JSON_PARSING_TIME");
+    const parseStartTime = performance.now();
 
     const data = await response.json();
 
-    console.timeEnd("⏱️ JSON_PARSING_TIME");
+    const parseEndTime = performance.now();
+    console.log(`⏱️ JSON_PARSING_TIME: ${parseEndTime - parseStartTime} ms`);
     
     return data.data || [];
   } catch (error) {
@@ -794,13 +914,12 @@ export const getSets = async (): Promise<any[]> => {
   try {
     const url = `${SCRYFALL_API_BASE}/sets`;
     const response = await rateLimitedFetch(url);
-    // Start JSON parsing timer (clear any existing timer first)
-    try { console.timeEnd("⏱️ JSON_PARSING_TIME"); } catch(e) {} // Clear existing timer if any
-    console.time("⏱️ JSON_PARSING_TIME");
+    const parseStartTime = performance.now();
 
     const data = await response.json();
 
-    console.timeEnd("⏱️ JSON_PARSING_TIME");
+    const parseEndTime = performance.now();
+    console.log(`⏱️ JSON_PARSING_TIME: ${parseEndTime - parseStartTime} ms`);
     
     return data.data || [];
   } catch (error) {
@@ -833,12 +952,18 @@ export const enhancedSearchCards = async (
   
 
   
-  // Build enhanced query for full-text search
-  const searchQuery = buildEnhancedSearchQuery(query.trim());
+  // Build enhanced query for full-text search with search mode
+  const searchQuery = buildEnhancedSearchQuery(query.trim(), filters.searchMode);
+  
+  // Handle case where no search mode is selected
+  if (searchQuery === '') {
+    throw new Error('Please select at least one search mode (Name or Card Text)');
+  }
   
   console.log('🔍 Enhanced search query:', { 
     original: query, 
     enhanced: searchQuery,
+    searchMode: filters.searchMode,
     filters: Object.keys(filters),
     sort: { order, dir }
   });

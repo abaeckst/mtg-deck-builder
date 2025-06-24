@@ -92,8 +92,10 @@ export const useDragAndDrop = (callbacks: DragCallbacks) => {
     preventDragUntil: 0,
   });
 
-  // Fixed rapid double-click handler with proper event sequence handling
+  // Fixed rapid double-click handler with processing debounce
   const handleDoubleClick = useCallback((card: DraggedCard, zone: DropZone, event: React.MouseEvent) => {
+    console.log(`🔧 DOUBLE-CLICK DEBUG: handleDoubleClick called for ${card.name} in ${zone}`);
+    
     event.preventDefault();
     event.stopPropagation();
     
@@ -108,48 +110,36 @@ export const useDragAndDrop = (callbacks: DragCallbacks) => {
     console.log(`🖱️ Double-click handler: ${card.name} in ${zone}`);
     console.log(`📊 Timing: ${timeDiff}ms since last, same card: ${isSameCard}, event.detail: ${event.detail}`);
     
+    // CRITICAL FIX: Prevent processing if we just processed this card very recently
+    const PROCESSING_DEBOUNCE = 100; // ms
+    if (isSameCard && timeDiff < PROCESSING_DEBOUNCE) {
+      console.log(`🚫 Debounced rapid double-click on ${card.name} (${timeDiff}ms since last)`);
+      return;
+    }
+    
     // Clear any existing rapid click timer
     if (interactionRef.current.rapidClickTimer) {
       clearTimeout(interactionRef.current.rapidClickTimer);
       interactionRef.current.rapidClickTimer = null;
     }
     
-    // FIXED: Proper rapid click detection
-    if (isSameCard && timeDiff < INTERACTION_TIMINGS.RAPID_CLICK_MAX_INTERVAL) {
-      // This is a continuation of rapid clicking on the same card
-      interactionRef.current.clickCount++;
-      console.log(`⚡ Rapid click #${interactionRef.current.clickCount} on ${card.name}`);
-    } else {
-      // This is either a new card or too much time has passed
-      interactionRef.current.clickCount = 1;
-      interactionRef.current.lastClickCard = cardId; // FIXED: Set card ID immediately
-      console.log(`🆕 Starting new click sequence on ${card.name}`);
-    }
-    
-    // FIXED: Update timing AFTER the logic check
+    // FIXED: Update timing BEFORE processing to establish debounce
     interactionRef.current.lastClickTime = now;
+    interactionRef.current.lastClickCard = cardId;
     
-    // Process the card move immediately
+    // Process the card move once per debounce period
     try {
-      console.log(`🎯 Processing move #${interactionRef.current.clickCount} for ${card.name}`);
+      console.log(`🎯 Processing double-click move for ${card.name}`);
       if (zone === 'collection') {
         callbacks.onCardMove([card], 'collection', 'deck');
-        console.log(`✅ Added copy #${interactionRef.current.clickCount} of ${card.name} to deck`);
+        console.log(`✅ Added ${card.name} to deck`);
       } else if (zone === 'deck' || zone === 'sideboard') {
         callbacks.onCardMove([card], zone, 'collection');
-        console.log(`✅ Removed copy #${interactionRef.current.clickCount} of ${card.name} from ${zone}`);
+        console.log(`✅ Removed ${card.name} from ${zone}`);
       }
     } catch (error) {
       console.error('❌ Error processing double-click:', error);
     }
-    
-    // Set timer to reset click count after period of inactivity
-    interactionRef.current.rapidClickTimer = setTimeout(() => {
-      console.log(`⏰ Resetting click sequence for ${card.name} (was ${interactionRef.current.clickCount} clicks)`);
-      interactionRef.current.clickCount = 0;
-      interactionRef.current.rapidClickTimer = null;
-      // DON'T reset lastClickCard here - let it persist for timing checks
-    }, INTERACTION_TIMINGS.RAPID_CLICK_MAX_INTERVAL);
     
   }, [callbacks]);
 
@@ -159,6 +149,10 @@ export const useDragAndDrop = (callbacks: DragCallbacks) => {
     from: DropZone, 
     event: React.MouseEvent
   ) => {
+    console.log(`🔧 DRAG DEBUG: startDrag called with ${cards.length} cards from ${from}`);
+    console.log(`🔧 DRAG DEBUG: startDrag received cards:`, cards.map(c => c.name));
+    console.log(`🔧 DRAG DEBUG: Call stack:`, new Error().stack?.split('\\n').slice(1, 6));
+    console.log(`🔧 DRAG DEBUG: Event detail:`, event.detail);
     // Complete prevention of drag during double-click protection period
     const now = Date.now();
     if (now < interactionRef.current.preventDragUntil) {

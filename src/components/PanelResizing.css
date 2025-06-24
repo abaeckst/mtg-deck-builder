@@ -1,88 +1,19 @@
-/* Panel Resizing Styles - Matching Actual Working Implementation */
-/* Fixed to match inline styles from MTGOLayout.tsx */
+/* Panel Resizing Styles - Clean CSS/JavaScript Coordination */
+/* Coordinates with ResizeHandles.css foundation and useResize.ts dynamic updates */
 
-/* Base resize handle styling - matches inline styles */
+/* Base resize handle styling - foundation only */
 .resize-handle {
   position: absolute;
   z-index: 1001;
   opacity: 0.7;
-  transition: opacity 0.2s ease;
+  transition: opacity 0.2s ease, background-color 0.2s ease;
 }
 
 .resize-handle:hover {
   opacity: 1;
 }
 
-/* Filter panel resize handle - right edge */
-.resize-handle-right {
-  position: absolute;
-  top: 0;
-  right: -3px;
-  width: 6px;
-  height: 100%;
-  cursor: ew-resize;
-  background: linear-gradient(90deg, transparent 0%, #555555 50%, transparent 100%);
-  z-index: 1001;
-  opacity: 0.7;
-  transition: opacity 0.2s ease;
-}
-
-.resize-handle-right:hover {
-  opacity: 1;
-}
-
-.resize-handle-right:active {
-  opacity: 1;
-  background: linear-gradient(90deg, transparent 0%, #666666 50%, transparent 100%);
-}
-
-/* Vertical resize handle - between collection and deck areas */
-.resize-handle-vertical {
-  position: absolute;
-  top: -3px;
-  left: 0;
-  width: 100%;
-  height: 6px;
-  cursor: ns-resize;
-  background: linear-gradient(0deg, transparent 0%, #555555 50%, transparent 100%);
-  z-index: 1001;
-  opacity: 0.7;
-  transition: opacity 0.2s ease;
-}
-
-.resize-handle-vertical:hover {
-  opacity: 1;
-}
-
-.resize-handle-vertical:active {
-  opacity: 1;
-  background: linear-gradient(0deg, transparent 0%, #666666 50%, transparent 100%);
-}
-
-/* Sideboard resize handle - left edge */
-.resize-handle-left {
-  position: absolute;
-  top: 0;
-  left: -3px;
-  width: 6px;
-  height: 100%;
-  cursor: ew-resize;
-  background: linear-gradient(90deg, transparent 0%, #555555 50%, transparent 100%);
-  z-index: 1001;
-  opacity: 0.7;
-  transition: opacity 0.2s ease;
-}
-
-.resize-handle-left:hover {
-  opacity: 1;
-}
-
-.resize-handle-left:active {
-  opacity: 1;
-  background: linear-gradient(90deg, transparent 0%, #666666 50%, transparent 100%);
-}
-
-/* Resizing state classes */
+/* Resizing state classes - for during resize operations */
 .resizing-horizontal {
   cursor: ew-resize !important;
 }
@@ -97,7 +28,7 @@
   pointer-events: none !important;
 }
 
-/* Layout constraints during resize */
+/* Layout constraints during resize - prevent transitions */
 .mtgo-layout.resizing {
   transition: none !important;
 }
@@ -106,7 +37,7 @@
   transition: none !important;
 }
 
-/* Enhanced visual feedback */
+/* Enhanced visual feedback during resize */
 .resize-handle {
   will-change: opacity, background;
 }
@@ -116,7 +47,7 @@
   position: relative;
 }
 
-/* Panel boundaries */
+/* Panel size constraints - work with JavaScript calculations */
 .mtgo-filter-panel {
   min-width: 200px;
   max-width: 500px;
@@ -131,3 +62,16 @@
 .mtgo-bottom-area {
   min-height: 200px;
 }
+
+/* Enhanced hover feedback that works with ResizeHandles.css */
+.resize-handle:hover {
+  background-color: rgba(59, 130, 246, 0.3) !important;
+}
+
+.resize-handle:active {
+  background-color: rgba(59, 130, 246, 0.5) !important;
+}
+
+/* Clean coordination - let ResizeHandles.css handle positioning and dimensions */
+/* JavaScript (useResize.ts) handles dynamic sizing via CSS custom properties */
+/* This file provides behavioral states and constraints only */

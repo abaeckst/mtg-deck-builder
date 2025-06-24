@@ -7,11 +7,23 @@
   transition: opacity 0.2s ease, background-color 0.2s ease;
 }
 
-/* Horizontal resize handles - REMOVED */
+/* Horizontal resize handles */
+.resize-handle-right,
+.resize-handle-left {
+  cursor: ew-resize;
+  width: 30px;
+  height: 100%;
+}
 
+.resize-handle-right {
+  right: -15px;
+  background: linear-gradient(90deg, transparent 0%, #555555 40%, #777777 60%, transparent 100%);
+}
 
-
-
+.resize-handle-left {
+  left: -15px;
+  background: linear-gradient(90deg, transparent 0%, #777777 40%, #555555 60%, transparent 100%);
+}
 
 /* Vertical resize handles */
 .resize-handle-bottom,
@@ -36,6 +48,10 @@
   opacity: 1 !important;
 }
 
+.resize-handle-right:hover,
+.resize-handle-left:hover {
+  background: linear-gradient(90deg, transparent 0%, #3b82f6 40%, #60a5fa 60%, transparent 100%);
+}
 
 
 .resize-handle-bottom:hover,
@@ -49,6 +65,12 @@
   opacity: 1 !important;
 }
 
+.resize-handle-right:active,
+.resize-handle-left:active,
+.resize-handle-right.dragging,
+.resize-handle-left.dragging {
+  background: linear-gradient(90deg, transparent 0%, #1d4ed8 40%, #3b82f6 60%, transparent 100%);
+}
 
 
 .resize-handle-bottom:active,
@@ -65,8 +87,7 @@
   }
   
   .resize-handle-right,
-  
-  
+  .resize-handle-left,
   .resize-handle-bottom,
   .resize-handle-vertical {
     height: 32px;
@@ -87,8 +108,7 @@
   }
   
   .resize-handle-right,
-  
-  
+  .resize-handle-left,
   .resize-handle-bottom,
   .resize-handle-vertical {
     height: 36px;

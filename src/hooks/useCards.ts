@@ -78,6 +78,8 @@ export interface UseCardsActions {
   updateSectionState: (section: string, isExpanded: boolean) => void;
   getSectionState: (section: string) => boolean;
   autoExpandSection: (section: string) => void;
+  toggleSearchMode: (mode: 'name' | 'cardText') => void;
+  getSearchModeText: () => string;
 }
 
 export const useCards = (): UseCardsState & UseCardsActions => {
@@ -92,6 +94,8 @@ export const useCards = (): UseCardsState & UseCardsActions => {
     updateSectionState,
     getSectionState,
     autoExpandSection,
+    toggleSearchMode,
+    getSearchModeText,
   } = useFilters();
 
   // Card selection hook
@@ -268,6 +272,8 @@ export const useCards = (): UseCardsState & UseCardsActions => {
     updateSectionState,
     getSectionState,
     autoExpandSection,
+    toggleSearchMode,
+    getSearchModeText,
     
     // Search actions
     searchForCards,

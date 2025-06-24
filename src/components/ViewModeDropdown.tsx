@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, memo } from 'react';
 
 interface ViewModeDropdownProps {
   currentView: 'card' | 'pile' | 'list';
@@ -63,21 +63,17 @@ const ViewModeDropdown: React.FC<ViewModeDropdownProps> = ({
   };
 
   const handleToggle = () => {
-    console.log('🔧 ViewModeDropdown toggle - before:', isOpen);
     if (!isOpen) {
       calculateMenuPosition();
     }
     setIsOpen(!isOpen);
-    console.log('🔧 ViewModeDropdown toggle - after:', !isOpen);
   };
 
   const handleOptionClick = (value: 'card' | 'pile' | 'list') => {
-    console.log('🔧 ViewModeDropdown option clicked:', value);
     onViewChange(value);
     setIsOpen(false);
   };
 
-  console.log('🔧 ViewModeDropdown render:', { currentView, isOpen, currentOption: currentOption?.label });
 
   return (
     <div ref={dropdownRef} className={`view-mode-dropdown ${className}`}>
@@ -134,4 +130,7 @@ const ViewModeDropdown: React.FC<ViewModeDropdownProps> = ({
   );
 };
 
-export default ViewModeDropdown;
+// Performance optimization: Prevent unnecessary re-renders during search operations
+const MemoizedViewModeDropdown = memo(ViewModeDropdown);
+
+export default MemoizedViewModeDropdown;

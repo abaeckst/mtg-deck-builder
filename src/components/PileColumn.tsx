@@ -13,9 +13,7 @@ interface PileColumnProps {
   isEmpty?: boolean;
   // Enhanced card interaction handlers - supporting both card and instance selection
   onClick?: (card: ScryfallCard | DeckCard | DeckCardInstance, event?: React.MouseEvent) => void;
-  onInstanceClick?: (instanceId: string, instance: DeckCardInstance, event: React.MouseEvent) => void;
-  onDoubleClick?: (card: ScryfallCard | DeckCard | DeckCardInstance) => void;
-  onEnhancedDoubleClick?: (card: ScryfallCard | DeckCard | DeckCardInstance, zone: DropZone, event: React.MouseEvent) => void;
+  onInstanceClick?: (instanceId: string, instance: DeckCardInstance, event: React.MouseEvent) => void;  onEnhancedDoubleClick?: (card: ScryfallCard | DeckCard | DeckCardInstance, zone: DropZone, event: React.MouseEvent) => void;
   onRightClick?: (card: ScryfallCard | DeckCard | DeckCardInstance, zone: DropZone, event: React.MouseEvent) => void;
   onDragStart?: (cards: (ScryfallCard | DeckCard | DeckCardInstance)[], zone: DropZone, event: React.MouseEvent) => void;
   // Selection and drag state
@@ -38,9 +36,7 @@ const PileColumn: React.FC<PileColumnProps> = ({
   scaleFactor,
   isEmpty = false,
   onClick,
-  onInstanceClick,
-  onDoubleClick,
-  onEnhancedDoubleClick,
+  onInstanceClick,  onEnhancedDoubleClick,
   onRightClick,
   onDragStart,
   isSelected = () => false,
@@ -49,7 +45,7 @@ const PileColumn: React.FC<PileColumnProps> = ({
   onDragEnter,
   onDragLeave,
   canDropInZone,
-  onManualMove,
+  onManualMove
 }) => {
 
   // Handle drop events for manual card movement between pile columns
@@ -109,7 +105,7 @@ const PileColumn: React.FC<PileColumnProps> = ({
               style={{
                 marginTop: cardIndex > 0 ? `${stackOffset}px` : '0px', // Stack ALL cards, not just same card
                 zIndex: cardIndex, // Last card has highest z-index (most visible), first card lowest
-                position: 'relative',
+                position: 'relative'
               }}
             >
               <DraggableCard
@@ -118,9 +114,7 @@ const PileColumn: React.FC<PileColumnProps> = ({
                 size="normal"
                 scaleFactor={scaleFactor}
                 onClick={isInstance ? undefined : onClick} // Use card click for non-instances
-                onInstanceClick={isInstance ? onInstanceClick : undefined} // Pass instance click handler
-                onDoubleClick={onDoubleClick}
-                onEnhancedDoubleClick={onEnhancedDoubleClick}
+                onInstanceClick={isInstance ? onInstanceClick : undefined} // Pass instance click handler                onEnhancedDoubleClick={onEnhancedDoubleClick}
                 onRightClick={onRightClick}
                 onDragStart={onDragStart}
                 showQuantity={false} // Don't show quantity on individual cards
@@ -149,7 +143,7 @@ const PileColumn: React.FC<PileColumnProps> = ({
       console.error('Error rendering cards in pile column:', error);
       return [<div key="error" className="error-message">Error rendering cards</div>];
     }
-  }, [cards, zone, scaleFactor, onClick, onDoubleClick, onEnhancedDoubleClick, onRightClick, onDragStart, isSelected, selectedCards, isDragActive]);
+  }, [cards, zone, scaleFactor, onClick, onEnhancedDoubleClick, onRightClick, onDragStart, isSelected, selectedCards, isDragActive]);
 
   // Calculate proper column width - ensure cards fit within column bounds
   // Magic cards are ~115px wide - balanced sizing to contain cards while showing gaps

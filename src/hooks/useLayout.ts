@@ -150,8 +150,7 @@ export const useLayout = () => {
       try {
         const parsed = JSON.parse(savedLayout);
         if (parsed.viewModes && parsed.viewModes.collection !== 'grid') {
-          console.log('🔧 Forcing collection view to grid mode');
-          parsed.viewModes.collection = 'grid';
+              parsed.viewModes.collection = 'grid';
           localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
         }
       } catch (error) {
@@ -262,7 +261,6 @@ export const useLayout = () => {
   // Update view modes (now supports unified deck/sideboard)
   const updateViewMode = useCallback((area: keyof LayoutState['viewModes'], mode: string) => {
     setLayout(prev => {
-      console.log('🔧 View mode update:', { area, mode, before: prev.viewModes[area] });
       const newLayout = {
         ...prev,
         viewModes: {
@@ -277,7 +275,6 @@ export const useLayout = () => {
 
   // UNIFIED DECK/SIDEBOARD VIEW MODE UPDATE
   const updateDeckSideboardViewMode = useCallback((mode: 'pile' | 'card' | 'list') => {
-    console.log('🔧 Unified deck/sideboard view mode update:', { mode });
     updateViewMode('deckSideboard', mode);
   }, [updateViewMode]);
 
@@ -302,11 +299,7 @@ export const useLayout = () => {
 
   // UNIFIED DECK/SIDEBOARD CARD SIZE UPDATE
   const updateDeckSideboardCardSize = useCallback((size: number) => {
-    console.log("🔧 updateDeckSideboardCardSize called with:", size);
-    console.log('🔧 Unified deck/sideboard card size update:', { size });
-    console.log("🔧 About to call updateCardSize with:", size);
     updateCardSize('deckSideboard', size);
-    console.log("🔧 updateCardSize completed");
   }, [updateCardSize]);
 
   // Reset to defaults

@@ -35,7 +35,7 @@ interface CollectionAreaProps {
   
   // Card interactions
   onCardClick: (card: ScryfallCard | DeckCard | DeckCardInstance, event?: React.MouseEvent) => void;
-  onCardDoubleClick: (card: ScryfallCard | DeckCard | DeckCardInstance) => void;
+  onEnhancedDoubleClick: (card: ScryfallCard | DeckCard | DeckCardInstance, zone: DropZoneType, event: React.MouseEvent) => void;
   onCardRightClick: (card: any, zone: DropZoneType, event: React.MouseEvent) => void;
   onDragStart: (cards: DraggedCard[], zone: DropZoneType, event: React.MouseEvent) => void;
   
@@ -71,8 +71,8 @@ const CollectionArea: React.FC<CollectionAreaProps> = ({
   cardSize,
   onCardSizeChange,
   onCardClick,
-  onCardDoubleClick,
   onCardRightClick,
+  onEnhancedDoubleClick,
   onDragStart,
   onDragEnter,
   onDragLeave,
@@ -342,8 +342,7 @@ const CollectionArea: React.FC<CollectionAreaProps> = ({
               sortDirection={sortState.direction}
               onSortChange={onSortChange}
               onClick={onCardClick}
-              onDoubleClick={onCardDoubleClick}
-              onRightClick={onCardRightClick}
+                onRightClick={onCardRightClick}
               onDragStart={onDragStart}
               isSelected={isSelected}
               selectedCards={getSelectedCardObjects()}
@@ -407,10 +406,8 @@ const CollectionArea: React.FC<CollectionAreaProps> = ({
                 zone="collection"
                 size="normal"
                 scaleFactor={cardSize}
-                onClick={(card, event) => onCardClick(card, event)} 
-                onDoubleClick={(card) => onCardDoubleClick(card)}
-                onEnhancedDoubleClick={onCardDoubleClick}
-                onRightClick={onCardRightClick}
+                onClick={(card, event) => onCardClick(card, event)}
+                onEnhancedDoubleClick={onEnhancedDoubleClick}                onRightClick={onCardRightClick}
                 onDragStart={onDragStart}
                 showQuantity={false}
                 // No quantity display for collection - each card is individual

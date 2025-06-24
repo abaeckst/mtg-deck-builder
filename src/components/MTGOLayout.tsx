@@ -101,7 +101,9 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
     hasActiveFilters,
     updateSectionState,
     getSectionState,
-    autoExpandSection
+    autoExpandSection,
+    toggleSearchMode,
+    getSearchModeText
   } = useCards();
   
   // Card sizing system
@@ -348,6 +350,9 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
     }, [])
   };
 
+  // Enhanced double-click handling: Uses sophisticated timing system from useDragAndDrop
+  // handleDoubleClick leverages 5 critical timing constants for professional interaction detection
+  // Single enhanced handler eliminates dual execution paths
   // Initialize enhanced drag and drop with double-click handler
   const { dragState, startDrag, setDropZone, canDropInZone, handleDoubleClick } = useDragAndDrop(dragCallbacks);
   
@@ -425,19 +430,6 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
     const selectedCardObjects = getSelectedCardObjects();
     showContextMenu(event, card, zone, selectedCardObjects);
   }, [showContextMenu, getSelectedCardObjects]);
-  
-  // Legacy double-click handler for fallback
-  const handleAddToDeck = useCallback((card: ScryfallCard | DeckCard | DeckCardInstance) => {
-    const cardId = getCardId(card);
-    const totalCopies = getTotalCopies(cardId);
-    const isBasic = isBasicLand(card);
-    const maxAllowed = isBasic ? Infinity : 4;
-    
-    if (totalCopies < maxAllowed) {
-      const newInstance = createDeckInstance(card, 'deck');
-      setMainDeck(prev => [...prev, newInstance]);
-    }
-  }, [getTotalCopies]);
 
   // Enhanced drag start handler
   const handleDragStart = useCallback((cards: DraggedCard[], zone: DropZoneType, event: React.MouseEvent) => {
@@ -565,6 +557,9 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
         }}
         onSuggestionsRequested={getSearchSuggestions}
         onSuggestionsClear={clearSearchSuggestions}
+        searchMode={activeFilters.searchMode}
+        onToggleSearchMode={toggleSearchMode}
+        getSearchModeText={getSearchModeText}
         activeFilters={activeFilters}
         isFiltersCollapsed={isFiltersCollapsed}
         hasActiveFilters={hasActiveFilters}
@@ -579,8 +574,7 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
         onClearSelection={clearSelection}
         width={isFiltersCollapsed ? 40 : layout.panels.filterPanelWidth}
       />
-      
-      
+
       {/* Main Content Area */}
       <div className="mtgo-main-content">
         {/* Collection Area */}
@@ -597,7 +591,7 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
           cardSize={cardSizes.collection}
           onCardSizeChange={updateCollectionSize}
           onCardClick={handleCardClick}
-          onCardDoubleClick={handleAddToDeck}
+          onEnhancedDoubleClick={handleDoubleClick}
           onCardRightClick={handleRightClick}
           onDragStart={handleDragStart}
           onDragEnter={handleDragEnter}
@@ -645,9 +639,8 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
             cardSize={layout.cardSizes.deckSideboard}
             onCardSizeChange={updateDeckSideboardCardSize}
             onCardClick={handleCardClick}
+          onEnhancedDoubleClick={handleDoubleClick}
             onInstanceClick={handleInstanceClick}
-            onCardDoubleClick={handleAddToDeck}
-            onEnhancedDoubleClick={handleDoubleClick}
             onCardRightClick={handleRightClick}
             onDragStart={handleDragStart}
             onDragEnter={handleDragEnter}
@@ -674,11 +667,11 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
             onSortChange={(criteria, direction) => updateSort('sideboard', criteria, direction)}
             cardSize={layout.cardSizes.deckSideboard}
             viewMode={layout.viewModes.deckSideboard}
-            onViewModeChange={updateDeckSideboardViewMode}            onCardSizeChange={updateSideboardSize}
+            onViewModeChange={updateDeckSideboardViewMode}
+            onCardSizeChange={updateSideboardSize}
             onCardClick={handleCardClick}
+          onEnhancedDoubleClick={handleDoubleClick}
             onInstanceClick={handleInstanceClick}
-            onCardDoubleClick={handleAddToDeck}
-            onEnhancedDoubleClick={handleDoubleClick}
             onCardRightClick={handleRightClick}
             onDragStart={handleDragStart}
             onDragEnter={handleDragEnter}

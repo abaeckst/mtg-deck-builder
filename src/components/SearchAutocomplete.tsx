@@ -12,6 +12,13 @@ interface SearchAutocompleteProps {
   onSuggestionsClear: () => void;
   placeholder?: string;
   className?: string;
+  // Search mode props
+  searchMode: {
+    name: boolean;
+    cardText: boolean;
+  };
+  onToggleSearchMode: (mode: 'name' | 'cardText') => void;
+  getSearchModeText: () => string;
 }
 
 const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
@@ -24,7 +31,10 @@ const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
   onSuggestionsRequested,
   onSuggestionsClear,
   placeholder = "Search cards...",
-  className = ""
+  className = "",
+  searchMode,
+  onToggleSearchMode,
+  getSearchModeText
 }) => {
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -35,13 +45,14 @@ const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
     const newValue = e.target.value;
     onChange(newValue);
     
-    // Request suggestions after short delay
-    setTimeout(() => {
-      onSuggestionsRequested(newValue);
-    }, 200);
+    // DISABLED: Request suggestions after short delay (causing extra API calls)
+    // setTimeout(() => {
+    //   onSuggestionsRequested(newValue);
+    // }, 200);
     
     setActiveSuggestionIndex(-1);
   };
+
 
   // Handle key navigation
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -112,6 +123,9 @@ const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
     };
   }, [onSuggestionsClear]);
 
+  // Determine if search is disabled (both modes off)
+  const isSearchDisabled = !searchMode.name && !searchMode.cardText;
+
   return (
     <div className={`search-autocomplete ${className}`}>
       <input
@@ -121,12 +135,20 @@ const SearchAutocomplete: React.FC<SearchAutocompleteProps> = ({
         onChange={handleInputChange}
         onKeyDown={handleKeyDown}
         onBlur={handleBlur}
-        placeholder={placeholder}
-        className="search-autocomplete-input"
+        placeholder={isSearchDisabled ? "Select search mode above" : placeholder}
+        className={`search-autocomplete-input ${isSearchDisabled ? 'disabled' : ''}`}
         autoComplete="off"
+        disabled={isSearchDisabled}
       />
       
-      {showSuggestions && suggestions.length > 0 && (
+      {/* Search status text */}
+      {!isSearchDisabled && (
+        <div className="search-status-text">
+          {getSearchModeText()}
+        </div>
+      )}
+      
+      {showSuggestions && suggestions.length > 0 && !isSearchDisabled && (
         <div ref={suggestionsRef} className="search-suggestions">
           {suggestions.map((suggestion, index) => (
             <div

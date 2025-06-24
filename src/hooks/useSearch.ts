@@ -1,5 +1,5 @@
 // src/hooks/useSearch.ts - Core search and API communication
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { ScryfallCard, PaginatedSearchState } from '../types/card';
 import { 
   getRandomCard, 
@@ -79,6 +79,11 @@ export const useSearch = ({
     isResorting: false,
     storedPaginationState: null,
   });
+
+  // Debouncing and cancellation for search requests
+  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const currentSearchControllerRef = useRef<AbortController | null>(null);
+  const DEBOUNCE_DELAY = 300; // 300ms delay
 
   // Clear error when starting new operations
   const clearError = useCallback(() => {
@@ -456,6 +461,11 @@ export const useSearch = ({
       if (filters.toughness.min !== null) searchFilters.toughness.min = filters.toughness.min;
       if (filters.toughness.max !== null) searchFilters.toughness.max = filters.toughness.max;
     }
+    
+    // Search mode filters: Always pass through
+    if (filters.searchMode) {
+      searchFilters.searchMode = filters.searchMode;
+    }
 
     // CLEAN QUERY STRATEGY: Start fresh every time
     let actualQuery: string;
@@ -485,27 +495,64 @@ export const useSearch = ({
     
   }, [activeFilters, searchWithPagination, getCollectionSortParams]);
 
-  // Enhanced search function with full-text capabilities
+  // Enhanced search function with full-text capabilities, debouncing, and cancellation
   const enhancedSearch = useCallback(async (query: string, filtersOverride?: any) => {
     const filters = filtersOverride || activeFilters;
     
     console.log('🔍 enhancedSearch called with:', { query, filters });
     
-    // Handle empty query cases
+    // Cancel any existing search
+    if (currentSearchControllerRef.current) {
+      console.log('🚫 CANCELLATION: Aborting previous search');
+      currentSearchControllerRef.current.abort();
+      currentSearchControllerRef.current = null;
+    }
+    
+    // Clear any existing debounce timeout
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+    }
+
+    // For empty queries, execute immediately without debouncing
     if (!query.trim()) {
       if (hasActiveFilters()) {
         query = '*';
+        const defaultSortParams = getCollectionSortParams();
+        await searchWithPagination(query, filters as SearchFilters, defaultSortParams.order, defaultSortParams.dir);
+        addToSearchHistory(query);
       } else {
         loadPopularCards();
-        return;
       }
+      return;
     }
 
-    // Get default sort parameters for consistent sorting
-    const defaultSortParams = getCollectionSortParams();
-    await searchWithPagination(query, filters as SearchFilters, defaultSortParams.order, defaultSortParams.dir);
-    addToSearchHistory(query);
-  }, [activeFilters, searchWithPagination, loadPopularCards, hasActiveFilters, addToSearchHistory]);
+    // Debounce the actual search for non-empty queries
+    debounceTimeoutRef.current = setTimeout(async () => {
+      console.log('🔍 DEBOUNCED SEARCH: Executing after delay:', query);
+      
+      // Create new AbortController for this search
+      const searchController = new AbortController();
+      currentSearchControllerRef.current = searchController;
+      
+      try {
+        const defaultSortParams = getCollectionSortParams();
+        await searchWithPagination(query, filters as SearchFilters, defaultSortParams.order, defaultSortParams.dir);
+        addToSearchHistory(query);
+      } catch (error) {
+        if (error instanceof Error && error.name === 'AbortError') {
+          console.log('🚫 SEARCH CANCELLED:', query);
+        } else {
+          console.error('🔍 DEBOUNCED SEARCH ERROR:', error);
+        }
+      } finally {
+        // Clear the controller reference if this was the current search
+        if (currentSearchControllerRef.current === searchController) {
+          currentSearchControllerRef.current = null;
+        }
+      }
+    }, DEBOUNCE_DELAY);
+
+  }, [activeFilters, searchWithPagination, loadPopularCards, hasActiveFilters, addToSearchHistory, getCollectionSortParams]);
 
   // Clear all cards and reset state
   const clearCards = useCallback(() => {

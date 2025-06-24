@@ -1,5 +1,5 @@
 // src/hooks/useFilters.ts - Extracted filter management from useCards
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 
 // Phase 4B: Enhanced filter state interface
 export interface FilterState {
@@ -14,6 +14,10 @@ export interface FilterState {
   toughness: { min: number | null; max: number | null };
   subtypes: string[];
   isGoldMode: boolean;
+  searchMode: {
+    name: boolean;
+    cardText: boolean;
+  };
   sectionStates: {
     colors: boolean;
     cmc: boolean;
@@ -38,6 +42,8 @@ export interface UseFiltersActions {
   updateSectionState: (section: string, isExpanded: boolean) => void;
   getSectionState: (section: string) => boolean;
   autoExpandSection: (section: string) => void;
+  toggleSearchMode: (mode: 'name' | 'cardText') => void;
+  getSearchModeText: () => string;
 }
 
 const DEFAULT_FILTER_STATE: FilterState = {
@@ -52,6 +58,10 @@ const DEFAULT_FILTER_STATE: FilterState = {
   toughness: { min: null, max: null },
   subtypes: [],
   isGoldMode: false,
+  searchMode: {
+    name: true,      // Default: Name search ON
+    cardText: false, // Default: Card text search OFF
+  },
   sectionStates: {
     colors: true,      // Default sections expanded
     cmc: true,
@@ -102,30 +112,6 @@ export const useFilters = (): UseFiltersState & UseFiltersActions => {
     }));
   }, []);
 
-  // Check if any filters are active (excluding standard format as it's default)
-  const hasActiveFilters = useCallback((): boolean => {
-    const filters = state.activeFilters;
-    return (
-      // Format filter: only active if NOT standard (since standard is default)
-      (filters.format !== '' && filters.format !== 'standard') ||
-      // Color filters
-      filters.colors.length > 0 ||
-      filters.isGoldMode ||
-      // Type filters  
-      filters.types.length > 0 ||
-      filters.subtypes.length > 0 ||
-      // Property filters
-      filters.rarity.length > 0 ||
-      filters.sets.length > 0 ||
-      // Range filters
-      filters.cmc.min !== null ||
-      filters.cmc.max !== null ||
-      filters.power.min !== null ||
-      filters.power.max !== null ||
-      filters.toughness.min !== null ||
-      filters.toughness.max !== null
-    );
-  }, [state.activeFilters]);
 
   // Phase 4B: Section state management
   const updateSectionState = useCallback((section: string, isExpanded: boolean) => {
@@ -180,14 +166,91 @@ export const useFilters = (): UseFiltersState & UseFiltersActions => {
     }
   }, [state.activeFilters, getSectionState, updateSectionState]);
 
+  // PERFORMANCE FIX: Memoize activeFilters to prevent unnecessary re-renders
+  const memoizedActiveFilters = useMemo(() => state.activeFilters, [
+    state.activeFilters.format,
+    state.activeFilters.colors,
+    state.activeFilters.colorIdentity,
+    state.activeFilters.types,
+    state.activeFilters.rarity,
+    state.activeFilters.sets,
+    state.activeFilters.cmc.min,
+    state.activeFilters.cmc.max,
+    state.activeFilters.power.min,
+    state.activeFilters.power.max,
+    state.activeFilters.toughness.min,
+    state.activeFilters.toughness.max,
+    state.activeFilters.subtypes,
+    state.activeFilters.isGoldMode,
+    state.activeFilters.searchMode.name,
+    state.activeFilters.searchMode.cardText,
+    state.activeFilters.sectionStates,
+  ]);
+
+  // PERFORMANCE FIX: Memoize hasActiveFilters function
+  const memoizedHasActiveFilters = useCallback((): boolean => {
+    const filters = memoizedActiveFilters;
+    return (
+      // Format filter: only active if NOT standard (since standard is default)
+      (filters.format !== '' && filters.format !== 'standard') ||
+      // Color filters
+      filters.colors.length > 0 ||
+      filters.isGoldMode ||
+      // Type filters  
+      filters.types.length > 0 ||
+      filters.subtypes.length > 0 ||
+      // Property filters
+      filters.rarity.length > 0 ||
+      filters.sets.length > 0 ||
+      // Range filters
+      filters.cmc.min !== null ||
+      filters.cmc.max !== null ||
+      filters.power.min !== null ||
+      filters.power.max !== null ||
+      filters.toughness.min !== null ||
+      filters.toughness.max !== null
+    );
+  }, [memoizedActiveFilters]);
+
+  // Toggle search mode functions
+  const toggleSearchMode = useCallback((mode: 'name' | 'cardText') => {
+    console.log('🔍 Toggle search mode:', mode);
+    setState(prev => ({
+      ...prev,
+      activeFilters: {
+        ...prev.activeFilters,
+        searchMode: {
+          ...prev.activeFilters.searchMode,
+          [mode]: !prev.activeFilters.searchMode[mode],
+        },
+      },
+    }));
+  }, []);
+
+  const getSearchModeText = useCallback((): string => {
+    const { name, cardText } = state.activeFilters.searchMode;
+    if (name && cardText) {
+      return 'Searching names and text...';
+    } else if (name && !cardText) {
+      return 'Searching names...';
+    } else if (!name && cardText) {
+      return 'Searching card text...';
+    } else {
+      return 'Select search mode';
+    }
+  }, [state.activeFilters.searchMode]);
+
   return {
     ...state,
+    activeFilters: memoizedActiveFilters,
     updateFilter,
     clearAllFilters,
     toggleFiltersCollapsed,
-    hasActiveFilters,
+    hasActiveFilters: memoizedHasActiveFilters,
     updateSectionState,
     getSectionState,
     autoExpandSection,
+    toggleSearchMode,
+    getSearchModeText,
   };
 };

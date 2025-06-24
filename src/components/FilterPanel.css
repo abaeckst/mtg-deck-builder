@@ -1,5 +1,77 @@
 /* src/components/FilterPanel.css - Phase 4B: Professional MTGO-style filter styling */
 
+/* Search Header with Inline Toggle Buttons */
+.search-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.search-header label {
+  margin-bottom: 0 !important; /* Override default label margin */
+}
+
+/* Search Mode Toggle Buttons - Moved from SearchAutocomplete.css */
+.search-mode-toggles {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.search-mode-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border: 1px solid #555;
+  border-radius: 12px;
+  background: #2a2a2a;
+  color: #888;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  outline: none;
+  min-height: 24px;
+  box-sizing: border-box;
+}
+
+.search-mode-chip:hover {
+  border-color: #666;
+  background: #333;
+  color: #aaa;
+}
+
+.search-mode-chip.active {
+  border-color: #4a90e2;
+  background: #4a90e2;
+  color: white;
+  box-shadow: 0 0 0 1px rgba(74, 144, 226, 0.3);
+}
+
+.search-mode-chip:active {
+  transform: scale(0.95);
+}
+
+.chip-icon {
+  font-size: 10px;
+  opacity: 0.8;
+}
+
+.chip-text {
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.search-mode-chip.active .chip-icon {
+  opacity: 1;
+}
+
+.search-mode-chip.clicked {
+  transform: scale(0.95);
+  box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.5);
+}
+
 /* Keyrune Font for MTG Mana Symbols */
 @font-face {
   

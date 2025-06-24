@@ -1,5 +1,5 @@
 // src/components/FilterPanel.tsx - Phase 4B: Professional MTGO-style filter interface
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import CollapsibleSection from './CollapsibleSection';
 import GoldButton from './GoldButton';
 import SubtypeInput from './SubtypeInput';
@@ -15,6 +15,14 @@ interface FilterPanelProps {
   onSuggestionSelect: (suggestion: string) => void;
   onSuggestionsRequested: (query: string) => Promise<void>;
   onSuggestionsClear: () => void;
+  
+  // Search mode props
+  searchMode: {
+    name: boolean;
+    cardText: boolean;
+  };
+  onToggleSearchMode: (mode: 'name' | 'cardText') => void;
+  getSearchModeText: () => string;
   
   // Filter state
   activeFilters: any;
@@ -49,6 +57,9 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
   onSuggestionSelect,
   onSuggestionsRequested,
   onSuggestionsClear,
+  searchMode,
+  onToggleSearchMode,
+  getSearchModeText,
   activeFilters,
   isFiltersCollapsed,
   hasActiveFilters,
@@ -63,6 +74,46 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
   onClearSelection,
   width
 }) => {
+  // Track clicked button for visual feedback
+  const [clickedButton, setClickedButton] = React.useState<string | null>(null);
+  
+  // Handle search mode toggle with auto-search
+  const handleToggleSearchMode = useCallback((mode: 'name' | 'cardText') => {
+    console.log('🔍 Toggle search mode:', mode, 'Current search text:', searchText.trim());
+    
+    // Show visual feedback
+    setClickedButton(mode);
+    setTimeout(() => setClickedButton(null), 200);
+    
+    onToggleSearchMode(mode);
+    
+    // Auto-search is now handled by useEffect watching searchMode changes
+  }, [onToggleSearchMode]);
+
+  // Track previous searchMode to detect changes
+  const prevSearchModeRef = useRef(searchMode);
+  
+  // Auto-search when searchMode changes (more reliable than setTimeout)
+  useEffect(() => {
+    const prevMode = prevSearchModeRef.current;
+    const currentMode = searchMode;
+    
+    // Check if searchMode actually changed
+    const modeChanged = prevMode.name !== currentMode.name || prevMode.cardText !== currentMode.cardText;
+    
+    if (modeChanged && searchText.trim()) {
+      console.log('🔍 SearchMode changed, auto-searching:', {
+        from: prevMode,
+        to: currentMode,
+        searchText: searchText.trim()
+      });
+      onSearch(searchText);
+    }
+    
+    // Update ref for next comparison
+    prevSearchModeRef.current = currentMode;
+  }, [searchMode, searchText, onSearch]);
+
   // Helper function to generate preview text for collapsed sections
   const getPreviewText = useCallback((section: string) => {
     switch (section) {
@@ -212,7 +263,29 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
       <div className="filter-content">
         {/* Search Group - Always Visible */}
         <div className="filter-group search-group">
-          <label>Search</label>
+          <div className="search-header">
+            <label>Search</label>
+            <div className="search-mode-toggles">
+              <button
+                type="button"
+                className={`search-mode-chip ${searchMode.name ? 'active' : ''} ${clickedButton === 'name' ? 'clicked' : ''}`}
+                onClick={() => handleToggleSearchMode('name')}
+                title="Search card names only"
+              >
+                <span className="chip-icon">🏷️</span>
+                <span className="chip-text">Name</span>
+              </button>
+              <button
+                type="button"
+                className={`search-mode-chip ${searchMode.cardText ? 'active' : ''} ${clickedButton === 'cardText' ? 'clicked' : ''}`}
+                onClick={() => handleToggleSearchMode('cardText')}
+                title="Search card text and types"
+              >
+                <span className="chip-icon">📄</span>
+                <span className="chip-text">Card Text</span>
+              </button>
+            </div>
+          </div>
           <SearchAutocomplete
             value={searchText}
             onChange={onSearchTextChange}
@@ -224,6 +297,9 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
             onSuggestionsClear={onSuggestionsClear}
             placeholder="Search name, type, or text..."
             className="search-input"
+            searchMode={searchMode}
+            onToggleSearchMode={onToggleSearchMode}
+            getSearchModeText={getSearchModeText}
           />
         </div>
         

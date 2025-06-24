@@ -1,4 +1,6 @@
-// src/hooks/useResize.ts - UPDATED for Percentage-Based Layout System
+// src/hooks/useResize.ts - Clean CSS/JavaScript Coordination
+// Works with ResizeHandles.css foundation and PanelResizing.css behavioral states
+// Uses CSS custom properties for dynamic values while preserving CSS foundation
 import { useCallback, useRef, useEffect } from 'react';
 import { PanelDimensions } from './useLayout';
 
@@ -21,6 +23,10 @@ interface UseResizeProps {
   };
 }
 
+// Clean CSS/JavaScript coordination interface
+// CSS handles: Static styling, visual feedback, behavioral states (via ResizeHandles.css + PanelResizing.css)  
+// JavaScript handles: Dynamic calculated values via CSS custom properties
+// Result: No conflicts, maintainable architecture, functional resize handles
 export const useResize = ({ 
   layout, 
   updatePanelDimensions, 
@@ -41,7 +47,7 @@ export const useResize = ({
     startViewportHeight: window.innerHeight,
   });
 
-  // Update CSS custom properties for percentage-based layout
+  // Update CSS custom properties - coordinates with CSS foundation without conflicts
   const updateCSSVariables = useCallback((heightPercent: number) => {
     const pixelHeight = Math.round((heightPercent / 100) * window.innerHeight);
     document.documentElement.style.setProperty('--deck-area-height-percent', `${heightPercent}%`);
@@ -107,10 +113,16 @@ export const useResize = ({
       state.isResizing = false;
       state.resizeType = null;
       
-      // Enhanced cursor cleanup and user-select restoration
+      // Enhanced cleanup with CSS coordination
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
       document.body.classList.remove('resizing');
+      
+      // Remove resize type classes for clean CSS coordination
+      const layoutElement = document.querySelector('.mtgo-layout');
+      if (layoutElement) {
+        layoutElement.classList.remove('resizing', 'resizing-vertical', 'resizing-horizontal');
+      }
       
       console.log('Resize operation completed');
     }
@@ -129,11 +141,13 @@ export const useResize = ({
   }, [handleMouseMove, handleMouseUp]);
 
   // Initialize CSS variables on mount and when layout changes
+  // Coordinates with CSSVariables.css definitions - updates dynamic values only
   useEffect(() => {
     updateCSSVariables(layout.panels.deckAreaHeightPercent);
   }, [layout.panels.deckAreaHeightPercent, updateCSSVariables]);
 
   // Update CSS variables on window resize to maintain percentages
+  // Preserves CSS foundation while updating calculated values
   useEffect(() => {
     const handleWindowResize = () => {
       updateCSSVariables(layout.panels.deckAreaHeightPercent);
@@ -157,10 +171,21 @@ export const useResize = ({
         startViewportHeight: window.innerHeight,
       };
       
-      // Enhanced cursor feedback with better visual indicators
+      // Enhanced cursor feedback with CSS coordination
       document.body.style.cursor = cursorType;
       document.body.style.userSelect = 'none';
       document.body.classList.add('resizing');
+      
+      // Add resize type class for CSS coordination
+      const layoutElement = document.querySelector('.mtgo-layout');
+      if (layoutElement) {
+        layoutElement.classList.add('resizing');
+        if (resizeType === 'deckArea' || resizeType === 'vertical') {
+          layoutElement.classList.add('resizing-vertical');
+        } else if (resizeType === 'sideboard') {
+          layoutElement.classList.add('resizing-horizontal');
+        }
+      }
       
       console.log(`Started ${resizeType} resize operation`);
     };

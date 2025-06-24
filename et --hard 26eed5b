@@ -1,0 +1,25 @@
+[33m26eed5b[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmaster[m[33m, [m[1;31morigin/master[m[33m, [m[1;31morigin/HEAD[m[33m)[m Add 3D flip card functionality with hardware-accelerated animations
+[33m717ce13[m Clean up project documentation - remove planning methodology, focus on development workflow
+[33md7ce094[m Add [feature/fix description]
+[33mc254c91[m Fix clear button visibility in FilterPanel
+[33m46eadd6[m Major UI/UX Enhancement + Advanced Architecture (June 8, 2025)
+[33m27f76d1[m Major refactoring: Extract MTGOLayout components
+[33md5cd734[m Major reconciliation: useCards architecture overhaul with Smart Card Append innovation
+[33m7e5b6bd[m Pre-refactoring checkpoint: Complete Phase 4B with enhanced image quality and Code Organization Guide
+[33m7ffe3e2[m Major architecture overhaul: useCards cleanup + dual sort system
+[33m9a6c25d[m Fix multi-field search functionality - Session 6
+[33mbc1fba5[m Add GitHub Pages deployment workflow
+[33m69d38b8[m Trigger GitHub Pages deployment with latest changes
+[33mb1bd8dc[m Update to latest version with correct GitHub Pages URL
+[33mf00d46e[m Add text export and basic screenshot features
+[33m9f8572b[m feat: Complete individual card selection implementation
+[33me55339b[m Phase 3H Complete: Enhanced filter fixes, Custom Standard default, Clear All functionality
+[33m8a57373[m Phase 3G Complete: Universal ListView with responsive table interface
+[33m2809533[m Complete Phase 3F: Universal Sorting System
+[33mab5e71c[m Complete Phase 3E: Enhanced Search System
+[33me7b887a[m Complete Phase 3D: Professional pile view implementation
+[33m447e93a[m Complete Phase 3C: Enhanced Filtering System
+[33mb735381[m Phase 3A Complete: Core Functionality Fixes & Production UX
+[33maf31421[m Phase 2D Complete: Add right-click context menus with multi-zone selection
+[33mcc4588e[m Complete Phase 1 foundation improvements - Add useLayout, useSelection, deviceDetection utilities
+[33m7f21e49[m Initial commit: React TypeScript setup

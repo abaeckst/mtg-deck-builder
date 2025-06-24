@@ -13,7 +13,7 @@ interface MagicCardProps {
   card: ScryfallCard | DeckCard;
   size?: 'small' | 'normal' | 'large';
   scaleFactor?: number;
-  onClick?: (card: ScryfallCard | DeckCard) => void;
+  onClick?: (card: ScryfallCard | DeckCard, event?: React.MouseEvent) => void;
   onDoubleClick?: (card: ScryfallCard | DeckCard) => void;
   showQuantity?: boolean;
   quantity?: number;
@@ -108,7 +108,7 @@ export const MagicCard: React.FC<MagicCardProps> = ({
   const handleClick = useCallback((e: React.MouseEvent) => {
     if (disabled) return;
     e.preventDefault();
-    onClick?.(card);
+    onClick?.(card, e);
   }, [card, onClick, disabled]);
 
   const handleDoubleClick = useCallback((e: React.MouseEvent) => {
@@ -158,20 +158,21 @@ export const MagicCard: React.FC<MagicCardProps> = ({
         borderRadius: '6px',
       }}>
         {!imageError && imageUri ? (
-          <img
+          <LazyImage
             src={imageUri}
             alt={card.name}
             style={{
               width: '100%',
               height: '100%',
               objectFit: 'cover',
-              display: imageLoaded ? 'block' : 'none',
               // Crisp image rendering for sharp text at small sizes
               imageRendering: scaleFactor < 0.8 ? 'crisp-edges' : 'auto',
               WebkitImageRendering: scaleFactor < 0.8 ? '-webkit-optimize-contrast' : 'auto',
             } as React.CSSProperties}
             onLoad={handleImageLoad}
             onError={handleImageError}
+            threshold={0.1}
+            rootMargin="50px"
           />
         ) : null}
 

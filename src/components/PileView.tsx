@@ -15,9 +15,7 @@ interface PileViewProps {
   forcedSortCriteria?: PileSortCriteria; // External sort control from parent
   // Enhanced card interaction handlers - now supporting both card and instance clicks
   onClick?: (card: ScryfallCard | DeckCard | DeckCardInstance, event?: React.MouseEvent) => void;
-  onInstanceClick?: (instanceId: string, instance: DeckCardInstance, event: React.MouseEvent) => void;
-  onDoubleClick?: (card: ScryfallCard | DeckCard | DeckCardInstance) => void;
-  onEnhancedDoubleClick?: (card: ScryfallCard | DeckCard | DeckCardInstance, zone: DropZone, event: React.MouseEvent) => void;
+  onInstanceClick?: (instanceId: string, instance: DeckCardInstance, event: React.MouseEvent) => void;  onEnhancedDoubleClick?: (card: ScryfallCard | DeckCard | DeckCardInstance, zone: DropZone, event: React.MouseEvent) => void;
   onRightClick?: (card: ScryfallCard | DeckCard | DeckCardInstance, zone: DropZone, event: React.MouseEvent) => void;
   onDragStart?: (cards: (ScryfallCard | DeckCard | DeckCardInstance)[], zone: DropZone, event: React.MouseEvent) => void;
   // Selection and drag state
@@ -43,9 +41,7 @@ const PileView: React.FC<PileViewProps> = ({
   scaleFactor,
   forcedSortCriteria,
   onClick,
-  onInstanceClick,
-  onDoubleClick,
-  onEnhancedDoubleClick,
+  onInstanceClick,  onEnhancedDoubleClick,
   onRightClick,
   onDragStart,
   isSelected = () => false,
@@ -53,7 +49,7 @@ const PileView: React.FC<PileViewProps> = ({
   isDragActive = false,
   onDragEnter,
   onDragLeave,
-  canDropInZone,
+  canDropInZone
 }) => {
   // Use external sort criteria or default to mana
   const sortCriteria = forcedSortCriteria || 'mana';
@@ -102,7 +98,7 @@ const PileView: React.FC<PileViewProps> = ({
           id: `cmc-${cmc}`,
           title: `${cmc}`,
           cards: columnCards,
-          sortValue: cmc,
+          sortValue: cmc
         });
       }
     }
@@ -117,7 +113,7 @@ const PileView: React.FC<PileViewProps> = ({
         id: 'cmc-7plus',
         title: '7+',
         cards: highCmcCards,
-        sortValue: 7,
+        sortValue: 7
       });
     }
     
@@ -159,7 +155,7 @@ const PileView: React.FC<PileViewProps> = ({
           id: `color-${color}`,
           title: colorName,
           cards: colorGroups.get(color)!,
-          sortValue: color,
+          sortValue: color
         });
         colorGroups.delete(color);
       }
@@ -174,7 +170,7 @@ const PileView: React.FC<PileViewProps> = ({
           id: `color-${colorKey}`,
           title: title,
           cards: colorCards,
-          sortValue: colorKey,
+          sortValue: colorKey
         });
       });
     
@@ -190,7 +186,7 @@ const PileView: React.FC<PileViewProps> = ({
           id: `rarity-${rarity}`,
           title: rarityConfig.labels[rarity] || rarity,
           cards: rarityCards,
-          sortValue: rarity,
+          sortValue: rarity
         };
       })
       .filter(column => column.cards.length > 0);
@@ -232,7 +228,7 @@ const PileView: React.FC<PileViewProps> = ({
         id: `type-${type.toLowerCase()}`,
         title: type,
         cards: typeGroups.get(type)!,
-        sortValue: type,
+        sortValue: type
       }));
   }, [typeOrderConfig]);
 
@@ -290,7 +286,7 @@ const PileView: React.FC<PileViewProps> = ({
           title: '',
           cards: [],
           sortValue: 999,
-          isEmpty: true,
+          isEmpty: true
         }];
       }
       
@@ -311,7 +307,7 @@ const PileView: React.FC<PileViewProps> = ({
               id: targetColumnId,
               title: 'Manual',
               cards: [],
-              sortValue: 998,
+              sortValue: 998
             };
             columnsWithManual.push(targetColumn);
           }
@@ -325,7 +321,7 @@ const PileView: React.FC<PileViewProps> = ({
         title: '',
         cards: [],
         sortValue: 999,
-        isEmpty: true,
+        isEmpty: true
       }];
     } catch (error) {
       console.error('Error applying manual arrangements:', error);
@@ -334,7 +330,7 @@ const PileView: React.FC<PileViewProps> = ({
         title: '',
         cards: [],
         sortValue: 999,
-        isEmpty: true,
+        isEmpty: true
       }];
     }
   }, [organizedColumns, manualArrangements, cards]);
@@ -352,9 +348,7 @@ const PileView: React.FC<PileViewProps> = ({
         isEmpty={column.isEmpty}
         // Pass through all interaction handlers
         onClick={onClick}
-        onInstanceClick={onInstanceClick}
-        onDoubleClick={onDoubleClick}
-        onEnhancedDoubleClick={onEnhancedDoubleClick}
+        onInstanceClick={onInstanceClick}        onEnhancedDoubleClick={onEnhancedDoubleClick}
         onRightClick={onRightClick}
         onDragStart={onDragStart}
         isSelected={isSelected}
@@ -366,7 +360,7 @@ const PileView: React.FC<PileViewProps> = ({
         onManualMove={handleManualMove}
       />
     ));
-  }, [finalColumns, zone, scaleFactor, onClick, onDoubleClick, onEnhancedDoubleClick, onRightClick, onDragStart, isSelected, selectedCards, isDragActive, onDragEnter, onDragLeave, canDropInZone, handleManualMove]);
+  }, [finalColumns, zone, scaleFactor, onClick, onEnhancedDoubleClick, onRightClick, onDragStart, isSelected, selectedCards, isDragActive, onDragEnter, onDragLeave, canDropInZone, handleManualMove]);
 
   return (
     <div className="pile-view">

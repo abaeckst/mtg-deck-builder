@@ -27,7 +27,6 @@ interface SideboardAreaProps {
   // Card interactions
   onCardClick: (card: ScryfallCard | DeckCard | DeckCardInstance, event?: React.MouseEvent) => void;
   onInstanceClick: (instanceId: string, instance: DeckCardInstance, event: React.MouseEvent) => void;
-  onCardDoubleClick: (card: ScryfallCard | DeckCard | DeckCardInstance) => void;
   onEnhancedDoubleClick: (card: any, zone: DropZoneType, event: React.MouseEvent) => void;
   onCardRightClick: (card: any, zone: DropZoneType, event: React.MouseEvent) => void;
   onDragStart: (cards: DraggedCard[], zone: DropZoneType, event: React.MouseEvent) => void;
@@ -69,7 +68,6 @@ const SideboardArea: React.FC<SideboardAreaProps> = ({
   onCardSizeChange,
   onCardClick,
   onInstanceClick,
-  onCardDoubleClick,
   onEnhancedDoubleClick,
   onCardRightClick,
   onDragStart,
@@ -150,7 +148,6 @@ const SideboardArea: React.FC<SideboardAreaProps> = ({
             forcedSortCriteria={sortState.criteria === 'name' || sortState.criteria === 'type' ? 'mana' : sortState.criteria as any}
             onClick={(card, event) => onCardClick(card, event)}
             onInstanceClick={onInstanceClick}
-            onDoubleClick={onCardDoubleClick}
             onEnhancedDoubleClick={onEnhancedDoubleClick}
             onRightClick={onCardRightClick}
             onDragStart={onDragStart}
@@ -174,7 +171,7 @@ const SideboardArea: React.FC<SideboardAreaProps> = ({
               }
             }}
             onClick={(card, event) => onCardClick(card, event)}
-            onDoubleClick={(card) => onEnhancedDoubleClick(card as any, 'sideboard', { preventDefault: () => {}, stopPropagation: () => {} } as React.MouseEvent)}
+
             onRightClick={onCardRightClick}
             onDragStart={onDragStart}
             isSelected={isSelected}
@@ -225,7 +222,7 @@ const SideboardArea: React.FC<SideboardAreaProps> = ({
                 };
 
                 const handleStackDragStart = (cards: any[], zone: any, event: React.MouseEvent) => {
-                  onDragStart(instances as any[], zone, event);
+                  onDragStart(cards, zone, event);
                 };
 
                 return (

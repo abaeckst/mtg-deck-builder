@@ -11,7 +11,6 @@ interface DraggableCardProps {
   size?: 'small' | 'normal' | 'large';
   scaleFactor?: number;
   onClick?: (card: ScryfallCard | DeckCard | DeckCardInstance, event?: React.MouseEvent) => void;
-  onDoubleClick?: (card: ScryfallCard | DeckCard | DeckCardInstance) => void;
   onRightClick?: (card: ScryfallCard | DeckCard | DeckCardInstance, zone: DropZone, event: React.MouseEvent) => void;
   onDragStart?: (cards: (ScryfallCard | DeckCard | DeckCardInstance)[], zone: DropZone, event: React.MouseEvent) => void;
   // Enhanced double-click handler
@@ -39,7 +38,6 @@ const DraggableCard: React.FC<DraggableCardProps> = ({
   size = 'normal',
   scaleFactor = 1,
   onClick,
-  onDoubleClick,
   onRightClick,
   onDragStart,
   onEnhancedDoubleClick,
@@ -92,12 +90,12 @@ const DraggableCard: React.FC<DraggableCardProps> = ({
     if (interactionRef.current.isDoubleClick) {
       console.log(`🔥 Double-click detected on ${card.name} in ${zone} (detail: ${event.detail})`);
       
-      // CRITICAL: Call enhanced double-click handler for ALL rapid clicks
+      // Single enhanced handler - no fallback needed
       if (onEnhancedDoubleClick) {
+        console.log(`🔧 Calling enhanced double-click handler for ${card.name}`);
         onEnhancedDoubleClick(card, zone, event);
       } else {
-        // Fallback to original handler
-        onDoubleClick?.(card);
+        console.warn(`⚠️ No enhanced double-click handler provided for ${card.name}`);
       }
       
       // Prevent any further processing of this interaction
@@ -115,17 +113,19 @@ const DraggableCard: React.FC<DraggableCardProps> = ({
 
     console.log(`Mouse down on ${card.name} at (${event.clientX}, ${event.clientY})`);
 
-    // Determine which cards would be dragged
-    let cardsToDrag: (ScryfallCard | DeckCard | DeckCardInstance)[];
-    if (selected && selectedCards.length > 0) {
-      cardsToDrag = selectedCards;
-    } else {
-      cardsToDrag = [card];
-    }
+    // FIXED: Always drag single card being interacted with, not entire selection
+    // This preserves selection visual state while ensuring only the dragged card moves
+    const cardsToDrag: (ScryfallCard | DeckCard | DeckCardInstance)[] = [card];
+
+    console.log(`🔧 DraggableCard drag logic: selected=${selected}, selectedCards.length=${selectedCards.length}, cardsToDrag.length=${cardsToDrag.length}`);
+    console.log(`🔧 Card being dragged: ${card.name}`);
+    console.log(`🔧 Cards that would have been dragged in old logic:`, selected && selectedCards.length > 0 ? selectedCards.map(c => c.name) : [card.name]);
 
     // Pass to drag system (it will handle timing and movement detection)
+    console.log(`🔧 DraggableCard calling onDragStart with ${cardsToDrag.length} cards:`, cardsToDrag.map(c => c.name));
+    console.log(`🔧 onDragStart function:`, onDragStart?.toString().substring(0, 200));
     onDragStart?.(cardsToDrag, zone, event);
-  }, [card, zone, selected, selectedCards, onDragStart, onEnhancedDoubleClick, onDoubleClick, disabled]);
+  }, [card, zone, selected, selectedCards, onDragStart, onEnhancedDoubleClick, disabled]);
 
   // Enhanced click handler - handles both card and instance clicks
   const handleClick = useCallback((event: React.MouseEvent) => {
@@ -151,15 +151,12 @@ const DraggableCard: React.FC<DraggableCardProps> = ({
     }
   }, [card, onClick, onInstanceClick, disabled, isDragActive, cardIsInstance, cardInstanceId, zone, selectionId]);
 
-  // Simplified double-click handler (mainly for fallback)
+  // Simplified double-click handler (preventDefault only)
   const handleDoubleClick = useCallback((event: React.MouseEvent) => {
-    // Double-click is already handled in mouseDown for better timing
-    // This is just a safety net and preventDefault
+    // All double-click logic is handled in mouseDown with enhanced timing system
     event.preventDefault();
     event.stopPropagation();
-    
-    console.log(`Double-click event (fallback) on ${card.name}`);
-  }, [card]);
+  }, []);
 
   // Enhanced right-click handling
   const handleContextMenu = useCallback((event: React.MouseEvent) => {
@@ -217,10 +214,13 @@ const DraggableCard: React.FC<DraggableCardProps> = ({
       }
     }
     
-    // Reset interaction state
+    // Reset interaction state (but preserve double-click flag for a moment)
     interactionRef.current.mouseDownTime = 0;
     interactionRef.current.hasMoved = false;
-    interactionRef.current.isDoubleClick = false;
+    // Don't reset isDoubleClick immediately - let the fallback handler check it first
+    setTimeout(() => {
+      interactionRef.current.isDoubleClick = false;
+    }, 50); // Small delay to let fallback handler run
   }, [card, isDragActive]);
 
   // Enhanced drag styles - prevent other instances from changing
@@ -331,8 +331,6 @@ const DraggableCard: React.FC<DraggableCardProps> = ({
               selected={selected}
               selectable={selectable}
               disabled={disabled}
-              onClick={onClick}
-              onDoubleClick={onDoubleClick}
             />
           );
         } else {
@@ -348,8 +346,6 @@ const DraggableCard: React.FC<DraggableCardProps> = ({
               selected={selected}
               selectable={selectable}
               disabled={disabled}
-              onClick={onClick}
-              onDoubleClick={onDoubleClick}
             />
           );
         }

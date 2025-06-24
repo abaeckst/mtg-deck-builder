@@ -13,9 +13,7 @@ interface ListViewProps {
   sortDirection: 'asc' | 'desc';
   onSortChange: (criteria: SortCriteria, direction: 'asc' | 'desc') => void;
   // Standard card interaction handlers
-  onClick: (card: ScryfallCard | DeckCard | DeckCardInstance, event?: React.MouseEvent) => void;
-  onDoubleClick: (card: ScryfallCard | DeckCard | DeckCardInstance) => void;
-  onRightClick: (card: ScryfallCard | DeckCard | DeckCardInstance, zone: DropZone, event: React.MouseEvent) => void;
+  onClick: (card: ScryfallCard | DeckCard | DeckCardInstance, event?: React.MouseEvent) => void;  onRightClick: (card: ScryfallCard | DeckCard | DeckCardInstance, zone: DropZone, event: React.MouseEvent) => void;
   onDragStart: (cards: (ScryfallCard | DeckCard | DeckCardInstance)[], zone: DropZone, event: React.MouseEvent) => void;
   // Selection and drag state
   isSelected: (cardId: string) => boolean;
@@ -52,14 +50,12 @@ const ListView: React.FC<ListViewProps> = ({
   sortCriteria,
   sortDirection,
   onSortChange,
-  onClick,
-  onDoubleClick,
-  onRightClick,
+  onClick,  onRightClick,
   onDragStart,
   isSelected,
   selectedCards,
   isDragActive,
-  onQuantityChange,
+  onQuantityChange
 }) => {
   const tableRef = useRef<HTMLDivElement>(null);
   const [columnWidths, setColumnWidths] = useState<Record<string, number>>(() => {
@@ -100,7 +96,7 @@ const ListView: React.FC<ListViewProps> = ({
     setResizing({
       columnId,
       startX: event.clientX,
-      startWidth: columnWidths[columnId],
+      startWidth: columnWidths[columnId]
     });
   }, [columnWidths]);
 
@@ -117,7 +113,7 @@ const ListView: React.FC<ListViewProps> = ({
       
       setColumnWidths(prev => ({
         ...prev,
-        [resizing.columnId]: newWidth,
+        [resizing.columnId]: newWidth
       }));
     };
 
@@ -174,11 +170,6 @@ const ListView: React.FC<ListViewProps> = ({
   const handleRowClick = useCallback((card: ScryfallCard | DeckCard | DeckCardInstance, event: React.MouseEvent) => {
     onClick(card, event);
   }, [onClick]);
-
-  // Handle row double-click
-  const handleRowDoubleClick = useCallback((card: ScryfallCard | DeckCard | DeckCardInstance) => {
-    onDoubleClick(card);
-  }, [onDoubleClick]);
 
   // Handle row right-click
   const handleRowRightClick = useCallback((card: ScryfallCard | DeckCard | DeckCardInstance, event: React.MouseEvent) => {
@@ -239,7 +230,7 @@ const ListView: React.FC<ListViewProps> = ({
                   style={{ 
                     width: `${columnWidths[column.id]}px`,
                     minWidth: `${column.minWidth}px`,
-                    position: 'relative',
+                    position: 'relative'
                   }}
                   onClick={() => handleHeaderClick(column.id, column.sortable)}
                 >
@@ -265,7 +256,7 @@ const ListView: React.FC<ListViewProps> = ({
                         width: '4px',
                         cursor: 'col-resize',
                         backgroundColor: 'transparent',
-                        borderRight: '1px solid #555',
+                        borderRight: '1px solid #555'
                       }}
                     />
                   )}
@@ -319,9 +310,7 @@ const ListView: React.FC<ListViewProps> = ({
                   className={`list-view-row ${isSelected('instanceId' in card ? card.instanceId : card.id) ? 'selected' : ''} ${
                     index % 2 === 0 ? 'even' : 'odd'
                   }`}
-                  onClick={(e) => handleRowClick(card, e)}
-                  onDoubleClick={() => handleRowDoubleClick(card)}
-                  onContextMenu={(e) => handleRowRightClick(card, e)}
+                  onClick={(e) => handleRowClick(card, e)}                  onContextMenu={(e) => handleRowRightClick(card, e)}
                   onMouseDown={(e) => {
                     // Only handle left mouse button for drag
                     if (e.button === 0) {
@@ -336,7 +325,7 @@ const ListView: React.FC<ListViewProps> = ({
                       className="list-view-cell"
                       style={{ 
                         width: `${columnWidths[column.id]}px`,
-                        minWidth: `${column.minWidth}px`,
+                        minWidth: `${column.minWidth}px`
                       }}
                     >
                       {column.id === 'name' && (

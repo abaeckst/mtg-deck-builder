@@ -5,6 +5,7 @@
   width: 100%;
 }
 
+
 .search-autocomplete-input {
   width: 100%;
   max-width: 100%;
@@ -26,6 +27,26 @@
 
 .search-autocomplete-input::placeholder {
   color: #888;
+}
+
+.search-autocomplete-input:disabled {
+  background: #1a1a1a;
+  color: #666;
+  cursor: not-allowed;
+  border-color: #444;
+}
+
+.search-autocomplete-input:disabled::placeholder {
+  color: #666;
+}
+
+/* Search Status Text */
+.search-status-text {
+  font-size: 10px;
+  color: #888;
+  margin-top: 4px;
+  font-style: italic;
+  min-height: 14px;
 }
 
 .search-suggestions {
