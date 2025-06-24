@@ -450,8 +450,8 @@ export const useDragAndDrop = (callbacks: DragCallbacks) => {
 
   // Cleanup timers on unmount
   useEffect(() => {
+    const current = interactionRef.current;
     return () => {
-      const current = interactionRef.current;
       if (current.rapidClickTimer) {
         clearTimeout(current.rapidClickTimer);
       }

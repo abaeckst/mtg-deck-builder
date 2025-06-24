@@ -143,7 +143,7 @@ const PileColumn: React.FC<PileColumnProps> = ({
       console.error('Error rendering cards in pile column:', error);
       return [<div key="error" className="error-message">Error rendering cards</div>];
     }
-  }, [cards, zone, scaleFactor, onClick, onInstanceClick, onEnhancedDoubleClick, onRightClick, onDragStart, isSelected, selectedCards, isDragActive]);
+  }, [cards, zone, scaleFactor, onClick, onInstanceClick, onRightClick, onDragStart, isSelected, selectedCards, isDragActive]);
 
   // Calculate proper column width - ensure cards fit within column bounds
   // Magic cards are ~115px wide - balanced sizing to contain cards while showing gaps

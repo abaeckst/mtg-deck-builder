@@ -4,7 +4,7 @@
 
 import React, { useState, useCallback } from 'react';
 import LazyImage from './LazyImage';
-import { ScryfallCard, DeckCard, getCardImageUri, getOptimizedImageUri, isBasicLand } from '../types/card';
+import { ScryfallCard, DeckCard, getCardImageUri, isBasicLand } from '../types/card';
 
 /**
  * Props for the MagicCard component
@@ -25,17 +25,6 @@ interface MagicCardProps {
   disabled?: boolean;
 }
 
-/**
- * Rarity colors for card borders
- */
-const rarityColors = {
-  common: '#1e1e1e',
-  uncommon: '#c0c0c0',
-  rare: '#ffd700',
-  mythic: '#ff8c00',
-  special: '#d946ef',
-  bonus: '#14b8a6',
-};
 
 /**
  * Get size styles for different card sizes with dynamic scaling
@@ -117,10 +106,6 @@ export const MagicCard: React.FC<MagicCardProps> = ({
     onDoubleClick?.(card);
   }, [card, onDoubleClick, disabled]);
 
-  /**
-   * Get rarity border color
-   */
-  const rarityColor = rarityColors[card.rarity] || rarityColors.common;
 
   /**
    * Card container styles
@@ -426,7 +411,7 @@ export const CardGrid: React.FC<{
     };
   };
 
-  const { columnSize, gap, gridTemplate } = getGridSettings();
+  const { gap, gridTemplate } = getGridSettings();
 
   const gridStyles: React.CSSProperties = {
     display: 'grid',

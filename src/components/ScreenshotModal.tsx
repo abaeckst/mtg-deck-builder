@@ -49,6 +49,31 @@ export const ScreenshotModal: React.FC<ScreenshotModalProps> = ({
     return arrangeCardsForScreenshot(mainDeck, sideboard, cardLayout.mainDeckColumns, cardLayout.sideboardColumns);
   }, [mainDeck, sideboard, cardLayout]);
   
+  // DOM verification function
+  const verifyLayoutFits = useCallback(() => {
+    const previewElement = document.getElementById('screenshot-preview');
+    if (!previewElement) return;
+    
+    const isOverflowing = previewElement.scrollHeight > previewElement.clientHeight || 
+                         previewElement.scrollWidth > previewElement.clientWidth;
+    
+    if (isOverflowing && cardLayout && sizeMode === 'auto') {
+      console.warn('DOM verification: Layout is overflowing, reducing scale');
+      const reducedScale = cardLayout.calculatedScale * 0.9; // Reduce by 10%
+      const correctedLayout = calculateOptimalCardSize(
+        mainDeck.length, 
+        sideboard.length, 
+        viewportDimensions!, 
+        reducedScale
+      );
+      setCardLayout(correctedLayout);
+    } else if (isOverflowing) {
+      console.warn('DOM verification: Layout overflowing but not in auto mode');
+    } else {
+      console.log('DOM verification: Layout fits correctly');
+    }
+  }, [cardLayout, sizeMode, mainDeck.length, sideboard.length, viewportDimensions]);
+  
   // Simple calculation effect with DOM verification
   useEffect(() => {
     const handleCalculation = () => {
@@ -82,32 +107,8 @@ export const ScreenshotModal: React.FC<ScreenshotModalProps> = ({
       window.addEventListener('resize', handleCalculation);
       return () => window.removeEventListener('resize', handleCalculation);
     }
-  }, [isOpen, mainDeck.length, sideboard.length, sizeMode]);
+  }, [isOpen, mainDeck.length, sideboard.length, sizeMode, verifyLayoutFits]);
   
-  // DOM verification function
-  const verifyLayoutFits = useCallback(() => {
-    const previewElement = document.getElementById('screenshot-preview');
-    if (!previewElement) return;
-    
-    const isOverflowing = previewElement.scrollHeight > previewElement.clientHeight || 
-                         previewElement.scrollWidth > previewElement.clientWidth;
-    
-    if (isOverflowing && cardLayout && sizeMode === 'auto') {
-      console.warn('DOM verification: Layout is overflowing, reducing scale');
-      const reducedScale = cardLayout.calculatedScale * 0.9; // Reduce by 10%
-      const correctedLayout = calculateOptimalCardSize(
-        mainDeck.length, 
-        sideboard.length, 
-        viewportDimensions!, 
-        reducedScale
-      );
-      setCardLayout(correctedLayout);
-    } else if (isOverflowing) {
-      console.warn('DOM verification: Layout overflowing but not in auto mode');
-    } else {
-      console.log('DOM verification: Layout fits correctly');
-    }
-  }, [cardLayout, sizeMode, mainDeck.length, sideboard.length, viewportDimensions]);
   
   // Group cards for quantity calculation
   const mainDeckGroups = useMemo(() => {

@@ -125,11 +125,11 @@ export const useFilters = (): UseFiltersState & UseFiltersActions => {
         },
       },
     }));
-  }, [state]);
+  }, []);
 
   const getSectionState = useCallback((section: string): boolean => {
     return state.activeFilters.sectionStates[section as keyof typeof state.activeFilters.sectionStates] ?? true;
-  }, [state.activeFilters.sectionStates]);
+  }, [state]);
 
   const autoExpandSection = useCallback((section: string) => {
     // Auto-expand sections that have active filters

@@ -69,12 +69,6 @@ const AdaptiveHeader: React.FC<AdaptiveHeaderProps> = ({
     };
   }, [controls, availableWidth, title]);
 
-  // Handle control actions
-  const handleControlAction = useCallback((controlId: string, value?: any) => {
-    onControlAction(controlId, value);
-    // Close dropdown after action
-    setShowDropdown(false);
-  }, [onControlAction]);
 
   // Handle dropdown toggle
   const handleDropdownToggle = useCallback(() => {
