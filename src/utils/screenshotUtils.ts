@@ -267,44 +267,6 @@ export const findOptimalLayoutBySpaceUtilization = (
   };
 };
 
-/**
- * BINARY SEARCH for maximum scale
- */
-function findMaxScaleWithBinarySearch(
-  config: {mainColumns: number, mainRows: number, sideboardColumns: number, sideboardRows: number},
-  availableWidth: number,
-  availableHeight: number,
-  mainDeckCards: number,
-  sideboardCards: number
-): number {
-  
-  const totalCards = mainDeckCards + sideboardCards;
-  
-  // MASSIVE scale ranges
-  let maxTestScale: number;
-  if (totalCards <= 8) maxTestScale = 12.0;      // Tiny decks can be HUGE
-  else if (totalCards <= 15) maxTestScale = 8.0;  // Small decks can be very large  
-  else if (totalCards <= 25) maxTestScale = 6.0;  // Medium decks still large
-  else maxTestScale = 4.0;                         // Large decks reasonably sized
-  
-  let low = 0.5;
-  let high = maxTestScale;
-  let bestScale = 0.5;
-  
-  // Binary search for maximum fitting scale
-  while (high - low > 0.02) { // Precision to 0.02x
-    const mid = (low + high) / 2;
-    
-    if (canConfigFitWithScale(config, mid, availableWidth, availableHeight, mainDeckCards, sideboardCards)) {
-      bestScale = mid;
-      low = mid; // Can fit, try larger
-    } else {
-      high = mid; // Can't fit, try smaller
-    }
-  }
-  
-  return bestScale;
-}
 
 /**
  * Test if specific configuration fits with given scale
