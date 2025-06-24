@@ -13,7 +13,7 @@ import './FilterPanel.css';
 // Card types import
 import { ScryfallCard, DeckCard, DeckCardInstance, scryfallToDeckInstance, 
          deckCardToDeckInstance, isBasicLand, getTotalCardQuantity, getCardQuantityInZone, 
-         removeInstancesForCard } from '../types/card';
+         removeInstancesForCard, getCardId } from '../types/card';
 
 // Import components
 import { useCards } from '../hooks/useCards';
@@ -111,7 +111,7 @@ const MTGOLayout: React.FC<MTGOLayoutProps> = () => {
     modes: cardModes,
     // sizes: cardSizes, // Unused
     updateCollectionSize, 
-    // updateDeckSize, // Unused
+    updateDeckSize,
     // updateSideboardSize // Unused
   } = useCardSizing();
   
