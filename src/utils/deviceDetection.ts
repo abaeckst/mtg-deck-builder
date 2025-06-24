@@ -96,7 +96,7 @@ const detectMouseSupport = (): boolean => {
   // Fallback 3: Assume mouse support for non-mobile devices with large screens
   const isMobile = isMobileDevice();
   
-  return hasDesktopKeyword || (isLargeScreen && hasLimitedTouch) || (!isMobile && window.innerWidth >= 768);
+  return hasDesktopKeyword || ((isLargeScreen && hasLimitedTouch) || (!isMobile && window.innerWidth >= 768));
 };
 
 /**
@@ -110,7 +110,7 @@ export const getDeviceInfo = (): DeviceInfo => {
   // Touch support detection
   const isTouchDevice = 'ontouchstart' in window || 
     navigator.maxTouchPoints > 0 || 
-    (window as any).DocumentTouch && document instanceof (window as any).DocumentTouch;
+    ((window as any).DocumentTouch && document instanceof (window as any).DocumentTouch);
   
   // Enhanced mouse support detection
   const hasMouseSupport = detectMouseSupport();
